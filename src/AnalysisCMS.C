@@ -1677,7 +1677,6 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("run",              &run,               "run/I");
   // S
   minitree->Branch("susyMLSP",         &susyMLSP,          "susyMLSP/F");
-  minitree->Branch("susyMChargino",    &susyMChargino,     "susyMChargino/F");
   minitree->Branch("susyMstop",        &susyMstop,         "susyMstop/F");
   minitree->Branch("scale",            &_scale,            "scale"); 
   // T
