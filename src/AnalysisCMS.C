@@ -830,13 +830,8 @@ void AnalysisCMS::GetJets(float jet_eta_max, float jet_pt_min)
 
     if (pt < 0.) continue;
 
-<<<<<<< HEAD
-    if (_isfastsim)
-      if (pt>30. && fabs(eta)<2.4 && std_vector_jet_isFromISR->at(i)==1) _nisrjet++;
-=======
     if (std_vector_jet_isFromISR)
       if (pt > 30. && fabs(eta) < 2.4 && std_vector_jet_isFromISR->at(i) == 1) _nisrjet++;
->>>>>>> 1ce136ff27b48e7dc0b3e3626100a0d35c10bd0c
 
     if (jet_eta_max > 0 && fabs(eta) > jet_eta_max) continue;
 
