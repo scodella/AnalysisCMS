@@ -113,6 +113,8 @@ class AnalysisCMS : public AnalysisBase
 				    float    luminosity,
 				    TString  suffix = "");
 
+  void        ShapeWZ              ();
+
   void        Summary              (TString  analysis,
 				    TString  precision,
 				    TString  title);
@@ -242,6 +244,10 @@ class AnalysisCMS : public AnalysisBase
   float                  _event_weight_BtagFSdo;
   float                  _event_weight_Idisoup;
   float                  _event_weight_Idisodo;
+  float                  _event_weight_Idisoeleup;
+  float                  _event_weight_Idisoeledo;
+  float                  _event_weight_Idisomuup;
+  float                  _event_weight_Idisomudo;
   float                  _event_weight_Triggerup;
   float                  _event_weight_Triggerdo;
   float                  _event_weight_Recoup;
@@ -266,6 +272,7 @@ class AnalysisCMS : public AnalysisBase
   float                  _htjets;
   float                  _htnojets;
   float                  _htgen;
+  float                  _isrpt;
   float 		 _detall; 
   float                  _lep1id;
   float                  _lep1eta;

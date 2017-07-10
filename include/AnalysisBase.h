@@ -243,6 +243,10 @@ public :
    vector<float>   *std_vector_VBoson_phi;
    vector<float>   *std_vector_VBoson_pid;
    vector<float>   *std_vector_VBoson_pt;
+   vector<float>   *std_vector_susy_eta;
+   vector<float>   *std_vector_susy_phi;
+   vector<float>   *std_vector_susy_id;
+   vector<float>   *std_vector_susy_pt;
    //   vector<float>   *std_vector_dressedLeptonGen_eta;
    //   vector<float>   *std_vector_dressedLeptonGen_phi;
    //   vector<float>   *std_vector_dressedLeptonGen_pid;
@@ -337,6 +341,7 @@ public :
    //   vector<float>   *std_vector_jet_tche;
    //   vector<float>   *std_vector_muon_NValidHitsInTrk;
    vector<float>   *std_vector_jet_csvv2ivf;
+   vector<float>   *std_vector_jet_DeepCSVB;
    //   vector<float>   *std_vector_jet_tchp;
    //   vector<float>   *std_vector_electron_dEtaIn;
    //   vector<float>   *std_vector_muon_TrkKink;
@@ -426,6 +431,7 @@ public :
    vector<float>   *std_vector_lepton_genmatched;
    vector<float>   *std_vector_lepton_isTightMuon;
    Float_t         susyMstop;
+   Float_t         susyMChargino;
    Float_t         susyMLSP;
    Float_t         metPfType1Phi;
    Float_t         metPfType1;
@@ -712,6 +718,10 @@ public :
    TBranch        *b_std_vector_VBoson_phi;   //!
    TBranch        *b_std_vector_VBoson_pid;   //!
    TBranch        *b_std_vector_VBoson_pt;   //!
+   TBranch        *b_std_vector_susy_eta;   //!
+   TBranch        *b_std_vector_susy_phi;   //!
+   TBranch        *b_std_vector_susy_id;   //!
+   TBranch        *b_std_vector_susy_pt;   //!
    //   TBranch        *b_std_vector_dressedLeptonGen_eta;   //!
    //   TBranch        *b_std_vector_dressedLeptonGen_phi;   //!
    //   TBranch        *b_std_vector_dressedLeptonGen_pid;   //!
@@ -806,6 +816,7 @@ public :
    //   TBranch        *b_std_vector_jet_tche;   //!
    //   TBranch        *b_std_vector_muon_NValidHitsInTrk;   //!
    TBranch        *b_std_vector_jet_csvv2ivf;   //!
+   TBranch        *b_std_vector_jet_DeepCSVB;   //!
    //   TBranch        *b_std_vector_jet_tchp;   //!
    //   TBranch        *b_std_vector_electron_dEtaIn;   //!
    //   TBranch        *b_std_vector_muon_TrkKink;   //!
@@ -895,6 +906,7 @@ public :
    TBranch        *b_std_vector_lepton_genmatched;   //!
    TBranch        *b_std_vector_lepton_isTightMuon;   //!
    TBranch        *b_susyMstop;   //!
+   TBranch        *b_susyMChargino;   //!
    TBranch        *b_susyMLSP;   //!
    TBranch        *b_metPfType1Phi;   //!
    TBranch        *b_metPfType1;   //!
@@ -1087,6 +1099,10 @@ void AnalysisBase::Init(TTree *tree)
    std_vector_VBoson_phi = 0;
    std_vector_VBoson_pid = 0;
    std_vector_VBoson_pt = 0;
+   std_vector_susy_eta = 0;
+   std_vector_susy_phi = 0;
+   std_vector_susy_id = 0;
+   std_vector_susy_pt = 0;
    //   std_vector_dressedLeptonGen_eta = 0;
    //   std_vector_dressedLeptonGen_phi = 0;
    //   std_vector_dressedLeptonGen_pid = 0;
@@ -1158,6 +1174,7 @@ void AnalysisBase::Init(TTree *tree)
    //   std_vector_jet_tche = 0;
    //   std_vector_muon_NValidHitsInTrk = 0;
    std_vector_jet_csvv2ivf = 0;
+   std_vector_jet_DeepCSVB = 0;
    //   std_vector_jet_tchp = 0;
    //   std_vector_electron_dEtaIn = 0;
    //   std_vector_muon_TrkKink = 0;
@@ -1442,6 +1459,10 @@ void AnalysisBase::Init(TTree *tree)
    fChain->SetBranchAddress("std_vector_VBoson_phi", &std_vector_VBoson_phi, &b_std_vector_VBoson_phi);
    fChain->SetBranchAddress("std_vector_VBoson_pid", &std_vector_VBoson_pid, &b_std_vector_VBoson_pid);
    fChain->SetBranchAddress("std_vector_VBoson_pt", &std_vector_VBoson_pt, &b_std_vector_VBoson_pt);
+   fChain->SetBranchAddress("std_vector_susy_eta", &std_vector_susy_eta, &b_std_vector_susy_eta);
+   fChain->SetBranchAddress("std_vector_susy_phi", &std_vector_susy_phi, &b_std_vector_susy_phi);
+   fChain->SetBranchAddress("std_vector_susy_id", &std_vector_susy_id, &b_std_vector_susy_id);
+   fChain->SetBranchAddress("std_vector_susy_pt", &std_vector_susy_pt, &b_std_vector_susy_pt);
    //   fChain->SetBranchAddress("std_vector_dressedLeptonGen_eta", &std_vector_dressedLeptonGen_eta, &b_std_vector_dressedLeptonGen_eta);
    //   fChain->SetBranchAddress("std_vector_dressedLeptonGen_phi", &std_vector_dressedLeptonGen_phi, &b_std_vector_dressedLeptonGen_phi);
    //   fChain->SetBranchAddress("std_vector_dressedLeptonGen_pid", &std_vector_dressedLeptonGen_pid, &b_std_vector_dressedLeptonGen_pid);
@@ -1536,6 +1557,7 @@ void AnalysisBase::Init(TTree *tree)
    //   fChain->SetBranchAddress("std_vector_jet_tche", &std_vector_jet_tche, &b_std_vector_jet_tche);
    //   fChain->SetBranchAddress("std_vector_muon_NValidHitsInTrk", &std_vector_muon_NValidHitsInTrk, &b_std_vector_muon_NValidHitsInTrk);
    fChain->SetBranchAddress("std_vector_jet_csvv2ivf", &std_vector_jet_csvv2ivf, &b_std_vector_jet_csvv2ivf);
+   fChain->SetBranchAddress("std_vector_jet_DeepCSVB", &std_vector_jet_DeepCSVB, &b_std_vector_jet_DeepCSVB);
    //   fChain->SetBranchAddress("std_vector_jet_tchp", &std_vector_jet_tchp, &b_std_vector_jet_tchp);
    //   fChain->SetBranchAddress("std_vector_electron_dEtaIn", &std_vector_electron_dEtaIn, &b_std_vector_electron_dEtaIn);
    //   fChain->SetBranchAddress("std_vector_muon_TrkKink", &std_vector_muon_TrkKink, &b_std_vector_muon_TrkKink);
@@ -1625,6 +1647,7 @@ void AnalysisBase::Init(TTree *tree)
    fChain->SetBranchAddress("std_vector_lepton_genmatched", &std_vector_lepton_genmatched, &b_std_vector_lepton_genmatched);
    fChain->SetBranchAddress("std_vector_lepton_isTightMuon", &std_vector_lepton_isTightMuon, &b_std_vector_lepton_isTightMuon);
    fChain->SetBranchAddress("susyMstop", &susyMstop, &b_susyMstop);
+   fChain->SetBranchAddress("susyMChargino", &susyMChargino, &b_susyMChargino);
    fChain->SetBranchAddress("susyMLSP", &susyMLSP, &b_susyMLSP);
    fChain->SetBranchAddress("metPfType1Phi", &metPfType1Phi, &b_metPfType1Phi);
    fChain->SetBranchAddress("metPfType1", &metPfType1, &b_metPfType1);

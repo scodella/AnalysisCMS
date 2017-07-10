@@ -15,7 +15,9 @@ class AnalysisStop : public AnalysisCMS
 
   void BookAnalysisHistograms(); 
 
-  void BookSystematicHistograms(); 
+  void BookSystematicHistograms();
+
+  void BookTheoreticalVariationsHistograms(); 
 
   void GetAnalysisVariables(); 
 
@@ -24,12 +26,17 @@ class AnalysisStop : public AnalysisCMS
 			      int     ijet); 
 
   void FillSystematicHistograms(int     ichannel,
-				int     icut);
+				int     icut); 
+
+  void FillTheoreticalVariationsHistograms(int     ichannel,
+					   int     icut);
 
   void FillLevelHistograms   (int     icut,
 			      bool    pass);
 
   void SaveSystematicHistograms();
+
+  void SaveTheoreticalVariationsHistograms();
 
   void Loop                  (TString analysis,
 			      TString sample,
@@ -39,7 +46,7 @@ class AnalysisStop : public AnalysisCMS
 
   void CorrectEventWeight    ();
 
-  void SetStopNeutralinoMap  ();
+  void SetSUSYProductionMap  ();
 
   void GetMiniTree           (TFile *MiniTreeFile, TString systematic);
 
@@ -47,6 +54,8 @@ class AnalysisStop : public AnalysisCMS
 
   TString FastSimDataset;
   BTagSFUtil *BTagSF, *BTagSF_Upb, *BTagSF_Dob, *BTagSF_UpFSb, *BTagSF_DoFSb;
+
+  TString SUSYProductionProcess;
 
   typedef pair<int, int> MassPoint;
   typedef pair<float, float> StopCrossSection;
@@ -70,10 +79,13 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_mlb2true         [nchannel][ncut][njetbin+1];
   TH2D*                  h_mt2lblbvsmlbtrue [nchannel][ncut][njetbin+1];
   TH1D*                  h_nisrjet          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_jetpt            [nchannel][ncut][njetbin+1];
+  TH1D*                  h_MET              [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Counter          [nchannel][ncut][njetbin+1];
 
-  int _SaveHistograms;
+  int _SaveHistograms, _DoTheoreticalVariations;
 
-  float _metmeff, _MT2ll, _MT2llgen;
+  float _metmeff, _MT2ll, _MT2llgen, _MT2llfake;
   TH1D*                  h_metmeff            [nchannel][ncut][njetbin+1];
   TH1F*                  h_MT2ll              [nchannel][ncut][njetbin+1];
   TH1F*                  h_MT2llgen           [nchannel][ncut][njetbin+1];
@@ -119,16 +131,30 @@ class AnalysisStop : public AnalysisCMS
   TH1F*                  h_MT2llisr_systematic    [nchannel][ncut][nsystematic];
   TH1F*                  h_MT2llisrgen_systematic [nchannel][ncut][nsystematic];
 
+  // Theoretical variations output
+  const int nTheoreticalVariations = 111;
+  float _TheoreticalVariationRenormalization[111];
+  TFile*                 root_output_theoreticalvariations;
+  TH1F*                  h_MT2ll_theoreticalvariation        [nchannel][ncut][111];
+  TH1F*                  h_MT2llgen_theoreticalvariation     [nchannel][ncut][111];
+  TH1F*                  h_MT2llisr_theoreticalvariation     [nchannel][ncut][111];
+  TH1F*                  h_MT2llisrgen_theoreticalvariation  [nchannel][ncut][111];
+
   // Tools for ISR jet reweighting 
   // https://indico.cern.ch/event/592621/contributions/2398559/attachments/1383909/2105089/16-12-05_ana_manuelf_isr.pdf
   bool _applyisrreweighting = true;
   float _event_weight_Isrnjetup, _event_weight_Isrnjetdo;
+  float _event_weight_Fakeup,    _event_weight_Fakedo;
 
   void ApplyISRReweighting();
 
   const int nISRMultiplicityBins = 7;
   float ISRBinWeight[7] = {1., 0.920, 0.821, 0.715, 0.662, 0.561, 0.511};
-    
+
+  const int nISRPtBins = 8;
+  float ISRPtBinWeight[8] = {1., 1.052, 1.179, 1.150, 1.057, 1.000, 0.912, 0.783};
+  float ISRPtBinEdge[8] = {0., 50., 100., 150., 200., 300., 400., 600.};
+
 };
 
 #endif

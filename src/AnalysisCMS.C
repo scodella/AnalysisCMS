@@ -49,6 +49,11 @@ bool AnalysisCMS::PassTrigger()
 
   if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
 
+  //bool passtrgmc = (std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || (std_vector_trigger->at(11) || std_vector_trigger->at(13)) ||
+  //(std_vector_trigger->at(42) || std_vector_trigger->at(43)) || (std_vector_trigger->at(0)  || std_vector_trigger->at(56)) ||
+  //(std_vector_trigger->at(46));
+  //return passtrgmc;
+
   if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
   else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
   else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
@@ -412,6 +417,7 @@ void AnalysisCMS::Setup(TString analysis,
   if (_sample.Contains("T2tt")) _isfastsim = true;
   if (_sample.Contains("T2bW")) _isfastsim = true;
   if (_sample.Contains("T2tb")) _isfastsim = true;
+  if (_sample.Contains("TChi")) _isfastsim = true;
 
   printf("\n");
   printf("   analysis: %s\n",        _analysis.Data());
@@ -459,6 +465,10 @@ void AnalysisCMS::ApplyWeights()
   _event_weight_BtagFSdo   = 1.0;
   _event_weight_Idisoup    = 1.0;
   _event_weight_Idisodo    = 1.0;
+  _event_weight_Idisoeleup = 1.0;
+  _event_weight_Idisoeledo = 1.0;
+  _event_weight_Idisomuup  = 1.0;
+  _event_weight_Idisomudo  = 1.0;
   _event_weight_Triggerup  = 1.0;   
   _event_weight_Triggerdo  = 1.0;
   _event_weight_Recoup     = 1.0;
@@ -473,10 +483,11 @@ void AnalysisCMS::ApplyWeights()
 
   _event_weight *= ApplyMETFilters();
 
+  //if (!_sample.Contains("SemiLep") && !_sample.Contains("WJetsToLNu") && !_sample.Contains("TTJets")) 
   _event_weight *= veto_EMTFBug;
-
-  if (!_ismc && _filename.Contains("fakeW")) _event_weight *= _fake_weight;
   
+  if (!_ismc && _filename.Contains("fakeW")) _event_weight *= _fake_weight;
+   
   if (_verbosity > 0 && !_ismc) printf(" event_weight % f  trigger %d  metFilters %d\n", _event_weight, PassTrigger(), ApplyMETFilters());
 
   if (!_ismc) return;
@@ -490,7 +501,7 @@ void AnalysisCMS::ApplyWeights()
   if (_sample.EqualTo("WgStarLNuMuMu"))    _event_weight *= 1.4;
   if (_sample.EqualTo("DYJetsToTT_MuEle")) _event_weight *= 1.26645;
   if (_sample.EqualTo("Wg_MADGRAPHMLM"))   _event_weight *= !(Gen_ZGstar_mass > 0. && Gen_ZGstar_MomId == 22);
-
+  
   _event_weight_genmatched = std_vector_lepton_genmatched->at(0) * std_vector_lepton_genmatched->at(1);
 
   if (!_analysis.EqualTo("TTDM") && !_analysis.EqualTo("Stop")) _event_weight *= _event_weight_genmatched;
@@ -498,9 +509,9 @@ void AnalysisCMS::ApplyWeights()
   if (_analysis.EqualTo("WZ")) _event_weight *= std_vector_lepton_genmatched->at(2);
 
   if (!_analysis.EqualTo("Stop")) _event_weight *= _gen_ptll_weight;  // To be updated with 35.9 fb-1
-  
+ 
   if (GEN_weight_SM) _event_weight *= GEN_weight_SM / abs(GEN_weight_SM);
-
+  
 
   // btag scale factors
   //----------------------------------------------------------------------------
@@ -536,15 +547,14 @@ void AnalysisCMS::ApplyWeights()
   // idiso scale factors
   //----------------------------------------------------------------------------
   float sf_idiso    = 1.0;
-  float sf_idiso_up = 1.0;
-  float sf_idiso_do = 1.0;
+  float sf_idiso_up = 1.0, sf_idisoele_up = 1.0, sf_idisomu_up = 1.0;
+  float sf_idiso_do = 1.0, sf_idisoele_do = 1.0, sf_idisomu_do = 1.0;
 
   if (!_analysis.EqualTo("Stop") && std_vector_lepton_idisoWcut_WP_Tight80X)
     {
       sf_idiso    = std_vector_lepton_idisoWcut_WP_Tight80X->at(0)      * std_vector_lepton_idisoWcut_WP_Tight80X->at(1);
       sf_idiso_up = std_vector_lepton_idisoWcut_WP_Tight80X_Up->at(0)   * std_vector_lepton_idisoWcut_WP_Tight80X_Up->at(1);
       sf_idiso_do = std_vector_lepton_idisoWcut_WP_Tight80X_Down->at(0) * std_vector_lepton_idisoWcut_WP_Tight80X_Down->at(1);
-
 
       if (_analysis.EqualTo("WZ"))
 	{
@@ -559,6 +569,31 @@ void AnalysisCMS::ApplyWeights()
       sf_idiso    = std_vector_lepton_idisoW->at(0)      * std_vector_lepton_idisoW->at(1);
       sf_idiso_up = std_vector_lepton_idisoW_Up->at(0)   * std_vector_lepton_idisoW_Up->at(1);
       sf_idiso_do = std_vector_lepton_idisoW_Down->at(0) * std_vector_lepton_idisoW_Down->at(1);
+
+      if (abs(std_vector_lepton_flavour->at(0))==ELECTRON_FLAVOUR) { 
+	sf_idisoele_up *= std_vector_lepton_idisoW_Up->at(0);
+	sf_idisoele_do *= std_vector_lepton_idisoW_Down->at(0);
+	sf_idisomu_up  *= std_vector_lepton_idisoW->at(0);
+	sf_idisomu_do  *= std_vector_lepton_idisoW->at(0);
+      } else if (abs(std_vector_lepton_flavour->at(0))==MUON_FLAVOUR) { 
+	sf_idisoele_up *= std_vector_lepton_idisoW->at(0);
+	sf_idisoele_do *= std_vector_lepton_idisoW->at(0);
+	sf_idisomu_up  *= std_vector_lepton_idisoW_Up->at(0);
+	sf_idisomu_do  *= std_vector_lepton_idisoW_Down->at(0);
+      } 
+
+      if (abs(std_vector_lepton_flavour->at(1))==ELECTRON_FLAVOUR) { 
+	sf_idisoele_up *= std_vector_lepton_idisoW_Up->at(1);
+	sf_idisoele_do *= std_vector_lepton_idisoW_Down->at(1);
+	sf_idisomu_up  *= std_vector_lepton_idisoW->at(1);
+	sf_idisomu_do  *= std_vector_lepton_idisoW->at(1);
+      } else if (abs(std_vector_lepton_flavour->at(1))==MUON_FLAVOUR) { 
+	sf_idisoele_up *= std_vector_lepton_idisoW->at(1);
+	sf_idisoele_do *= std_vector_lepton_idisoW->at(1);
+	sf_idisomu_up  *= std_vector_lepton_idisoW_Up->at(1);
+	sf_idisomu_do  *= std_vector_lepton_idisoW_Down->at(1);
+      } 
+	
     }
 
 
@@ -587,7 +622,7 @@ void AnalysisCMS::ApplyWeights()
       sf_fastsim    = std_vector_lepton_fastsimW->at(0)      * std_vector_lepton_fastsimW->at(1); 
       sf_fastsim_up = std_vector_lepton_fastsimW_Up->at(0)   * std_vector_lepton_fastsimW_Up->at(1); 
       sf_fastsim_do = std_vector_lepton_fastsimW_Down->at(0) * std_vector_lepton_fastsimW_Down->at(1); 
-  }
+    }
 
 
   if (_systematic_btag_up)    sf_btag    = sf_btag_up;
@@ -602,9 +637,7 @@ void AnalysisCMS::ApplyWeights()
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
       
-
   _event_weight *= (sf_btag * sf_trigger * sf_idiso * sf_reco * sf_fastsim);
-
 
   if (_verbosity > 0)
     {
@@ -639,15 +672,78 @@ void AnalysisCMS::ApplyWeights()
   _event_weight_Btagdo    = _event_weight * (sf_btag_do/sf_btag);
   _event_weight_Idisoup   = _event_weight * (sf_idiso_up/sf_idiso);
   _event_weight_Idisodo   = _event_weight * (sf_idiso_do/sf_idiso);
+  _event_weight_Idisoeleup= _event_weight * (sf_idisoele_up/sf_idiso);
+  _event_weight_Idisoeledo= _event_weight * (sf_idisoele_do/sf_idiso);
+  _event_weight_Idisomuup = _event_weight * (sf_idisomu_up/sf_idiso);
+  _event_weight_Idisomudo = _event_weight * (sf_idisomu_do/sf_idiso);
   _event_weight_Triggerup = _event_weight * (sf_trigger_up/sf_trigger);
   _event_weight_Triggerdo = _event_weight * (sf_trigger_do/sf_trigger);
   _event_weight_Recoup    = _event_weight * (sf_reco_up/sf_reco);
   _event_weight_Recodo    = _event_weight * (sf_reco_do/sf_reco);
   _event_weight_Fastsimup = _event_weight * (sf_fastsim_up/sf_fastsim);
   _event_weight_Fastsimdo = _event_weight * (sf_fastsim_do/sf_fastsim);
-    
-
+  
   return;
+}
+
+//------------------------------------------------------------------------------
+// ShapeWZ
+//------------------------------------------------------------------------------
+void AnalysisCMS::ShapeWZ()
+{
+  
+  if (_nlepton<3) { _event_weight = 0.; return; } 
+  if (MET.Et()<100.) { _event_weight = 0.; return; }
+  if (_ntightlepton<2) { _event_weight = 0.; return; }
+
+  float DMZ = 999.; int Wlep1 = -1, Wlep2 = -1, Lostlep = -1;
+  for (int l1 = 0; l1<3; l1++) {
+    for (int l2 = l1+1; l2<3; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+	
+	TLorentzVector Zcand = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand = fabs( Zcand.M() - Z_MASS );
+	if (DMZcand<DMZ) {
+	  
+	  if (l1==0 && l2==1) {
+	    Wlep2 = 2;
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[Wlep2].flavour<0.) { Wlep1 = l1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[Wlep2].flavour<0.) { Wlep1 = l2; Lostlep = l1; }
+	  } if (l1==0 && l2==2) {
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[1].flavour<0.) { Wlep1 = l1; Wlep2 = 1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[1].flavour<0.) { Wlep1 = 1; Wlep2 = l2; Lostlep = l1; }
+	  } if (l1==1 && l2==2) {
+	    Wlep1 = 0;
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[Wlep1].flavour<0.) { Wlep2 = l1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[Wlep1].flavour<0.) { Wlep2 = l2; Lostlep = l1; }
+	  }
+	  
+	  DMZ = DMZcand;
+	  
+	}
+	
+      }
+    }
+  }
+    
+  if (DMZ>=10. || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
+    _event_weight = 0.; 
+  } else {
+
+    MET += AnalysisLeptons[Lostlep].v; MET.SetTheta(acos(-1.)/2);
+    
+    if (Wlep2==2) {
+      
+      if (Wlep1==1) { AnalysisLeptons[0] = AnalysisLeptons[1]; Lepton1 = AnalysisLeptons[1]; }
+      AnalysisLeptons[1] = AnalysisLeptons[2]; Lepton2 = AnalysisLeptons[2]; 
+      
+    }
+    
+  }
+  
+  return;
+
 }
 
 
@@ -1288,6 +1384,8 @@ void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
 
   // Additional analysis variables
   //----------------------------------------------------------------------------
+  if (_analysis.EqualTo("Stop") && _systematic.EqualTo("WZ")) ShapeWZ();
+
   GetScaleAndResolution();
 
   GetDeltaPhi();
@@ -1568,6 +1666,10 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("eventW_BtagFSdo",   &_event_weight_BtagFSdo,   "eventW_BtagFSdo/F");
   minitree->Branch("eventW_Idisoup",    &_event_weight_Idisoup,    "eventW_Idisoup/F");
   minitree->Branch("eventW_Idisodo",    &_event_weight_Idisodo,    "eventW_Idisodo/F");
+  minitree->Branch("eventW_Idisoeleup", &_event_weight_Idisoeleup, "eventW_Idisoeleup/F");
+  minitree->Branch("eventW_Idisoeledo", &_event_weight_Idisoeledo, "eventW_Idisoeledo/F");
+  minitree->Branch("eventW_Idisomuup",  &_event_weight_Idisomuup,  "eventW_Idisomuup/F");
+  minitree->Branch("eventW_Idisomudo",  &_event_weight_Idisomudo,  "eventW_Idisomudo/F");
   minitree->Branch("eventW_Triggerup",  &_event_weight_Triggerup,  "eventW_Triggerup/F");
   minitree->Branch("eventW_Triggerdo",  &_event_weight_Triggerdo,  "eventW_Triggerdo/F");
   minitree->Branch("eventW_Recoup",     &_event_weight_Recoup,     "eventW_Recoup/F");
@@ -1582,6 +1684,8 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("htjets",            &_htjets,           "htjets/F");
   minitree->Branch("htnojets",          &_htnojets,         "htnojets/F");
   minitree->Branch("htgen",             &_htgen,            "htgen/F");
+  // I
+  minitree->Branch("isrpt",             &_isrpt,            "isrpt/F");
   // J
   minitree->Branch("jet1eta",           &jeteta1,           "jet1eta/F");
   minitree->Branch("jet1mass",          &jetmass1,          "jet1mass/F");
@@ -1677,6 +1781,7 @@ void AnalysisCMS::OpenMinitree()
   // S
   minitree->Branch("susyMLSP",          &susyMLSP,          "susyMLSP/F");
   minitree->Branch("susyMstop",         &susyMstop,         "susyMstop/F");
+  minitree->Branch("susyMChargino",     &susyMChargino,     "susyMChargino/F");
   minitree->Branch("scale",             &_scale,            "scale"); 
   // T
   minitree->Branch("tjet1assignment",   &_tjet1assignment,  "tjet1assignment/F");
@@ -1890,6 +1995,28 @@ void AnalysisCMS::GetStopVar()
   _tjet1assignment = _tjet2assignment = 0.;
 
   _lep1isfake = _lep2isfake = 1.;
+
+  _isrpt = -2.;
+
+  if (_isfastsim) {
+    if (std_vector_susy_id) {
+
+      TLorentzVector Charg[2]; int nChargs = 0;
+      for (int sp = 0; abs(sp)<std_vector_susy_id->size() && nChargs<2; sp++) {
+	if (abs(std_vector_susy_id->at(sp))==1000024 || abs(std_vector_susy_id->at(sp))==1000037) {
+	  Charg[nChargs].SetPtEtaPhiM(std_vector_susy_pt->at(sp),
+				      std_vector_susy_eta->at(sp),
+				      std_vector_susy_phi->at(sp),
+				      susyMChargino);
+	  nChargs++;
+	}
+      }
+
+      if (nChargs<2) _isrpt = -1.;
+      else _isrpt = (Charg[0]+Charg[1]).Pt();
+
+    }
+  }
 
   if (_njet > 0) {
       
