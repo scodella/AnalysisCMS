@@ -16,6 +16,7 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
     _SaveHistograms = 1;
   }
   _DoTheoreticalVariations = 0;
+  if (systematic=="theory") { _DoTheoreticalVariations = 1; _SaveHistograms = -1; }
 }
 
 AnalysisStop::AnalysisStop(TFile* MiniTreeFile, TString systematic, int SaveHistograms) 
@@ -93,7 +94,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
   // Loop over events
   //----------------------------------------------------------------------------
-  
+  int nnn = 0, lll = 0;
   for (Long64_t jentry=0; jentry<_nentries;jentry++) {
     
     if (!_isminitree) {
@@ -127,11 +128,21 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       if (_event_weight==0.) continue;
  
     }
-    
+
     // Get analysis variables
     //--------------------------------------------------------------------------
     
     GetAnalysisVariables();
+
+    if (_systematic.Contains("ZtoTau")) {
+      bool IsZtoTau = false;
+      for (int lgen = 0; lgen<std_vector_leptonGen_pid->size(); lgen++)
+	if (abs(std_vector_leptonGen_MotherPID->at(lgen))==23 &&
+	    abs(std_vector_leptonGen_pid->at(lgen))==15)
+	  IsZtoTau = true;
+      if (!IsZtoTau) continue;
+    }
+
 
     // Analysis
     //--------------------------------------------------------------------------
@@ -144,14 +155,14 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	if (_htgen>70.) continue;
 
       // 3L sidebands
-      if (_systematic=="VZtight" || _systematic=="ttZ") {
+      if (_systematic.Contains("VZ") || _systematic.Contains("ttZ")) {
 
 	if (_nlepton<3) continue;
 	if (MET.Et()<140.) continue; 
 	if (_ntightlepton<3) continue; 
 
-	if (AnalysisLeptons[0].v.Pt()<30.) continue;
-	if (_systematic=="ttZ" && AnalysisLeptons[0].v.Pt()<40.) continue;
+	if (_systematic.Contains("VZ") && AnalysisLeptons[0].v.Pt()<30.) continue;
+	if (_systematic.Contains("ttZ") && AnalysisLeptons[0].v.Pt()<25.) continue;
 	if (AnalysisLeptons[1].v.Pt()<20.) continue;
 	if (AnalysisLeptons[2].v.Pt()<20.) continue;
 	
@@ -186,11 +197,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	  if (abs(AnalysisLeptons[Wlep].flavour)==ELECTRON_FLAVOUR) _channel = ee;
 	  else _channel = mm;
 
-	  if (_systematic=="VZtight") {
+	  if (_systematic.Contains("VZ")) {
 	    FillLevelHistograms(Stop_00_VZ, _leadingPtCSVv2M<20.);
-	  } else if (_systematic=="ttZ") {
-	    FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>30.); 
-	    FillLevelHistograms(Stop_00_ttZ_2Jet, jetpt2>=30.); 
+	  } else if (_systematic.Contains("ttZ")) {
+	    FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>20.); 
+	    FillLevelHistograms(Stop_00_ttZ_2Tag, _trailingPtCSVv2M>20.); 
 	  }
 
 	}
@@ -249,10 +260,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       {
 
 	if (_systematic=="Xnominal") pass_blind = false;
-      //if (_mt2ll<40.) pass_blind = true;
-      //if (MET.Et()<140.) pass_blind = true;
-      if (run < 276502) pass_blind = true;
+	//if (MET.Et()<140.) pass_blind = true;
+	if (run < 276502) pass_blind = true;
      }
+
+    if (_systematic.Contains("BlindMT2") && _mt2ll>40.) pass_blind = false;
 
     if (!_isminitree) {
 
@@ -261,10 +273,10 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
            
       // Basics Stop
       //-------------------------------------------------------------------------
-      FillLevelHistograms(Stop_00_Has2Leptons, pass && pass_blind && pass_masspoint);    
+      //FillLevelHistograms(Stop_00_Has2Leptons, pass && pass_blind && pass_masspoint);    
 
       pass &= mll>20.;
-      
+
    /*   FillLevelHistograms(Stop_00_mll20, pass && pass_blind && pass_masspoint);
       
               // Look in the Z-peak
@@ -297,7 +309,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
      //cout << "GoodDM " << endl;
  
 
-     pass &= ( _channel == em || fabs(_m2l - Z_MASS) > 15. ) || _systematic=="WZ" || _systematic=="Zpeak";
+	       pass &= ( _channel == em || fabs(_m2l - Z_MASS) > 15. ) || _systematic.Contains("WZ") || _systematic.Contains("Zpeak");
      //if (!( _channel == em || fabs(_m2l - Z_MASS) > 15. )) cout <<"fail zveto"<<endl;
 
        //~~~~~~~~~~~~~~~~~~~~~~ save minitree ~~~~~~~~~~~~~~~~~~
@@ -346,6 +358,15 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       FillLevelHistograms(Stop_02_SRs_Tag,   pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
     }
     
+    /*if (_njet<1) {
+      FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR1_NoJet,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR2_NoJet,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR3_NoJet,   pass && (MET.Et()>=300.) && pass_blind && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR1gen_NoJet, pass && (metGenpt>=140. && metGenpt<200.) && pass_blind && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR2gen_NoJet, pass && (metGenpt>=200. && metGenpt<300.) && pass_blind && pass_masspoint);
+      FillLevelHistograms(Stop_02_SR3gen_NoJet, pass && (metGenpt>=300.) && pass_blind && pass_masspoint);
+      } else */
     if (_leadingPtCSVv2M <  20.) {
       FillLevelHistograms(Stop_02_VR1_NoTag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
       if (njet<1)
@@ -383,8 +404,8 @@ void AnalysisStop::BookAnalysisHistograms()
 
     if (!_systematic.Contains("SS") && j>=Stop_00_SS_Tag && j<=Stop_00_SS) continue;
       
-    if (_systematic=="VZ" && j!=Stop_00_VZ) continue; 
-    if (_systematic=="ttZ" && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Jet) continue; 
+    if (_systematic.Contains("VZ") && j!=Stop_00_VZ) continue; 
+    if (_systematic.Contains("ttZ") && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Tag) continue; 
 
     for (int k=0; k<=njetbin; k++) {
 
@@ -414,9 +435,12 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_mlb2true          [i][j][k] = new TH1D("h_mlb2true"           + suffix, "", 3000,    0, 3000);
 	h_mt2lblbvsmlbtrue  [i][j][k] = new TH2D("h_mt2lblbvsmlbtrue"   + suffix, "",  100,    0, 1000,  100,    0, 1000);
 	h_nisrjet           [i][j][k] = new TH1D("h_nisrjet"            + suffix, "",   10,    0,   10);
-	h_jetpt             [i][j][k] = new TH1D("h_jetpt"              + suffix, "",   80,    0,  800);
+	h_maxjetpt          [i][j][k] = new TH1D("h_maxjetpt"           + suffix, "",   80,    0,  800);
+	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",   10,    0,   10);
+	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);
 	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
 	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
+	h_dphiminlepmet     [i][j][k] = new TH1D("h_dphiminlepmet"      + suffix, "",  100,    0,  3.2);
 
 	h_metmeff           [i][j][k] = new TH1D("h_metmeff"            + suffix, "",  500,    0,    5);
 	h_MT2ll             [i][j][k] = new TH1F("h_MT2ll"              + suffix, "",    7,    0,  140);
@@ -474,8 +498,8 @@ void AnalysisStop::BookSystematicHistograms()
   
       if (_isminitree && j<Stop_00_Zveto) continue; 
       
-      if (_systematic=="VZ" && j!=Stop_00_VZ) continue; 
-      if (_systematic=="ttZ" && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Jet) continue; 
+      if (_systematic.Contains("VZ") && j!=Stop_00_VZ) continue; 
+      if (_systematic.Contains("ttZ") && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Tag) continue; 
 
       TString directory = scut[j];
 
@@ -530,31 +554,29 @@ void AnalysisStop::BookTheoreticalVariationsHistograms()
 
   for (int j=0; j<ncut; j++) {
   
-    if (scut[j].Contains("SR")) {
+    if (!scut[j].Contains("SR")) continue;
 
-      TString directory = scut[j];
+    TString directory = scut[j];
       
-      root_output_theoreticalvariations->cd();
-
-      gDirectory->mkdir(directory);
-
-      root_output_theoreticalvariations->cd(directory);
-
-      for (int i=ee; i<=ll; i++) {
-
-	for (int tv = 0; tv<nTheoreticalVariations; tv++) {
-
-	  TString suffix = "_" + schannel[i] + "_TV"; suffix += tv;
-
-	  h_MT2ll_theoreticalvariation        [i][j][tv] = new TH1F("h_MT2ll"            + suffix, "",    7,    0,  140);
-	  h_MT2llgen_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llgen"         + suffix, "",    7,    0,  140);
-	  h_MT2llisr_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llisr"         + suffix, "",    7,    0,  140);
-	  h_MT2llisrgen_theoreticalvariation  [i][j][tv] = new TH1F("h_MT2llisrgen"      + suffix, "",    7,    0,  140);
-	  
-	}
-
+    root_output_theoreticalvariations->cd();
+    
+    gDirectory->mkdir(directory);
+    
+    root_output_theoreticalvariations->cd(directory);
+    
+    for (int i=ee; i<=ll; i++) {
+      
+      for (int tv = 0; tv<nTheoreticalVariations; tv++) {
+	
+	TString suffix = "_" + schannel[i] + "_TV"; suffix += tv;
+	
+	h_MT2ll_theoreticalvariation        [i][j][tv] = new TH1F("h_MT2ll"            + suffix, "",    7,    0,  140);
+	h_MT2llgen_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llgen"         + suffix, "",    7,    0,  140);
+	h_MT2llisr_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llisr"         + suffix, "",    7,    0,  140);
+	h_MT2llisrgen_theoreticalvariation  [i][j][tv] = new TH1F("h_MT2llisrgen"      + suffix, "",    7,    0,  140);
+	
       }
-
+      
     }
 
   }
@@ -616,6 +638,18 @@ void AnalysisStop::GetAnalysisVariables()
   // ISR jet
   _hasisrjet = (jetpt1>150. && jetpt1!=_leadingPtCSVv2M && acos(cos(metPfType1Phi-jetphi1))>2.5) ? true : false;
 
+  // 
+  TLorentzVector Lep1; Lep1.SetPtEtaPhiM(_lep1pt, _lep1eta, _lep1phi, 0.1); 
+  TLorentzVector Lep2; Lep2.SetPtEtaPhiM(_lep2pt, _lep2eta, _lep2phi, 0.1); 
+  float dphil1met = fabs(Lep1.DeltaPhi(MET));
+  float dphil2met = fabs(Lep2.DeltaPhi(MET));
+  _dphiminlmet  = min(dphil1met, dphil2met);
+
+  //
+  _njet30 = 0;
+  for (int ij = 0; ij<_jet_pt.size(); ij++)
+    if (_jet_pt.at(ij)>=30.) _njet30++;
+
 }
 
 //------------------------------------------------------------------------------
@@ -638,10 +672,12 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_mt2lblbvsmlbtrue [ichannel][icut][ijet]->Fill(_mlb1true, _mt2lblbtrue,       _event_weight);
   h_mt2lblbvsmlbtrue [ichannel][icut][ijet]->Fill(_mlb2true, _mt2lblbtrue,       _event_weight);
   h_nisrjet          [ichannel][icut][ijet]->Fill(_nisrjet,        _event_weight);
-  h_jetpt            [ichannel][icut][ijet]->Fill(jetpt1,          _event_weight);
-  h_jetpt            [ichannel][icut][ijet]->Fill(jetpt2,          _event_weight);
+  h_maxjetpt         [ichannel][icut][ijet]->Fill(jetpt1,          _event_weight);
+  h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
+  h_njet30           [ichannel][icut][ijet]->Fill(_njet30,         _event_weight);
   h_MET              [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
+  h_dphiminlepmet    [ichannel][icut][ijet]->Fill(_dphiminlmet,    _event_weight);
   h_metmeff          [ichannel][icut][ijet]->Fill(_metmeff,        _event_weight);
   h_MT2ll            [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
   h_MT2llgen         [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
@@ -745,11 +781,22 @@ void AnalysisStop::FillTheoreticalVariationsHistograms(int ichannel,
     
   root_output_theoreticalvariations->cd();
 
+  bool PrintedError = false;
+
   for (int tv = 0; tv<nTheoreticalVariations; tv++) {
 
+    float _TheoreticalVariationRatio = std_vector_LHE_weight->at(tv)/std_vector_LHE_weight->at(0);
+    if (std_vector_LHE_weight->at(tv)==-999 || std_vector_LHE_weight->at(0)==-999) {
+      _TheoreticalVariationRatio = 1.;
+      if (ichannel==ll && !PrintedError) {
+	cout << "  Bad LHE weight " << event << " " << std_vector_LHE_weight->at(tv) << " " << std_vector_LHE_weight->at(0) << endl;
+	PrintedError = true;
+      }
+    }
+
     float _event_weight_theoreticalvariation = _event_weight;
-    _event_weight_theoreticalvariation *= std_vector_LHE_weight->at(tv)/std_vector_LHE_weight->at(0);
-    _event_weight_theoreticalvariation *= _TheoreticalVariationRenormalization[tv];
+    _event_weight_theoreticalvariation *= _TheoreticalVariationRatio;
+    _event_weight_theoreticalvariation /= _TheoreticalVariationRenormalization[tv];
 
     h_MT2ll_theoreticalvariation      [ichannel][icut][tv]->Fill(_MT2ll,    _event_weight_theoreticalvariation);
     h_MT2llgen_theoreticalvariation   [ichannel][icut][tv]->Fill(_MT2llgen, _event_weight_theoreticalvariation);
@@ -811,7 +858,7 @@ void AnalysisStop::FillLevelHistograms(int  icut,
     FillHistograms(_channel, icut, njetbin);
   }
 
-  if (_SaveHistograms>=1) {
+  if (_SaveHistograms>=0) {
 
     FillAnalysisHistograms(_channel, icut, _jetbin);
     FillAnalysisHistograms(_channel, icut, njetbin);
@@ -13761,6 +13808,10762 @@ void AnalysisStop::SetSUSYProductionMap() {
     MassPoint mpisr263 (550, 300);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr263, 0.96469));
 
+  } else  if (SUSYProductionProcess=="TChiStau") {
+
+    MassPoint mp0 (100, 1);
+    StopCrossSection cs0 (11.6119, 0.518613);
+    MassPointParameters mpp0 (cs0, 44168);
+    StopNeutralinoMap.insert(std::make_pair(mp0, mpp0));
+
+    MassPoint mp1 (100, 25);
+    StopCrossSection cs1 (11.6119, 0.518613);
+    MassPointParameters mpp1 (cs1, 44704);
+    StopNeutralinoMap.insert(std::make_pair(mp1, mpp1));
+
+    MassPoint mp2 (100, 50);
+    StopCrossSection cs2 (11.6119, 0.518613);
+    MassPointParameters mpp2 (cs2, 49651);
+    StopNeutralinoMap.insert(std::make_pair(mp2, mpp2));
+
+    MassPoint mp3 (125, 1);
+    StopCrossSection cs3 (5.09052, 0.249469);
+    MassPointParameters mpp3 (cs3, 43146);
+    StopNeutralinoMap.insert(std::make_pair(mp3, mpp3));
+
+    MassPoint mp4 (125, 25);
+    StopCrossSection cs4 (5.09052, 0.249469);
+    MassPointParameters mpp4 (cs4, 41854);
+    StopNeutralinoMap.insert(std::make_pair(mp4, mpp4));
+
+    MassPoint mp5 (125, 50);
+    StopCrossSection cs5 (5.09052, 0.249469);
+    MassPointParameters mpp5 (cs5, 52042);
+    StopNeutralinoMap.insert(std::make_pair(mp5, mpp5));
+
+    MassPoint mp6 (125, 75);
+    StopCrossSection cs6 (5.09052, 0.249469);
+    MassPointParameters mpp6 (cs6, 48671);
+    StopNeutralinoMap.insert(std::make_pair(mp6, mpp6));
+
+    MassPoint mp7 (150, 1);
+    StopCrossSection cs7 (2.61231, 0.138156);
+    MassPointParameters mpp7 (cs7, 54802);
+    StopNeutralinoMap.insert(std::make_pair(mp7, mpp7));
+
+    MassPoint mp8 (150, 25);
+    StopCrossSection cs8 (2.61231, 0.138156);
+    MassPointParameters mpp8 (cs8, 52085);
+    StopNeutralinoMap.insert(std::make_pair(mp8, mpp8));
+
+    MassPoint mp9 (150, 50);
+    StopCrossSection cs9 (2.61231, 0.138156);
+    MassPointParameters mpp9 (cs9, 54363);
+    StopNeutralinoMap.insert(std::make_pair(mp9, mpp9));
+
+    MassPoint mp10 (150, 75);
+    StopCrossSection cs10 (2.61231, 0.138156);
+    MassPointParameters mpp10 (cs10, 45246);
+    StopNeutralinoMap.insert(std::make_pair(mp10, mpp10));
+
+    MassPoint mp11 (150, 100);
+    StopCrossSection cs11 (2.61231, 0.138156);
+    MassPointParameters mpp11 (cs11, 55831);
+    StopNeutralinoMap.insert(std::make_pair(mp11, mpp11));
+
+    MassPoint mp12 (175, 1);
+    StopCrossSection cs12 (1.48242, 0.0832672);
+    MassPointParameters mpp12 (cs12, 50049);
+    StopNeutralinoMap.insert(std::make_pair(mp12, mpp12));
+
+    MassPoint mp13 (175, 25);
+    StopCrossSection cs13 (1.48242, 0.0832672);
+    MassPointParameters mpp13 (cs13, 40788);
+    StopNeutralinoMap.insert(std::make_pair(mp13, mpp13));
+
+    MassPoint mp14 (175, 50);
+    StopCrossSection cs14 (1.48242, 0.0832672);
+    MassPointParameters mpp14 (cs14, 46623);
+    StopNeutralinoMap.insert(std::make_pair(mp14, mpp14));
+
+    MassPoint mp15 (175, 75);
+    StopCrossSection cs15 (1.48242, 0.0832672);
+    MassPointParameters mpp15 (cs15, 47727);
+    StopNeutralinoMap.insert(std::make_pair(mp15, mpp15));
+
+    MassPoint mp16 (175, 100);
+    StopCrossSection cs16 (1.48242, 0.0832672);
+    MassPointParameters mpp16 (cs16, 50555);
+    StopNeutralinoMap.insert(std::make_pair(mp16, mpp16));
+
+    MassPoint mp17 (175, 125);
+    StopCrossSection cs17 (1.48242, 0.0832672);
+    MassPointParameters mpp17 (cs17, 49645);
+    StopNeutralinoMap.insert(std::make_pair(mp17, mpp17));
+
+    MassPoint mp18 (200, 1);
+    StopCrossSection cs18 (0.902569, 0.0537411);
+    MassPointParameters mpp18 (cs18, 46045);
+    StopNeutralinoMap.insert(std::make_pair(mp18, mpp18));
+
+    MassPoint mp19 (200, 25);
+    StopCrossSection cs19 (0.902569, 0.0537411);
+    MassPointParameters mpp19 (cs19, 43907);
+    StopNeutralinoMap.insert(std::make_pair(mp19, mpp19));
+
+    MassPoint mp20 (200, 50);
+    StopCrossSection cs20 (0.902569, 0.0537411);
+    MassPointParameters mpp20 (cs20, 54253);
+    StopNeutralinoMap.insert(std::make_pair(mp20, mpp20));
+
+    MassPoint mp21 (200, 75);
+    StopCrossSection cs21 (0.902569, 0.0537411);
+    MassPointParameters mpp21 (cs21, 53546);
+    StopNeutralinoMap.insert(std::make_pair(mp21, mpp21));
+
+    MassPoint mp22 (200, 100);
+    StopCrossSection cs22 (0.902569, 0.0537411);
+    MassPointParameters mpp22 (cs22, 48295);
+    StopNeutralinoMap.insert(std::make_pair(mp22, mpp22));
+
+    MassPoint mp23 (200, 125);
+    StopCrossSection cs23 (0.902569, 0.0537411);
+    MassPointParameters mpp23 (cs23, 49652);
+    StopNeutralinoMap.insert(std::make_pair(mp23, mpp23));
+
+    MassPoint mp24 (200, 150);
+    StopCrossSection cs24 (0.902569, 0.0537411);
+    MassPointParameters mpp24 (cs24, 45246);
+    StopNeutralinoMap.insert(std::make_pair(mp24, mpp24));
+
+    MassPoint mp25 (225, 1);
+    StopCrossSection cs25 (0.579564, 0.0360699);
+    MassPointParameters mpp25 (cs25, 48295);
+    StopNeutralinoMap.insert(std::make_pair(mp25, mpp25));
+
+    MassPoint mp26 (225, 25);
+    StopCrossSection cs26 (0.579564, 0.0360699);
+    MassPointParameters mpp26 (cs26, 47199);
+    StopNeutralinoMap.insert(std::make_pair(mp26, mpp26));
+
+    MassPoint mp27 (225, 50);
+    StopCrossSection cs27 (0.579564, 0.0360699);
+    MassPointParameters mpp27 (cs27, 47222);
+    StopNeutralinoMap.insert(std::make_pair(mp27, mpp27));
+
+    MassPoint mp28 (225, 75);
+    StopCrossSection cs28 (0.579564, 0.0360699);
+    MassPointParameters mpp28 (cs28, 49390);
+    StopNeutralinoMap.insert(std::make_pair(mp28, mpp28));
+
+    MassPoint mp29 (225, 100);
+    StopCrossSection cs29 (0.579564, 0.0360699);
+    MassPointParameters mpp29 (cs29, 48253);
+    StopNeutralinoMap.insert(std::make_pair(mp29, mpp29));
+
+    MassPoint mp30 (225, 125);
+    StopCrossSection cs30 (0.579564, 0.0360699);
+    MassPointParameters mpp30 (cs30, 50548);
+    StopNeutralinoMap.insert(std::make_pair(mp30, mpp30));
+
+    MassPoint mp31 (225, 150);
+    StopCrossSection cs31 (0.579564, 0.0360699);
+    MassPointParameters mpp31 (cs31, 52865);
+    StopNeutralinoMap.insert(std::make_pair(mp31, mpp31));
+
+    MassPoint mp32 (225, 175);
+    StopCrossSection cs32 (0.579564, 0.0360699);
+    MassPointParameters mpp32 (cs32, 54711);
+    StopNeutralinoMap.insert(std::make_pair(mp32, mpp32));
+
+    MassPoint mp33 (250, 1);
+    StopCrossSection cs33 (0.387534, 0.0253131);
+    MassPointParameters mpp33 (cs33, 48833);
+    StopNeutralinoMap.insert(std::make_pair(mp33, mpp33));
+
+    MassPoint mp34 (250, 25);
+    StopCrossSection cs34 (0.387534, 0.0253131);
+    MassPointParameters mpp34 (cs34, 50294);
+    StopNeutralinoMap.insert(std::make_pair(mp34, mpp34));
+
+    MassPoint mp35 (250, 50);
+    StopCrossSection cs35 (0.387534, 0.0253131);
+    MassPointParameters mpp35 (cs35, 48679);
+    StopNeutralinoMap.insert(std::make_pair(mp35, mpp35));
+
+    MassPoint mp36 (250, 75);
+    StopCrossSection cs36 (0.387534, 0.0253131);
+    MassPointParameters mpp36 (cs36, 52960);
+    StopNeutralinoMap.insert(std::make_pair(mp36, mpp36));
+
+    MassPoint mp37 (250, 100);
+    StopCrossSection cs37 (0.387534, 0.0253131);
+    MassPointParameters mpp37 (cs37, 47810);
+    StopNeutralinoMap.insert(std::make_pair(mp37, mpp37));
+
+    MassPoint mp38 (250, 125);
+    StopCrossSection cs38 (0.387534, 0.0253131);
+    MassPointParameters mpp38 (cs38, 41500);
+    StopNeutralinoMap.insert(std::make_pair(mp38, mpp38));
+
+    MassPoint mp39 (250, 150);
+    StopCrossSection cs39 (0.387534, 0.0253131);
+    MassPointParameters mpp39 (cs39, 51971);
+    StopNeutralinoMap.insert(std::make_pair(mp39, mpp39));
+
+    MassPoint mp40 (250, 175);
+    StopCrossSection cs40 (0.387534, 0.0253131);
+    MassPointParameters mpp40 (cs40, 44111);
+    StopNeutralinoMap.insert(std::make_pair(mp40, mpp40));
+
+    MassPoint mp41 (250, 200);
+    StopCrossSection cs41 (0.387534, 0.0253131);
+    MassPointParameters mpp41 (cs41, 53180);
+    StopNeutralinoMap.insert(std::make_pair(mp41, mpp41));
+
+    MassPoint mp42 (275, 1);
+    StopCrossSection cs42 (0.267786, 0.0182886);
+    MassPointParameters mpp42 (cs42, 50229);
+    StopNeutralinoMap.insert(std::make_pair(mp42, mpp42));
+
+    MassPoint mp43 (275, 25);
+    StopCrossSection cs43 (0.267786, 0.0182886);
+    MassPointParameters mpp43 (cs43, 47630);
+    StopNeutralinoMap.insert(std::make_pair(mp43, mpp43));
+
+    MassPoint mp44 (275, 50);
+    StopCrossSection cs44 (0.267786, 0.0182886);
+    MassPointParameters mpp44 (cs44, 46932);
+    StopNeutralinoMap.insert(std::make_pair(mp44, mpp44));
+
+    MassPoint mp45 (275, 75);
+    StopCrossSection cs45 (0.267786, 0.0182886);
+    MassPointParameters mpp45 (cs45, 47800);
+    StopNeutralinoMap.insert(std::make_pair(mp45, mpp45));
+
+    MassPoint mp46 (275, 100);
+    StopCrossSection cs46 (0.267786, 0.0182886);
+    MassPointParameters mpp46 (cs46, 50566);
+    StopNeutralinoMap.insert(std::make_pair(mp46, mpp46));
+
+    MassPoint mp47 (275, 125);
+    StopCrossSection cs47 (0.267786, 0.0182886);
+    MassPointParameters mpp47 (cs47, 50265);
+    StopNeutralinoMap.insert(std::make_pair(mp47, mpp47));
+
+    MassPoint mp48 (275, 150);
+    StopCrossSection cs48 (0.267786, 0.0182886);
+    MassPointParameters mpp48 (cs48, 47796);
+    StopNeutralinoMap.insert(std::make_pair(mp48, mpp48));
+
+    MassPoint mp49 (275, 175);
+    StopCrossSection cs49 (0.267786, 0.0182886);
+    MassPointParameters mpp49 (cs49, 44594);
+    StopNeutralinoMap.insert(std::make_pair(mp49, mpp49));
+
+    MassPoint mp50 (275, 200);
+    StopCrossSection cs50 (0.267786, 0.0182886);
+    MassPointParameters mpp50 (cs50, 44726);
+    StopNeutralinoMap.insert(std::make_pair(mp50, mpp50));
+
+    MassPoint mp51 (275, 225);
+    StopCrossSection cs51 (0.267786, 0.0182886);
+    MassPointParameters mpp51 (cs51, 49753);
+    StopNeutralinoMap.insert(std::make_pair(mp51, mpp51));
+
+    MassPoint mp52 (300, 1);
+    StopCrossSection cs52 (0.190159, 0.0134438);
+    MassPointParameters mpp52 (cs52, 53138);
+    StopNeutralinoMap.insert(std::make_pair(mp52, mpp52));
+
+    MassPoint mp53 (300, 25);
+    StopCrossSection cs53 (0.190159, 0.0134438);
+    MassPointParameters mpp53 (cs53, 55234);
+    StopNeutralinoMap.insert(std::make_pair(mp53, mpp53));
+
+    MassPoint mp54 (300, 50);
+    StopCrossSection cs54 (0.190159, 0.0134438);
+    MassPointParameters mpp54 (cs54, 46042);
+    StopNeutralinoMap.insert(std::make_pair(mp54, mpp54));
+
+    MassPoint mp55 (300, 75);
+    StopCrossSection cs55 (0.190159, 0.0134438);
+    MassPointParameters mpp55 (cs55, 50565);
+    StopNeutralinoMap.insert(std::make_pair(mp55, mpp55));
+
+    MassPoint mp56 (300, 100);
+    StopCrossSection cs56 (0.190159, 0.0134438);
+    MassPointParameters mpp56 (cs56, 48047);
+    StopNeutralinoMap.insert(std::make_pair(mp56, mpp56));
+
+    MassPoint mp57 (300, 125);
+    StopCrossSection cs57 (0.190159, 0.0134438);
+    MassPointParameters mpp57 (cs57, 48436);
+    StopNeutralinoMap.insert(std::make_pair(mp57, mpp57));
+
+    MassPoint mp58 (300, 150);
+    StopCrossSection cs58 (0.190159, 0.0134438);
+    MassPointParameters mpp58 (cs58, 52201);
+    StopNeutralinoMap.insert(std::make_pair(mp58, mpp58));
+
+    MassPoint mp59 (300, 175);
+    StopCrossSection cs59 (0.190159, 0.0134438);
+    MassPointParameters mpp59 (cs59, 45733);
+    StopNeutralinoMap.insert(std::make_pair(mp59, mpp59));
+
+    MassPoint mp60 (300, 200);
+    StopCrossSection cs60 (0.190159, 0.0134438);
+    MassPointParameters mpp60 (cs60, 51335);
+    StopNeutralinoMap.insert(std::make_pair(mp60, mpp60));
+
+    MassPoint mp61 (300, 225);
+    StopCrossSection cs61 (0.190159, 0.0134438);
+    MassPointParameters mpp61 (cs61, 53053);
+    StopNeutralinoMap.insert(std::make_pair(mp61, mpp61));
+
+    MassPoint mp62 (300, 250);
+    StopCrossSection cs62 (0.190159, 0.0134438);
+    MassPointParameters mpp62 (cs62, 54844);
+    StopNeutralinoMap.insert(std::make_pair(mp62, mpp62));
+
+    MassPoint mp63 (325, 1);
+    StopCrossSection cs63 (0.138086, 0.0101835);
+    MassPointParameters mpp63 (cs63, 50587);
+    StopNeutralinoMap.insert(std::make_pair(mp63, mpp63));
+
+    MassPoint mp64 (325, 25);
+    StopCrossSection cs64 (0.138086, 0.0101835);
+    MassPointParameters mpp64 (cs64, 43017);
+    StopNeutralinoMap.insert(std::make_pair(mp64, mpp64));
+
+    MassPoint mp65 (325, 50);
+    StopCrossSection cs65 (0.138086, 0.0101835);
+    MassPointParameters mpp65 (cs65, 46860);
+    StopNeutralinoMap.insert(std::make_pair(mp65, mpp65));
+
+    MassPoint mp66 (325, 75);
+    StopCrossSection cs66 (0.138086, 0.0101835);
+    MassPointParameters mpp66 (cs66, 50615);
+    StopNeutralinoMap.insert(std::make_pair(mp66, mpp66));
+
+    MassPoint mp67 (325, 100);
+    StopCrossSection cs67 (0.138086, 0.0101835);
+    MassPointParameters mpp67 (cs67, 47278);
+    StopNeutralinoMap.insert(std::make_pair(mp67, mpp67));
+
+    MassPoint mp68 (325, 125);
+    StopCrossSection cs68 (0.138086, 0.0101835);
+    MassPointParameters mpp68 (cs68, 51544);
+    StopNeutralinoMap.insert(std::make_pair(mp68, mpp68));
+
+    MassPoint mp69 (325, 150);
+    StopCrossSection cs69 (0.138086, 0.0101835);
+    MassPointParameters mpp69 (cs69, 51708);
+    StopNeutralinoMap.insert(std::make_pair(mp69, mpp69));
+
+    MassPoint mp70 (325, 175);
+    StopCrossSection cs70 (0.138086, 0.0101835);
+    MassPointParameters mpp70 (cs70, 51115);
+    StopNeutralinoMap.insert(std::make_pair(mp70, mpp70));
+
+    MassPoint mp71 (325, 200);
+    StopCrossSection cs71 (0.138086, 0.0101835);
+    MassPointParameters mpp71 (cs71, 48942);
+    StopNeutralinoMap.insert(std::make_pair(mp71, mpp71));
+
+    MassPoint mp72 (325, 225);
+    StopCrossSection cs72 (0.138086, 0.0101835);
+    MassPointParameters mpp72 (cs72, 50650);
+    StopNeutralinoMap.insert(std::make_pair(mp72, mpp72));
+
+    MassPoint mp73 (325, 250);
+    StopCrossSection cs73 (0.138086, 0.0101835);
+    MassPointParameters mpp73 (cs73, 48847);
+    StopNeutralinoMap.insert(std::make_pair(mp73, mpp73));
+
+    MassPoint mp74 (325, 275);
+    StopCrossSection cs74 (0.138086, 0.0101835);
+    MassPointParameters mpp74 (cs74, 55897);
+    StopNeutralinoMap.insert(std::make_pair(mp74, mpp74));
+
+    MassPoint mp75 (350, 1);
+    StopCrossSection cs75 (0.102199, 0.00775261);
+    MassPointParameters mpp75 (cs75, 42248);
+    StopNeutralinoMap.insert(std::make_pair(mp75, mpp75));
+
+    MassPoint mp76 (350, 25);
+    StopCrossSection cs76 (0.102199, 0.00775261);
+    MassPointParameters mpp76 (cs76, 46438);
+    StopNeutralinoMap.insert(std::make_pair(mp76, mpp76));
+
+    MassPoint mp77 (350, 50);
+    StopCrossSection cs77 (0.102199, 0.00775261);
+    MassPointParameters mpp77 (cs77, 51544);
+    StopNeutralinoMap.insert(std::make_pair(mp77, mpp77));
+
+    MassPoint mp78 (350, 75);
+    StopCrossSection cs78 (0.102199, 0.00775261);
+    MassPointParameters mpp78 (cs78, 48376);
+    StopNeutralinoMap.insert(std::make_pair(mp78, mpp78));
+
+    MassPoint mp79 (350, 100);
+    StopCrossSection cs79 (0.102199, 0.00775261);
+    MassPointParameters mpp79 (cs79, 42591);
+    StopNeutralinoMap.insert(std::make_pair(mp79, mpp79));
+
+    MassPoint mp80 (350, 125);
+    StopCrossSection cs80 (0.102199, 0.00775261);
+    MassPointParameters mpp80 (cs80, 46458);
+    StopNeutralinoMap.insert(std::make_pair(mp80, mpp80));
+
+    MassPoint mp81 (350, 150);
+    StopCrossSection cs81 (0.102199, 0.00775261);
+    MassPointParameters mpp81 (cs81, 43171);
+    StopNeutralinoMap.insert(std::make_pair(mp81, mpp81));
+
+    MassPoint mp82 (350, 175);
+    StopCrossSection cs82 (0.102199, 0.00775261);
+    MassPointParameters mpp82 (cs82, 49760);
+    StopNeutralinoMap.insert(std::make_pair(mp82, mpp82));
+
+    MassPoint mp83 (350, 200);
+    StopCrossSection cs83 (0.102199, 0.00775261);
+    MassPointParameters mpp83 (cs83, 51197);
+    StopNeutralinoMap.insert(std::make_pair(mp83, mpp83));
+
+    MassPoint mp84 (350, 225);
+    StopCrossSection cs84 (0.102199, 0.00775261);
+    MassPointParameters mpp84 (cs84, 41253);
+    StopNeutralinoMap.insert(std::make_pair(mp84, mpp84));
+
+    MassPoint mp85 (350, 250);
+    StopCrossSection cs85 (0.102199, 0.00775261);
+    MassPointParameters mpp85 (cs85, 50708);
+    StopNeutralinoMap.insert(std::make_pair(mp85, mpp85));
+
+    MassPoint mp86 (350, 275);
+    StopCrossSection cs86 (0.102199, 0.00775261);
+    MassPointParameters mpp86 (cs86, 49405);
+    StopNeutralinoMap.insert(std::make_pair(mp86, mpp86));
+
+    MassPoint mp87 (350, 300);
+    StopCrossSection cs87 (0.102199, 0.00775261);
+    MassPointParameters mpp87 (cs87, 48136);
+    StopNeutralinoMap.insert(std::make_pair(mp87, mpp87));
+
+    MassPoint mp88 (375, 1);
+    StopCrossSection cs88 (0.0768342, 0.00602606);
+    MassPointParameters mpp88 (cs88, 51375);
+    StopNeutralinoMap.insert(std::make_pair(mp88, mpp88));
+
+    MassPoint mp89 (375, 25);
+    StopCrossSection cs89 (0.0768342, 0.00602606);
+    MassPointParameters mpp89 (cs89, 46669);
+    StopNeutralinoMap.insert(std::make_pair(mp89, mpp89));
+
+    MassPoint mp90 (375, 50);
+    StopCrossSection cs90 (0.0768342, 0.00602606);
+    MassPointParameters mpp90 (cs90, 47021);
+    StopNeutralinoMap.insert(std::make_pair(mp90, mpp90));
+
+    MassPoint mp91 (375, 75);
+    StopCrossSection cs91 (0.0768342, 0.00602606);
+    MassPointParameters mpp91 (cs91, 46646);
+    StopNeutralinoMap.insert(std::make_pair(mp91, mpp91));
+
+    MassPoint mp92 (375, 100);
+    StopCrossSection cs92 (0.0768342, 0.00602606);
+    MassPointParameters mpp92 (cs92, 47367);
+    StopNeutralinoMap.insert(std::make_pair(mp92, mpp92));
+
+    MassPoint mp93 (375, 125);
+    StopCrossSection cs93 (0.0768342, 0.00602606);
+    MassPointParameters mpp93 (cs93, 47243);
+    StopNeutralinoMap.insert(std::make_pair(mp93, mpp93));
+
+    MassPoint mp94 (375, 150);
+    StopCrossSection cs94 (0.0768342, 0.00602606);
+    MassPointParameters mpp94 (cs94, 51769);
+    StopNeutralinoMap.insert(std::make_pair(mp94, mpp94));
+
+    MassPoint mp95 (375, 175);
+    StopCrossSection cs95 (0.0768342, 0.00602606);
+    MassPointParameters mpp95 (cs95, 46694);
+    StopNeutralinoMap.insert(std::make_pair(mp95, mpp95));
+
+    MassPoint mp96 (375, 200);
+    StopCrossSection cs96 (0.0768342, 0.00602606);
+    MassPointParameters mpp96 (cs96, 46383);
+    StopNeutralinoMap.insert(std::make_pair(mp96, mpp96));
+
+    MassPoint mp97 (375, 225);
+    StopCrossSection cs97 (0.0768342, 0.00602606);
+    MassPointParameters mpp97 (cs97, 46487);
+    StopNeutralinoMap.insert(std::make_pair(mp97, mpp97));
+
+    MassPoint mp98 (375, 250);
+    StopCrossSection cs98 (0.0768342, 0.00602606);
+    MassPointParameters mpp98 (cs98, 44148);
+    StopNeutralinoMap.insert(std::make_pair(mp98, mpp98));
+
+    MassPoint mp99 (375, 275);
+    StopCrossSection cs99 (0.0768342, 0.00602606);
+    MassPointParameters mpp99 (cs99, 48977);
+    StopNeutralinoMap.insert(std::make_pair(mp99, mpp99));
+
+    MassPoint mp100 (375, 300);
+    StopCrossSection cs100 (0.0768342, 0.00602606);
+    MassPointParameters mpp100 (cs100, 55103);
+    StopNeutralinoMap.insert(std::make_pair(mp100, mpp100));
+
+    MassPoint mp101 (375, 325);
+    StopCrossSection cs101 (0.0768342, 0.00602606);
+    MassPointParameters mpp101 (cs101, 44515);
+    StopNeutralinoMap.insert(std::make_pair(mp101, mpp101));
+
+    MassPoint mp102 (400, 1);
+    StopCrossSection cs102 (0.0586311, 0.0047276);
+    MassPointParameters mpp102 (cs102, 49305);
+    StopNeutralinoMap.insert(std::make_pair(mp102, mpp102));
+
+    MassPoint mp103 (400, 25);
+    StopCrossSection cs103 (0.0586311, 0.0047276);
+    MassPointParameters mpp103 (cs103, 44793);
+    StopNeutralinoMap.insert(std::make_pair(mp103, mpp103));
+
+    MassPoint mp104 (400, 50);
+    StopCrossSection cs104 (0.0586311, 0.0047276);
+    MassPointParameters mpp104 (cs104, 48746);
+    StopNeutralinoMap.insert(std::make_pair(mp104, mpp104));
+
+    MassPoint mp105 (400, 75);
+    StopCrossSection cs105 (0.0586311, 0.0047276);
+    MassPointParameters mpp105 (cs105, 50661);
+    StopNeutralinoMap.insert(std::make_pair(mp105, mpp105));
+
+    MassPoint mp106 (400, 100);
+    StopCrossSection cs106 (0.0586311, 0.0047276);
+    MassPointParameters mpp106 (cs106, 49967);
+    StopNeutralinoMap.insert(std::make_pair(mp106, mpp106));
+
+    MassPoint mp107 (400, 125);
+    StopCrossSection cs107 (0.0586311, 0.0047276);
+    MassPointParameters mpp107 (cs107, 42918);
+    StopNeutralinoMap.insert(std::make_pair(mp107, mpp107));
+
+    MassPoint mp108 (400, 150);
+    StopCrossSection cs108 (0.0586311, 0.0047276);
+    MassPointParameters mpp108 (cs108, 45949);
+    StopNeutralinoMap.insert(std::make_pair(mp108, mpp108));
+
+    MassPoint mp109 (400, 175);
+    StopCrossSection cs109 (0.0586311, 0.0047276);
+    MassPointParameters mpp109 (cs109, 55332);
+    StopNeutralinoMap.insert(std::make_pair(mp109, mpp109));
+
+    MassPoint mp110 (400, 200);
+    StopCrossSection cs110 (0.0586311, 0.0047276);
+    MassPointParameters mpp110 (cs110, 50534);
+    StopNeutralinoMap.insert(std::make_pair(mp110, mpp110));
+
+    MassPoint mp111 (400, 225);
+    StopCrossSection cs111 (0.0586311, 0.0047276);
+    MassPointParameters mpp111 (cs111, 50573);
+    StopNeutralinoMap.insert(std::make_pair(mp111, mpp111));
+
+    MassPoint mp112 (400, 250);
+    StopCrossSection cs112 (0.0586311, 0.0047276);
+    MassPointParameters mpp112 (cs112, 50402);
+    StopNeutralinoMap.insert(std::make_pair(mp112, mpp112));
+
+    MassPoint mp113 (400, 275);
+    StopCrossSection cs113 (0.0586311, 0.0047276);
+    MassPointParameters mpp113 (cs113, 49443);
+    StopNeutralinoMap.insert(std::make_pair(mp113, mpp113));
+
+    MassPoint mp114 (400, 300);
+    StopCrossSection cs114 (0.0586311, 0.0047276);
+    MassPointParameters mpp114 (cs114, 47760);
+    StopNeutralinoMap.insert(std::make_pair(mp114, mpp114));
+
+    MassPoint mp115 (400, 325);
+    StopCrossSection cs115 (0.0586311, 0.0047276);
+    MassPointParameters mpp115 (cs115, 50429);
+    StopNeutralinoMap.insert(std::make_pair(mp115, mpp115));
+
+    MassPoint mp116 (400, 350);
+    StopCrossSection cs116 (0.0586311, 0.0047276);
+    MassPointParameters mpp116 (cs116, 51051);
+    StopNeutralinoMap.insert(std::make_pair(mp116, mpp116));
+
+    MassPoint mp117 (425, 1);
+    StopCrossSection cs117 (0.0452189, 0.00371547);
+    MassPointParameters mpp117 (cs117, 47877);
+    StopNeutralinoMap.insert(std::make_pair(mp117, mpp117));
+
+    MassPoint mp118 (425, 25);
+    StopCrossSection cs118 (0.0452189, 0.00371547);
+    MassPointParameters mpp118 (cs118, 46323);
+    StopNeutralinoMap.insert(std::make_pair(mp118, mpp118));
+
+    MassPoint mp119 (425, 50);
+    StopCrossSection cs119 (0.0452189, 0.00371547);
+    MassPointParameters mpp119 (cs119, 45129);
+    StopNeutralinoMap.insert(std::make_pair(mp119, mpp119));
+
+    MassPoint mp120 (425, 75);
+    StopCrossSection cs120 (0.0452189, 0.00371547);
+    MassPointParameters mpp120 (cs120, 48708);
+    StopNeutralinoMap.insert(std::make_pair(mp120, mpp120));
+
+    MassPoint mp121 (425, 100);
+    StopCrossSection cs121 (0.0452189, 0.00371547);
+    MassPointParameters mpp121 (cs121, 51087);
+    StopNeutralinoMap.insert(std::make_pair(mp121, mpp121));
+
+    MassPoint mp122 (425, 125);
+    StopCrossSection cs122 (0.0452189, 0.00371547);
+    MassPointParameters mpp122 (cs122, 48445);
+    StopNeutralinoMap.insert(std::make_pair(mp122, mpp122));
+
+    MassPoint mp123 (425, 150);
+    StopCrossSection cs123 (0.0452189, 0.00371547);
+    MassPointParameters mpp123 (cs123, 54166);
+    StopNeutralinoMap.insert(std::make_pair(mp123, mpp123));
+
+    MassPoint mp124 (425, 175);
+    StopCrossSection cs124 (0.0452189, 0.00371547);
+    MassPointParameters mpp124 (cs124, 50746);
+    StopNeutralinoMap.insert(std::make_pair(mp124, mpp124));
+
+    MassPoint mp125 (425, 200);
+    StopCrossSection cs125 (0.0452189, 0.00371547);
+    MassPointParameters mpp125 (cs125, 44941);
+    StopNeutralinoMap.insert(std::make_pair(mp125, mpp125));
+
+    MassPoint mp126 (425, 225);
+    StopCrossSection cs126 (0.0452189, 0.00371547);
+    MassPointParameters mpp126 (cs126, 46926);
+    StopNeutralinoMap.insert(std::make_pair(mp126, mpp126));
+
+    MassPoint mp127 (425, 250);
+    StopCrossSection cs127 (0.0452189, 0.00371547);
+    MassPointParameters mpp127 (cs127, 52769);
+    StopNeutralinoMap.insert(std::make_pair(mp127, mpp127));
+
+    MassPoint mp128 (425, 275);
+    StopCrossSection cs128 (0.0452189, 0.00371547);
+    MassPointParameters mpp128 (cs128, 45435);
+    StopNeutralinoMap.insert(std::make_pair(mp128, mpp128));
+
+    MassPoint mp129 (425, 300);
+    StopCrossSection cs129 (0.0452189, 0.00371547);
+    MassPointParameters mpp129 (cs129, 50006);
+    StopNeutralinoMap.insert(std::make_pair(mp129, mpp129));
+
+    MassPoint mp130 (425, 325);
+    StopCrossSection cs130 (0.0452189, 0.00371547);
+    MassPointParameters mpp130 (cs130, 46501);
+    StopNeutralinoMap.insert(std::make_pair(mp130, mpp130));
+
+    MassPoint mp131 (425, 350);
+    StopCrossSection cs131 (0.0452189, 0.00371547);
+    MassPointParameters mpp131 (cs131, 52746);
+    StopNeutralinoMap.insert(std::make_pair(mp131, mpp131));
+
+    MassPoint mp132 (425, 375);
+    StopCrossSection cs132 (0.0452189, 0.00371547);
+    MassPointParameters mpp132 (cs132, 47817);
+    StopNeutralinoMap.insert(std::make_pair(mp132, mpp132));
+
+    MassPoint mp133 (450, 1);
+    StopCrossSection cs133 (0.0353143, 0.00297283);
+    MassPointParameters mpp133 (cs133, 49478);
+    StopNeutralinoMap.insert(std::make_pair(mp133, mpp133));
+
+    MassPoint mp134 (450, 25);
+    StopCrossSection cs134 (0.0353143, 0.00297283);
+    MassPointParameters mpp134 (cs134, 49225);
+    StopNeutralinoMap.insert(std::make_pair(mp134, mpp134));
+
+    MassPoint mp135 (450, 50);
+    StopCrossSection cs135 (0.0353143, 0.00297283);
+    MassPointParameters mpp135 (cs135, 51626);
+    StopNeutralinoMap.insert(std::make_pair(mp135, mpp135));
+
+    MassPoint mp136 (450, 75);
+    StopCrossSection cs136 (0.0353143, 0.00297283);
+    MassPointParameters mpp136 (cs136, 49536);
+    StopNeutralinoMap.insert(std::make_pair(mp136, mpp136));
+
+    MassPoint mp137 (450, 100);
+    StopCrossSection cs137 (0.0353143, 0.00297283);
+    MassPointParameters mpp137 (cs137, 43933);
+    StopNeutralinoMap.insert(std::make_pair(mp137, mpp137));
+
+    MassPoint mp138 (450, 125);
+    StopCrossSection cs138 (0.0353143, 0.00297283);
+    MassPointParameters mpp138 (cs138, 45297);
+    StopNeutralinoMap.insert(std::make_pair(mp138, mpp138));
+
+    MassPoint mp139 (450, 150);
+    StopCrossSection cs139 (0.0353143, 0.00297283);
+    MassPointParameters mpp139 (cs139, 54727);
+    StopNeutralinoMap.insert(std::make_pair(mp139, mpp139));
+
+    MassPoint mp140 (450, 175);
+    StopCrossSection cs140 (0.0353143, 0.00297283);
+    MassPointParameters mpp140 (cs140, 47776);
+    StopNeutralinoMap.insert(std::make_pair(mp140, mpp140));
+
+    MassPoint mp141 (450, 200);
+    StopCrossSection cs141 (0.0353143, 0.00297283);
+    MassPointParameters mpp141 (cs141, 47759);
+    StopNeutralinoMap.insert(std::make_pair(mp141, mpp141));
+
+    MassPoint mp142 (450, 225);
+    StopCrossSection cs142 (0.0353143, 0.00297283);
+    MassPointParameters mpp142 (cs142, 52321);
+    StopNeutralinoMap.insert(std::make_pair(mp142, mpp142));
+
+    MassPoint mp143 (450, 250);
+    StopCrossSection cs143 (0.0353143, 0.00297283);
+    MassPointParameters mpp143 (cs143, 48819);
+    StopNeutralinoMap.insert(std::make_pair(mp143, mpp143));
+
+    MassPoint mp144 (450, 275);
+    StopCrossSection cs144 (0.0353143, 0.00297283);
+    MassPointParameters mpp144 (cs144, 49917);
+    StopNeutralinoMap.insert(std::make_pair(mp144, mpp144));
+
+    MassPoint mp145 (450, 300);
+    StopCrossSection cs145 (0.0353143, 0.00297283);
+    MassPointParameters mpp145 (cs145, 52125);
+    StopNeutralinoMap.insert(std::make_pair(mp145, mpp145));
+
+    MassPoint mp146 (450, 325);
+    StopCrossSection cs146 (0.0353143, 0.00297283);
+    MassPointParameters mpp146 (cs146, 47004);
+    StopNeutralinoMap.insert(std::make_pair(mp146, mpp146));
+
+    MassPoint mp147 (450, 350);
+    StopCrossSection cs147 (0.0353143, 0.00297283);
+    MassPointParameters mpp147 (cs147, 50835);
+    StopNeutralinoMap.insert(std::make_pair(mp147, mpp147));
+
+    MassPoint mp148 (450, 375);
+    StopCrossSection cs148 (0.0353143, 0.00297283);
+    MassPointParameters mpp148 (cs148, 48461);
+    StopNeutralinoMap.insert(std::make_pair(mp148, mpp148));
+
+    MassPoint mp149 (450, 400);
+    StopCrossSection cs149 (0.0353143, 0.00297283);
+    MassPointParameters mpp149 (cs149, 48588);
+    StopNeutralinoMap.insert(std::make_pair(mp149, mpp149));
+
+    MassPoint mp150 (475, 1);
+    StopCrossSection cs150 (0.0278342, 0.00241224);
+    MassPointParameters mpp150 (cs150, 43453);
+    StopNeutralinoMap.insert(std::make_pair(mp150, mpp150));
+
+    MassPoint mp151 (475, 25);
+    StopCrossSection cs151 (0.0278342, 0.00241224);
+    MassPointParameters mpp151 (cs151, 47063);
+    StopNeutralinoMap.insert(std::make_pair(mp151, mpp151));
+
+    MassPoint mp152 (475, 50);
+    StopCrossSection cs152 (0.0278342, 0.00241224);
+    MassPointParameters mpp152 (cs152, 50748);
+    StopNeutralinoMap.insert(std::make_pair(mp152, mpp152));
+
+    MassPoint mp153 (475, 75);
+    StopCrossSection cs153 (0.0278342, 0.00241224);
+    MassPointParameters mpp153 (cs153, 51314);
+    StopNeutralinoMap.insert(std::make_pair(mp153, mpp153));
+
+    MassPoint mp154 (475, 100);
+    StopCrossSection cs154 (0.0278342, 0.00241224);
+    MassPointParameters mpp154 (cs154, 52818);
+    StopNeutralinoMap.insert(std::make_pair(mp154, mpp154));
+
+    MassPoint mp155 (475, 125);
+    StopCrossSection cs155 (0.0278342, 0.00241224);
+    MassPointParameters mpp155 (cs155, 47298);
+    StopNeutralinoMap.insert(std::make_pair(mp155, mpp155));
+
+    MassPoint mp156 (475, 150);
+    StopCrossSection cs156 (0.0278342, 0.00241224);
+    MassPointParameters mpp156 (cs156, 47951);
+    StopNeutralinoMap.insert(std::make_pair(mp156, mpp156));
+
+    MassPoint mp157 (475, 175);
+    StopCrossSection cs157 (0.0278342, 0.00241224);
+    MassPointParameters mpp157 (cs157, 47872);
+    StopNeutralinoMap.insert(std::make_pair(mp157, mpp157));
+
+    MassPoint mp158 (475, 200);
+    StopCrossSection cs158 (0.0278342, 0.00241224);
+    MassPointParameters mpp158 (cs158, 52102);
+    StopNeutralinoMap.insert(std::make_pair(mp158, mpp158));
+
+    MassPoint mp159 (475, 225);
+    StopCrossSection cs159 (0.0278342, 0.00241224);
+    MassPointParameters mpp159 (cs159, 45317);
+    StopNeutralinoMap.insert(std::make_pair(mp159, mpp159));
+
+    MassPoint mp160 (475, 250);
+    StopCrossSection cs160 (0.0278342, 0.00241224);
+    MassPointParameters mpp160 (cs160, 47713);
+    StopNeutralinoMap.insert(std::make_pair(mp160, mpp160));
+
+    MassPoint mp161 (475, 275);
+    StopCrossSection cs161 (0.0278342, 0.00241224);
+    MassPointParameters mpp161 (cs161, 48251);
+    StopNeutralinoMap.insert(std::make_pair(mp161, mpp161));
+
+    MassPoint mp162 (475, 300);
+    StopCrossSection cs162 (0.0278342, 0.00241224);
+    MassPointParameters mpp162 (cs162, 50812);
+    StopNeutralinoMap.insert(std::make_pair(mp162, mpp162));
+
+    MassPoint mp163 (475, 325);
+    StopCrossSection cs163 (0.0278342, 0.00241224);
+    MassPointParameters mpp163 (cs163, 49146);
+    StopNeutralinoMap.insert(std::make_pair(mp163, mpp163));
+
+    MassPoint mp164 (475, 350);
+    StopCrossSection cs164 (0.0278342, 0.00241224);
+    MassPointParameters mpp164 (cs164, 47464);
+    StopNeutralinoMap.insert(std::make_pair(mp164, mpp164));
+
+    MassPoint mp165 (475, 375);
+    StopCrossSection cs165 (0.0278342, 0.00241224);
+    MassPointParameters mpp165 (cs165, 45184);
+    StopNeutralinoMap.insert(std::make_pair(mp165, mpp165));
+
+    MassPoint mp166 (475, 400);
+    StopCrossSection cs166 (0.0278342, 0.00241224);
+    MassPointParameters mpp166 (cs166, 40669);
+    StopNeutralinoMap.insert(std::make_pair(mp166, mpp166));
+
+    MassPoint mp167 (475, 425);
+    StopCrossSection cs167 (0.0278342, 0.00241224);
+    MassPointParameters mpp167 (cs167, 49499);
+    StopNeutralinoMap.insert(std::make_pair(mp167, mpp167));
+
+    MassPoint mp168 (500, 1);
+    StopCrossSection cs168 (0.0221265, 0.00194904);
+    MassPointParameters mpp168 (cs168, 54644);
+    StopNeutralinoMap.insert(std::make_pair(mp168, mpp168));
+
+    MassPoint mp169 (500, 25);
+    StopCrossSection cs169 (0.0221265, 0.00194904);
+    MassPointParameters mpp169 (cs169, 50474);
+    StopNeutralinoMap.insert(std::make_pair(mp169, mpp169));
+
+    MassPoint mp170 (500, 50);
+    StopCrossSection cs170 (0.0221265, 0.00194904);
+    MassPointParameters mpp170 (cs170, 46442);
+    StopNeutralinoMap.insert(std::make_pair(mp170, mpp170));
+
+    MassPoint mp171 (500, 75);
+    StopCrossSection cs171 (0.0221265, 0.00194904);
+    MassPointParameters mpp171 (cs171, 41924);
+    StopNeutralinoMap.insert(std::make_pair(mp171, mpp171));
+
+    MassPoint mp172 (500, 100);
+    StopCrossSection cs172 (0.0221265, 0.00194904);
+    MassPointParameters mpp172 (cs172, 46435);
+    StopNeutralinoMap.insert(std::make_pair(mp172, mpp172));
+
+    MassPoint mp173 (500, 125);
+    StopCrossSection cs173 (0.0221265, 0.00194904);
+    MassPointParameters mpp173 (cs173, 47343);
+    StopNeutralinoMap.insert(std::make_pair(mp173, mpp173));
+
+    MassPoint mp174 (500, 150);
+    StopCrossSection cs174 (0.0221265, 0.00194904);
+    MassPointParameters mpp174 (cs174, 48051);
+    StopNeutralinoMap.insert(std::make_pair(mp174, mpp174));
+
+    MassPoint mp175 (500, 175);
+    StopCrossSection cs175 (0.0221265, 0.00194904);
+    MassPointParameters mpp175 (cs175, 51888);
+    StopNeutralinoMap.insert(std::make_pair(mp175, mpp175));
+
+    MassPoint mp176 (500, 200);
+    StopCrossSection cs176 (0.0221265, 0.00194904);
+    MassPointParameters mpp176 (cs176, 42944);
+    StopNeutralinoMap.insert(std::make_pair(mp176, mpp176));
+
+    MassPoint mp177 (500, 225);
+    StopCrossSection cs177 (0.0221265, 0.00194904);
+    MassPointParameters mpp177 (cs177, 47612);
+    StopNeutralinoMap.insert(std::make_pair(mp177, mpp177));
+
+    MassPoint mp178 (500, 250);
+    StopCrossSection cs178 (0.0221265, 0.00194904);
+    MassPointParameters mpp178 (cs178, 48769);
+    StopNeutralinoMap.insert(std::make_pair(mp178, mpp178));
+
+    MassPoint mp179 (500, 275);
+    StopCrossSection cs179 (0.0221265, 0.00194904);
+    MassPointParameters mpp179 (cs179, 47555);
+    StopNeutralinoMap.insert(std::make_pair(mp179, mpp179));
+
+    MassPoint mp180 (500, 300);
+    StopCrossSection cs180 (0.0221265, 0.00194904);
+    MassPointParameters mpp180 (cs180, 50845);
+    StopNeutralinoMap.insert(std::make_pair(mp180, mpp180));
+
+    MassPoint mp181 (500, 325);
+    StopCrossSection cs181 (0.0221265, 0.00194904);
+    MassPointParameters mpp181 (cs181, 45177);
+    StopNeutralinoMap.insert(std::make_pair(mp181, mpp181));
+
+    MassPoint mp182 (500, 350);
+    StopCrossSection cs182 (0.0221265, 0.00194904);
+    MassPointParameters mpp182 (cs182, 51275);
+    StopNeutralinoMap.insert(std::make_pair(mp182, mpp182));
+
+    MassPoint mp183 (500, 375);
+    StopCrossSection cs183 (0.0221265, 0.00194904);
+    MassPointParameters mpp183 (cs183, 48370);
+    StopNeutralinoMap.insert(std::make_pair(mp183, mpp183));
+
+    MassPoint mp184 (500, 400);
+    StopCrossSection cs184 (0.0221265, 0.00194904);
+    MassPointParameters mpp184 (cs184, 45208);
+    StopNeutralinoMap.insert(std::make_pair(mp184, mpp184));
+
+    MassPoint mp185 (500, 425);
+    StopCrossSection cs185 (0.0221265, 0.00194904);
+    MassPointParameters mpp185 (cs185, 50458);
+    StopNeutralinoMap.insert(std::make_pair(mp185, mpp185));
+
+    MassPoint mp186 (500, 450);
+    StopCrossSection cs186 (0.0221265, 0.00194904);
+    MassPointParameters mpp186 (cs186, 45081);
+    StopNeutralinoMap.insert(std::make_pair(mp186, mpp186));
+
+    MassPoint mp187 (525, 1);
+    StopCrossSection cs187 (0.0177394, 0.0015992);
+    MassPointParameters mpp187 (cs187, 44598);
+    StopNeutralinoMap.insert(std::make_pair(mp187, mpp187));
+
+    MassPoint mp188 (525, 25);
+    StopCrossSection cs188 (0.0177394, 0.0015992);
+    MassPointParameters mpp188 (cs188, 47186);
+    StopNeutralinoMap.insert(std::make_pair(mp188, mpp188));
+
+    MassPoint mp189 (525, 50);
+    StopCrossSection cs189 (0.0177394, 0.0015992);
+    MassPointParameters mpp189 (cs189, 52792);
+    StopNeutralinoMap.insert(std::make_pair(mp189, mpp189));
+
+    MassPoint mp190 (525, 75);
+    StopCrossSection cs190 (0.0177394, 0.0015992);
+    MassPointParameters mpp190 (cs190, 53837);
+    StopNeutralinoMap.insert(std::make_pair(mp190, mpp190));
+
+    MassPoint mp191 (525, 100);
+    StopCrossSection cs191 (0.0177394, 0.0015992);
+    MassPointParameters mpp191 (cs191, 52956);
+    StopNeutralinoMap.insert(std::make_pair(mp191, mpp191));
+
+    MassPoint mp192 (525, 125);
+    StopCrossSection cs192 (0.0177394, 0.0015992);
+    MassPointParameters mpp192 (cs192, 53612);
+    StopNeutralinoMap.insert(std::make_pair(mp192, mpp192));
+
+    MassPoint mp193 (525, 150);
+    StopCrossSection cs193 (0.0177394, 0.0015992);
+    MassPointParameters mpp193 (cs193, 47889);
+    StopNeutralinoMap.insert(std::make_pair(mp193, mpp193));
+
+    MassPoint mp194 (525, 175);
+    StopCrossSection cs194 (0.0177394, 0.0015992);
+    MassPointParameters mpp194 (cs194, 50426);
+    StopNeutralinoMap.insert(std::make_pair(mp194, mpp194));
+
+    MassPoint mp195 (525, 200);
+    StopCrossSection cs195 (0.0177394, 0.0015992);
+    MassPointParameters mpp195 (cs195, 48427);
+    StopNeutralinoMap.insert(std::make_pair(mp195, mpp195));
+
+    MassPoint mp196 (525, 225);
+    StopCrossSection cs196 (0.0177394, 0.0015992);
+    MassPointParameters mpp196 (cs196, 48810);
+    StopNeutralinoMap.insert(std::make_pair(mp196, mpp196));
+
+    MassPoint mp197 (525, 250);
+    StopCrossSection cs197 (0.0177394, 0.0015992);
+    MassPointParameters mpp197 (cs197, 47635);
+    StopNeutralinoMap.insert(std::make_pair(mp197, mpp197));
+
+    MassPoint mp198 (525, 275);
+    StopCrossSection cs198 (0.0177394, 0.0015992);
+    MassPointParameters mpp198 (cs198, 49730);
+    StopNeutralinoMap.insert(std::make_pair(mp198, mpp198));
+
+    MassPoint mp199 (525, 300);
+    StopCrossSection cs199 (0.0177394, 0.0015992);
+    MassPointParameters mpp199 (cs199, 50812);
+    StopNeutralinoMap.insert(std::make_pair(mp199, mpp199));
+
+    MassPoint mp200 (525, 325);
+    StopCrossSection cs200 (0.0177394, 0.0015992);
+    MassPointParameters mpp200 (cs200, 47594);
+    StopNeutralinoMap.insert(std::make_pair(mp200, mpp200));
+
+    MassPoint mp201 (525, 350);
+    StopCrossSection cs201 (0.0177394, 0.0015992);
+    MassPointParameters mpp201 (cs201, 48992);
+    StopNeutralinoMap.insert(std::make_pair(mp201, mpp201));
+
+    MassPoint mp202 (525, 375);
+    StopCrossSection cs202 (0.0177394, 0.0015992);
+    MassPointParameters mpp202 (cs202, 52826);
+    StopNeutralinoMap.insert(std::make_pair(mp202, mpp202));
+
+    MassPoint mp203 (525, 400);
+    StopCrossSection cs203 (0.0177394, 0.0015992);
+    MassPointParameters mpp203 (cs203, 46197);
+    StopNeutralinoMap.insert(std::make_pair(mp203, mpp203));
+
+    MassPoint mp204 (525, 425);
+    StopCrossSection cs204 (0.0177394, 0.0015992);
+    MassPointParameters mpp204 (cs204, 50043);
+    StopNeutralinoMap.insert(std::make_pair(mp204, mpp204));
+
+    MassPoint mp205 (525, 450);
+    StopCrossSection cs205 (0.0177394, 0.0015992);
+    MassPointParameters mpp205 (cs205, 52260);
+    StopNeutralinoMap.insert(std::make_pair(mp205, mpp205));
+
+    MassPoint mp206 (525, 475);
+    StopCrossSection cs206 (0.0177394, 0.0015992);
+    MassPointParameters mpp206 (cs206, 48969);
+    StopNeutralinoMap.insert(std::make_pair(mp206, mpp206));
+
+    MassPoint mp207 (550, 1);
+    StopCrossSection cs207 (0.0143134, 0.00132368);
+    MassPointParameters mpp207 (cs207, 49488);
+    StopNeutralinoMap.insert(std::make_pair(mp207, mpp207));
+
+    MassPoint mp208 (550, 25);
+    StopCrossSection cs208 (0.0143134, 0.00132368);
+    MassPointParameters mpp208 (cs208, 49327);
+    StopNeutralinoMap.insert(std::make_pair(mp208, mpp208));
+
+    MassPoint mp209 (550, 50);
+    StopCrossSection cs209 (0.0143134, 0.00132368);
+    MassPointParameters mpp209 (cs209, 51714);
+    StopNeutralinoMap.insert(std::make_pair(mp209, mpp209));
+
+    MassPoint mp210 (550, 75);
+    StopCrossSection cs210 (0.0143134, 0.00132368);
+    MassPointParameters mpp210 (cs210, 53344);
+    StopNeutralinoMap.insert(std::make_pair(mp210, mpp210));
+
+    MassPoint mp211 (550, 100);
+    StopCrossSection cs211 (0.0143134, 0.00132368);
+    MassPointParameters mpp211 (cs211, 48333);
+    StopNeutralinoMap.insert(std::make_pair(mp211, mpp211));
+
+    MassPoint mp212 (550, 125);
+    StopCrossSection cs212 (0.0143134, 0.00132368);
+    MassPointParameters mpp212 (cs212, 53841);
+    StopNeutralinoMap.insert(std::make_pair(mp212, mpp212));
+
+    MassPoint mp213 (550, 150);
+    StopCrossSection cs213 (0.0143134, 0.00132368);
+    MassPointParameters mpp213 (cs213, 50576);
+    StopNeutralinoMap.insert(std::make_pair(mp213, mpp213));
+
+    MassPoint mp214 (550, 175);
+    StopCrossSection cs214 (0.0143134, 0.00132368);
+    MassPointParameters mpp214 (cs214, 47784);
+    StopNeutralinoMap.insert(std::make_pair(mp214, mpp214));
+
+    MassPoint mp215 (550, 200);
+    StopCrossSection cs215 (0.0143134, 0.00132368);
+    MassPointParameters mpp215 (cs215, 54623);
+    StopNeutralinoMap.insert(std::make_pair(mp215, mpp215));
+
+    MassPoint mp216 (550, 225);
+    StopCrossSection cs216 (0.0143134, 0.00132368);
+    MassPointParameters mpp216 (cs216, 49907);
+    StopNeutralinoMap.insert(std::make_pair(mp216, mpp216));
+
+    MassPoint mp217 (550, 250);
+    StopCrossSection cs217 (0.0143134, 0.00132368);
+    MassPointParameters mpp217 (cs217, 53260);
+    StopNeutralinoMap.insert(std::make_pair(mp217, mpp217));
+
+    MassPoint mp218 (550, 275);
+    StopCrossSection cs218 (0.0143134, 0.00132368);
+    MassPointParameters mpp218 (cs218, 52684);
+    StopNeutralinoMap.insert(std::make_pair(mp218, mpp218));
+
+    MassPoint mp219 (550, 300);
+    StopCrossSection cs219 (0.0143134, 0.00132368);
+    MassPointParameters mpp219 (cs219, 50095);
+    StopNeutralinoMap.insert(std::make_pair(mp219, mpp219));
+
+    MassPoint mp220 (550, 325);
+    StopCrossSection cs220 (0.0143134, 0.00132368);
+    MassPointParameters mpp220 (cs220, 46097);
+    StopNeutralinoMap.insert(std::make_pair(mp220, mpp220));
+
+    MassPoint mp221 (550, 350);
+    StopCrossSection cs221 (0.0143134, 0.00132368);
+    MassPointParameters mpp221 (cs221, 53728);
+    StopNeutralinoMap.insert(std::make_pair(mp221, mpp221));
+
+    MassPoint mp222 (550, 375);
+    StopCrossSection cs222 (0.0143134, 0.00132368);
+    MassPointParameters mpp222 (cs222, 51250);
+    StopNeutralinoMap.insert(std::make_pair(mp222, mpp222));
+
+    MassPoint mp223 (550, 400);
+    StopCrossSection cs223 (0.0143134, 0.00132368);
+    MassPointParameters mpp223 (cs223, 53630);
+    StopNeutralinoMap.insert(std::make_pair(mp223, mpp223));
+
+    MassPoint mp224 (550, 425);
+    StopCrossSection cs224 (0.0143134, 0.00132368);
+    MassPointParameters mpp224 (cs224, 49600);
+    StopNeutralinoMap.insert(std::make_pair(mp224, mpp224));
+
+    MassPoint mp225 (550, 450);
+    StopCrossSection cs225 (0.0143134, 0.00132368);
+    MassPointParameters mpp225 (cs225, 52892);
+    StopNeutralinoMap.insert(std::make_pair(mp225, mpp225));
+
+    MassPoint mp226 (550, 475);
+    StopCrossSection cs226 (0.0143134, 0.00132368);
+    MassPointParameters mpp226 (cs226, 52504);
+    StopNeutralinoMap.insert(std::make_pair(mp226, mpp226));
+
+    MassPoint mp227 (550, 500);
+    StopCrossSection cs227 (0.0143134, 0.00132368);
+    MassPointParameters mpp227 (cs227, 50430);
+    StopNeutralinoMap.insert(std::make_pair(mp227, mpp227));
+
+    MassPoint mp228 (575, 1);
+    StopCrossSection cs228 (0.0116266, 0.00109669);
+    MassPointParameters mpp228 (cs228, 47849);
+    StopNeutralinoMap.insert(std::make_pair(mp228, mpp228));
+
+    MassPoint mp229 (575, 25);
+    StopCrossSection cs229 (0.0116266, 0.00109669);
+    MassPointParameters mpp229 (cs229, 52509);
+    StopNeutralinoMap.insert(std::make_pair(mp229, mpp229));
+
+    MassPoint mp230 (575, 50);
+    StopCrossSection cs230 (0.0116266, 0.00109669);
+    MassPointParameters mpp230 (cs230, 51128);
+    StopNeutralinoMap.insert(std::make_pair(mp230, mpp230));
+
+    MassPoint mp231 (575, 75);
+    StopCrossSection cs231 (0.0116266, 0.00109669);
+    MassPointParameters mpp231 (cs231, 49426);
+    StopNeutralinoMap.insert(std::make_pair(mp231, mpp231));
+
+    MassPoint mp232 (575, 100);
+    StopCrossSection cs232 (0.0116266, 0.00109669);
+    MassPointParameters mpp232 (cs232, 52263);
+    StopNeutralinoMap.insert(std::make_pair(mp232, mpp232));
+
+    MassPoint mp233 (575, 125);
+    StopCrossSection cs233 (0.0116266, 0.00109669);
+    MassPointParameters mpp233 (cs233, 46747);
+    StopNeutralinoMap.insert(std::make_pair(mp233, mpp233));
+
+    MassPoint mp234 (575, 150);
+    StopCrossSection cs234 (0.0116266, 0.00109669);
+    MassPointParameters mpp234 (cs234, 48846);
+    StopNeutralinoMap.insert(std::make_pair(mp234, mpp234));
+
+    MassPoint mp235 (575, 175);
+    StopCrossSection cs235 (0.0116266, 0.00109669);
+    MassPointParameters mpp235 (cs235, 50822);
+    StopNeutralinoMap.insert(std::make_pair(mp235, mpp235));
+
+    MassPoint mp236 (575, 200);
+    StopCrossSection cs236 (0.0116266, 0.00109669);
+    MassPointParameters mpp236 (cs236, 53514);
+    StopNeutralinoMap.insert(std::make_pair(mp236, mpp236));
+
+    MassPoint mp237 (575, 225);
+    StopCrossSection cs237 (0.0116266, 0.00109669);
+    MassPointParameters mpp237 (cs237, 50054);
+    StopNeutralinoMap.insert(std::make_pair(mp237, mpp237));
+
+    MassPoint mp238 (575, 250);
+    StopCrossSection cs238 (0.0116266, 0.00109669);
+    MassPointParameters mpp238 (cs238, 52018);
+    StopNeutralinoMap.insert(std::make_pair(mp238, mpp238));
+
+    MassPoint mp239 (575, 275);
+    StopCrossSection cs239 (0.0116266, 0.00109669);
+    MassPointParameters mpp239 (cs239, 51749);
+    StopNeutralinoMap.insert(std::make_pair(mp239, mpp239));
+
+    MassPoint mp240 (575, 300);
+    StopCrossSection cs240 (0.0116266, 0.00109669);
+    MassPointParameters mpp240 (cs240, 49912);
+    StopNeutralinoMap.insert(std::make_pair(mp240, mpp240));
+
+    MassPoint mp241 (575, 325);
+    StopCrossSection cs241 (0.0116266, 0.00109669);
+    MassPointParameters mpp241 (cs241, 46171);
+    StopNeutralinoMap.insert(std::make_pair(mp241, mpp241));
+
+    MassPoint mp242 (575, 350);
+    StopCrossSection cs242 (0.0116266, 0.00109669);
+    MassPointParameters mpp242 (cs242, 51370);
+    StopNeutralinoMap.insert(std::make_pair(mp242, mpp242));
+
+    MassPoint mp243 (575, 375);
+    StopCrossSection cs243 (0.0116266, 0.00109669);
+    MassPointParameters mpp243 (cs243, 55962);
+    StopNeutralinoMap.insert(std::make_pair(mp243, mpp243));
+
+    MassPoint mp244 (575, 400);
+    StopCrossSection cs244 (0.0116266, 0.00109669);
+    MassPointParameters mpp244 (cs244, 51237);
+    StopNeutralinoMap.insert(std::make_pair(mp244, mpp244));
+
+    MassPoint mp245 (575, 425);
+    StopCrossSection cs245 (0.0116266, 0.00109669);
+    MassPointParameters mpp245 (cs245, 52559);
+    StopNeutralinoMap.insert(std::make_pair(mp245, mpp245));
+
+    MassPoint mp246 (575, 450);
+    StopCrossSection cs246 (0.0116266, 0.00109669);
+    MassPointParameters mpp246 (cs246, 49699);
+    StopNeutralinoMap.insert(std::make_pair(mp246, mpp246));
+
+    MassPoint mp247 (575, 475);
+    StopCrossSection cs247 (0.0116266, 0.00109669);
+    MassPointParameters mpp247 (cs247, 46908);
+    StopNeutralinoMap.insert(std::make_pair(mp247, mpp247));
+
+    MassPoint mp248 (575, 500);
+    StopCrossSection cs248 (0.0116266, 0.00109669);
+    MassPointParameters mpp248 (cs248, 44929);
+    StopNeutralinoMap.insert(std::make_pair(mp248, mpp248));
+
+    MassPoint mp249 (575, 525);
+    StopCrossSection cs249 (0.0116266, 0.00109669);
+    MassPointParameters mpp249 (cs249, 50646);
+    StopNeutralinoMap.insert(std::make_pair(mp249, mpp249));
+
+    MassPoint mp250 (600, 1);
+    StopCrossSection cs250 (0.00949913, 0.000912324);
+    MassPointParameters mpp250 (cs250, 53613);
+    StopNeutralinoMap.insert(std::make_pair(mp250, mpp250));
+
+    MassPoint mp251 (600, 25);
+    StopCrossSection cs251 (0.00949913, 0.000912324);
+    MassPointParameters mpp251 (cs251, 51880);
+    StopNeutralinoMap.insert(std::make_pair(mp251, mpp251));
+
+    MassPoint mp252 (600, 50);
+    StopCrossSection cs252 (0.00949913, 0.000912324);
+    MassPointParameters mpp252 (cs252, 48985);
+    StopNeutralinoMap.insert(std::make_pair(mp252, mpp252));
+
+    MassPoint mp253 (600, 75);
+    StopCrossSection cs253 (0.00949913, 0.000912324);
+    MassPointParameters mpp253 (cs253, 52556);
+    StopNeutralinoMap.insert(std::make_pair(mp253, mpp253));
+
+    MassPoint mp254 (600, 100);
+    StopCrossSection cs254 (0.00949913, 0.000912324);
+    MassPointParameters mpp254 (cs254, 47154);
+    StopNeutralinoMap.insert(std::make_pair(mp254, mpp254));
+
+    MassPoint mp255 (600, 125);
+    StopCrossSection cs255 (0.00949913, 0.000912324);
+    MassPointParameters mpp255 (cs255, 51322);
+    StopNeutralinoMap.insert(std::make_pair(mp255, mpp255));
+
+    MassPoint mp256 (600, 150);
+    StopCrossSection cs256 (0.00949913, 0.000912324);
+    MassPointParameters mpp256 (cs256, 49298);
+    StopNeutralinoMap.insert(std::make_pair(mp256, mpp256));
+
+    MassPoint mp257 (600, 175);
+    StopCrossSection cs257 (0.00949913, 0.000912324);
+    MassPointParameters mpp257 (cs257, 52058);
+    StopNeutralinoMap.insert(std::make_pair(mp257, mpp257));
+
+    MassPoint mp258 (600, 200);
+    StopCrossSection cs258 (0.00949913, 0.000912324);
+    MassPointParameters mpp258 (cs258, 51161);
+    StopNeutralinoMap.insert(std::make_pair(mp258, mpp258));
+
+    MassPoint mp259 (600, 225);
+    StopCrossSection cs259 (0.00949913, 0.000912324);
+    MassPointParameters mpp259 (cs259, 53003);
+    StopNeutralinoMap.insert(std::make_pair(mp259, mpp259));
+
+    MassPoint mp260 (600, 250);
+    StopCrossSection cs260 (0.00949913, 0.000912324);
+    MassPointParameters mpp260 (cs260, 50757);
+    StopNeutralinoMap.insert(std::make_pair(mp260, mpp260));
+
+    MassPoint mp261 (600, 275);
+    StopCrossSection cs261 (0.00949913, 0.000912324);
+    MassPointParameters mpp261 (cs261, 41548);
+    StopNeutralinoMap.insert(std::make_pair(mp261, mpp261));
+
+    MassPoint mp262 (600, 300);
+    StopCrossSection cs262 (0.00949913, 0.000912324);
+    MassPointParameters mpp262 (cs262, 46591);
+    StopNeutralinoMap.insert(std::make_pair(mp262, mpp262));
+
+    MassPoint mp263 (600, 325);
+    StopCrossSection cs263 (0.00949913, 0.000912324);
+    MassPointParameters mpp263 (cs263, 47768);
+    StopNeutralinoMap.insert(std::make_pair(mp263, mpp263));
+
+    MassPoint mp264 (600, 350);
+    StopCrossSection cs264 (0.00949913, 0.000912324);
+    MassPointParameters mpp264 (cs264, 50587);
+    StopNeutralinoMap.insert(std::make_pair(mp264, mpp264));
+
+    MassPoint mp265 (600, 375);
+    StopCrossSection cs265 (0.00949913, 0.000912324);
+    MassPointParameters mpp265 (cs265, 51760);
+    StopNeutralinoMap.insert(std::make_pair(mp265, mpp265));
+
+    MassPoint mp266 (600, 400);
+    StopCrossSection cs266 (0.00949913, 0.000912324);
+    MassPointParameters mpp266 (cs266, 48210);
+    StopNeutralinoMap.insert(std::make_pair(mp266, mpp266));
+
+    MassPoint mp267 (600, 425);
+    StopCrossSection cs267 (0.00949913, 0.000912324);
+    MassPointParameters mpp267 (cs267, 49047);
+    StopNeutralinoMap.insert(std::make_pair(mp267, mpp267));
+
+    MassPoint mp268 (600, 450);
+    StopCrossSection cs268 (0.00949913, 0.000912324);
+    MassPointParameters mpp268 (cs268, 50952);
+    StopNeutralinoMap.insert(std::make_pair(mp268, mpp268));
+
+    MassPoint mp269 (600, 475);
+    StopCrossSection cs269 (0.00949913, 0.000912324);
+    MassPointParameters mpp269 (cs269, 50018);
+    StopNeutralinoMap.insert(std::make_pair(mp269, mpp269));
+
+    MassPoint mp270 (600, 500);
+    StopCrossSection cs270 (0.00949913, 0.000912324);
+    MassPointParameters mpp270 (cs270, 45452);
+    StopNeutralinoMap.insert(std::make_pair(mp270, mpp270));
+
+    MassPoint mp271 (600, 525);
+    StopCrossSection cs271 (0.00949913, 0.000912324);
+    MassPointParameters mpp271 (cs271, 50522);
+    StopNeutralinoMap.insert(std::make_pair(mp271, mpp271));
+
+    MassPoint mp272 (600, 550);
+    StopCrossSection cs272 (0.00949913, 0.000912324);
+    MassPointParameters mpp272 (cs272, 47966);
+    StopNeutralinoMap.insert(std::make_pair(mp272, mpp272));
+
+    MassPoint mp273 (625, 1);
+    StopCrossSection cs273 (0.00780081, 0.000768988);
+    MassPointParameters mpp273 (cs273, 50628);
+    StopNeutralinoMap.insert(std::make_pair(mp273, mpp273));
+
+    MassPoint mp274 (625, 25);
+    StopCrossSection cs274 (0.00780081, 0.000768988);
+    MassPointParameters mpp274 (cs274, 51150);
+    StopNeutralinoMap.insert(std::make_pair(mp274, mpp274));
+
+    MassPoint mp275 (625, 50);
+    StopCrossSection cs275 (0.00780081, 0.000768988);
+    MassPointParameters mpp275 (cs275, 50141);
+    StopNeutralinoMap.insert(std::make_pair(mp275, mpp275));
+
+    MassPoint mp276 (625, 75);
+    StopCrossSection cs276 (0.00780081, 0.000768988);
+    MassPointParameters mpp276 (cs276, 40673);
+    StopNeutralinoMap.insert(std::make_pair(mp276, mpp276));
+
+    MassPoint mp277 (625, 100);
+    StopCrossSection cs277 (0.00780081, 0.000768988);
+    MassPointParameters mpp277 (cs277, 44829);
+    StopNeutralinoMap.insert(std::make_pair(mp277, mpp277));
+
+    MassPoint mp278 (625, 125);
+    StopCrossSection cs278 (0.00780081, 0.000768988);
+    MassPointParameters mpp278 (cs278, 48033);
+    StopNeutralinoMap.insert(std::make_pair(mp278, mpp278));
+
+    MassPoint mp279 (625, 150);
+    StopCrossSection cs279 (0.00780081, 0.000768988);
+    MassPointParameters mpp279 (cs279, 50014);
+    StopNeutralinoMap.insert(std::make_pair(mp279, mpp279));
+
+    MassPoint mp280 (625, 175);
+    StopCrossSection cs280 (0.00780081, 0.000768988);
+    MassPointParameters mpp280 (cs280, 44179);
+    StopNeutralinoMap.insert(std::make_pair(mp280, mpp280));
+
+    MassPoint mp281 (625, 200);
+    StopCrossSection cs281 (0.00780081, 0.000768988);
+    MassPointParameters mpp281 (cs281, 50260);
+    StopNeutralinoMap.insert(std::make_pair(mp281, mpp281));
+
+    MassPoint mp282 (625, 225);
+    StopCrossSection cs282 (0.00780081, 0.000768988);
+    MassPointParameters mpp282 (cs282, 50056);
+    StopNeutralinoMap.insert(std::make_pair(mp282, mpp282));
+
+    MassPoint mp283 (625, 250);
+    StopCrossSection cs283 (0.00780081, 0.000768988);
+    MassPointParameters mpp283 (cs283, 48346);
+    StopNeutralinoMap.insert(std::make_pair(mp283, mpp283));
+
+    MassPoint mp284 (625, 275);
+    StopCrossSection cs284 (0.00780081, 0.000768988);
+    MassPointParameters mpp284 (cs284, 51145);
+    StopNeutralinoMap.insert(std::make_pair(mp284, mpp284));
+
+    MassPoint mp285 (625, 300);
+    StopCrossSection cs285 (0.00780081, 0.000768988);
+    MassPointParameters mpp285 (cs285, 51222);
+    StopNeutralinoMap.insert(std::make_pair(mp285, mpp285));
+
+    MassPoint mp286 (625, 325);
+    StopCrossSection cs286 (0.00780081, 0.000768988);
+    MassPointParameters mpp286 (cs286, 53082);
+    StopNeutralinoMap.insert(std::make_pair(mp286, mpp286));
+
+    MassPoint mp287 (625, 350);
+    StopCrossSection cs287 (0.00780081, 0.000768988);
+    MassPointParameters mpp287 (cs287, 48483);
+    StopNeutralinoMap.insert(std::make_pair(mp287, mpp287));
+
+    MassPoint mp288 (625, 375);
+    StopCrossSection cs288 (0.00780081, 0.000768988);
+    MassPointParameters mpp288 (cs288, 49404);
+    StopNeutralinoMap.insert(std::make_pair(mp288, mpp288));
+
+    MassPoint mp289 (625, 400);
+    StopCrossSection cs289 (0.00780081, 0.000768988);
+    MassPointParameters mpp289 (cs289, 49466);
+    StopNeutralinoMap.insert(std::make_pair(mp289, mpp289));
+
+    MassPoint mp290 (625, 425);
+    StopCrossSection cs290 (0.00780081, 0.000768988);
+    MassPointParameters mpp290 (cs290, 49460);
+    StopNeutralinoMap.insert(std::make_pair(mp290, mpp290));
+
+    MassPoint mp291 (625, 450);
+    StopCrossSection cs291 (0.00780081, 0.000768988);
+    MassPointParameters mpp291 (cs291, 52267);
+    StopNeutralinoMap.insert(std::make_pair(mp291, mpp291));
+
+    MassPoint mp292 (625, 475);
+    StopCrossSection cs292 (0.00780081, 0.000768988);
+    MassPointParameters mpp292 (cs292, 48652);
+    StopNeutralinoMap.insert(std::make_pair(mp292, mpp292));
+
+    MassPoint mp293 (625, 500);
+    StopCrossSection cs293 (0.00780081, 0.000768988);
+    MassPointParameters mpp293 (cs293, 44152);
+    StopNeutralinoMap.insert(std::make_pair(mp293, mpp293));
+
+    MassPoint mp294 (625, 525);
+    StopCrossSection cs294 (0.00780081, 0.000768988);
+    MassPointParameters mpp294 (cs294, 50810);
+    StopNeutralinoMap.insert(std::make_pair(mp294, mpp294));
+
+    MassPoint mp295 (625, 550);
+    StopCrossSection cs295 (0.00780081, 0.000768988);
+    MassPointParameters mpp295 (cs295, 46070);
+    StopNeutralinoMap.insert(std::make_pair(mp295, mpp295));
+
+    MassPoint mp296 (625, 575);
+    StopCrossSection cs296 (0.00780081, 0.000768988);
+    MassPointParameters mpp296 (cs296, 50942);
+    StopNeutralinoMap.insert(std::make_pair(mp296, mpp296));
+
+    MassPoint mp297 (650, 1);
+    StopCrossSection cs297 (0.00643244, 0.000638889);
+    MassPointParameters mpp297 (cs297, 45847);
+    StopNeutralinoMap.insert(std::make_pair(mp297, mpp297));
+
+    MassPoint mp298 (650, 25);
+    StopCrossSection cs298 (0.00643244, 0.000638889);
+    MassPointParameters mpp298 (cs298, 53208);
+    StopNeutralinoMap.insert(std::make_pair(mp298, mpp298));
+
+    MassPoint mp299 (650, 50);
+    StopCrossSection cs299 (0.00643244, 0.000638889);
+    MassPointParameters mpp299 (cs299, 41186);
+    StopNeutralinoMap.insert(std::make_pair(mp299, mpp299));
+
+    MassPoint mp300 (650, 75);
+    StopCrossSection cs300 (0.00643244, 0.000638889);
+    MassPointParameters mpp300 (cs300, 43007);
+    StopNeutralinoMap.insert(std::make_pair(mp300, mpp300));
+
+    MassPoint mp301 (650, 100);
+    StopCrossSection cs301 (0.00643244, 0.000638889);
+    MassPointParameters mpp301 (cs301, 52006);
+    StopNeutralinoMap.insert(std::make_pair(mp301, mpp301));
+
+    MassPoint mp302 (650, 125);
+    StopCrossSection cs302 (0.00643244, 0.000638889);
+    MassPointParameters mpp302 (cs302, 48256);
+    StopNeutralinoMap.insert(std::make_pair(mp302, mpp302));
+
+    MassPoint mp303 (650, 150);
+    StopCrossSection cs303 (0.00643244, 0.000638889);
+    MassPointParameters mpp303 (cs303, 47606);
+    StopNeutralinoMap.insert(std::make_pair(mp303, mpp303));
+
+    MassPoint mp304 (650, 175);
+    StopCrossSection cs304 (0.00643244, 0.000638889);
+    MassPointParameters mpp304 (cs304, 47625);
+    StopNeutralinoMap.insert(std::make_pair(mp304, mpp304));
+
+    MassPoint mp305 (650, 200);
+    StopCrossSection cs305 (0.00643244, 0.000638889);
+    MassPointParameters mpp305 (cs305, 45379);
+    StopNeutralinoMap.insert(std::make_pair(mp305, mpp305));
+
+    MassPoint mp306 (650, 225);
+    StopCrossSection cs306 (0.00643244, 0.000638889);
+    MassPointParameters mpp306 (cs306, 54097);
+    StopNeutralinoMap.insert(std::make_pair(mp306, mpp306));
+
+    MassPoint mp307 (650, 250);
+    StopCrossSection cs307 (0.00643244, 0.000638889);
+    MassPointParameters mpp307 (cs307, 52543);
+    StopNeutralinoMap.insert(std::make_pair(mp307, mpp307));
+
+    MassPoint mp308 (650, 275);
+    StopCrossSection cs308 (0.00643244, 0.000638889);
+    MassPointParameters mpp308 (cs308, 50666);
+    StopNeutralinoMap.insert(std::make_pair(mp308, mpp308));
+
+    MassPoint mp309 (650, 300);
+    StopCrossSection cs309 (0.00643244, 0.000638889);
+    MassPointParameters mpp309 (cs309, 46964);
+    StopNeutralinoMap.insert(std::make_pair(mp309, mpp309));
+
+    MassPoint mp310 (650, 325);
+    StopCrossSection cs310 (0.00643244, 0.000638889);
+    MassPointParameters mpp310 (cs310, 43878);
+    StopNeutralinoMap.insert(std::make_pair(mp310, mpp310));
+
+    MassPoint mp311 (650, 350);
+    StopCrossSection cs311 (0.00643244, 0.000638889);
+    MassPointParameters mpp311 (cs311, 48494);
+    StopNeutralinoMap.insert(std::make_pair(mp311, mpp311));
+
+    MassPoint mp312 (650, 375);
+    StopCrossSection cs312 (0.00643244, 0.000638889);
+    MassPointParameters mpp312 (cs312, 52693);
+    StopNeutralinoMap.insert(std::make_pair(mp312, mpp312));
+
+    MassPoint mp313 (650, 400);
+    StopCrossSection cs313 (0.00643244, 0.000638889);
+    MassPointParameters mpp313 (cs313, 46197);
+    StopNeutralinoMap.insert(std::make_pair(mp313, mpp313));
+
+    MassPoint mp314 (650, 425);
+    StopCrossSection cs314 (0.00643244, 0.000638889);
+    MassPointParameters mpp314 (cs314, 49678);
+    StopNeutralinoMap.insert(std::make_pair(mp314, mpp314));
+
+    MassPoint mp315 (650, 450);
+    StopCrossSection cs315 (0.00643244, 0.000638889);
+    MassPointParameters mpp315 (cs315, 51026);
+    StopNeutralinoMap.insert(std::make_pair(mp315, mpp315));
+
+    MassPoint mp316 (650, 475);
+    StopCrossSection cs316 (0.00643244, 0.000638889);
+    MassPointParameters mpp316 (cs316, 42480);
+    StopNeutralinoMap.insert(std::make_pair(mp316, mpp316));
+
+    MassPoint mp317 (650, 500);
+    StopCrossSection cs317 (0.00643244, 0.000638889);
+    MassPointParameters mpp317 (cs317, 51976);
+    StopNeutralinoMap.insert(std::make_pair(mp317, mpp317));
+
+    MassPoint mp318 (650, 525);
+    StopCrossSection cs318 (0.00643244, 0.000638889);
+    MassPointParameters mpp318 (cs318, 43650);
+    StopNeutralinoMap.insert(std::make_pair(mp318, mpp318));
+
+    MassPoint mp319 (650, 550);
+    StopCrossSection cs319 (0.00643244, 0.000638889);
+    MassPointParameters mpp319 (cs319, 48155);
+    StopNeutralinoMap.insert(std::make_pair(mp319, mpp319));
+
+    MassPoint mp320 (650, 575);
+    StopCrossSection cs320 (0.00643244, 0.000638889);
+    MassPointParameters mpp320 (cs320, 50770);
+    StopNeutralinoMap.insert(std::make_pair(mp320, mpp320));
+
+    MassPoint mp321 (650, 600);
+    StopCrossSection cs321 (0.00643244, 0.000638889);
+    MassPointParameters mpp321 (cs321, 50832);
+    StopNeutralinoMap.insert(std::make_pair(mp321, mpp321));
+
+    MassPoint mp322 (675, 1);
+    StopCrossSection cs322 (0.00533642, 0.000541519);
+    MassPointParameters mpp322 (cs322, 47268);
+    StopNeutralinoMap.insert(std::make_pair(mp322, mpp322));
+
+    MassPoint mp323 (675, 25);
+    StopCrossSection cs323 (0.00533642, 0.000541519);
+    MassPointParameters mpp323 (cs323, 47286);
+    StopNeutralinoMap.insert(std::make_pair(mp323, mpp323));
+
+    MassPoint mp324 (675, 50);
+    StopCrossSection cs324 (0.00533642, 0.000541519);
+    MassPointParameters mpp324 (cs324, 50388);
+    StopNeutralinoMap.insert(std::make_pair(mp324, mpp324));
+
+    MassPoint mp325 (675, 75);
+    StopCrossSection cs325 (0.00533642, 0.000541519);
+    MassPointParameters mpp325 (cs325, 47859);
+    StopNeutralinoMap.insert(std::make_pair(mp325, mpp325));
+
+    MassPoint mp326 (675, 100);
+    StopCrossSection cs326 (0.00533642, 0.000541519);
+    MassPointParameters mpp326 (cs326, 49018);
+    StopNeutralinoMap.insert(std::make_pair(mp326, mpp326));
+
+    MassPoint mp327 (675, 125);
+    StopCrossSection cs327 (0.00533642, 0.000541519);
+    MassPointParameters mpp327 (cs327, 42176);
+    StopNeutralinoMap.insert(std::make_pair(mp327, mpp327));
+
+    MassPoint mp328 (675, 150);
+    StopCrossSection cs328 (0.00533642, 0.000541519);
+    MassPointParameters mpp328 (cs328, 49883);
+    StopNeutralinoMap.insert(std::make_pair(mp328, mpp328));
+
+    MassPoint mp329 (675, 175);
+    StopCrossSection cs329 (0.00533642, 0.000541519);
+    MassPointParameters mpp329 (cs329, 46186);
+    StopNeutralinoMap.insert(std::make_pair(mp329, mpp329));
+
+    MassPoint mp330 (675, 200);
+    StopCrossSection cs330 (0.00533642, 0.000541519);
+    MassPointParameters mpp330 (cs330, 51010);
+    StopNeutralinoMap.insert(std::make_pair(mp330, mpp330));
+
+    MassPoint mp331 (675, 225);
+    StopCrossSection cs331 (0.00533642, 0.000541519);
+    MassPointParameters mpp331 (cs331, 47734);
+    StopNeutralinoMap.insert(std::make_pair(mp331, mpp331));
+
+    MassPoint mp332 (675, 250);
+    StopCrossSection cs332 (0.00533642, 0.000541519);
+    MassPointParameters mpp332 (cs332, 45208);
+    StopNeutralinoMap.insert(std::make_pair(mp332, mpp332));
+
+    MassPoint mp333 (675, 275);
+    StopCrossSection cs333 (0.00533642, 0.000541519);
+    MassPointParameters mpp333 (cs333, 48475);
+    StopNeutralinoMap.insert(std::make_pair(mp333, mpp333));
+
+    MassPoint mp334 (675, 300);
+    StopCrossSection cs334 (0.00533642, 0.000541519);
+    MassPointParameters mpp334 (cs334, 54957);
+    StopNeutralinoMap.insert(std::make_pair(mp334, mpp334));
+
+    MassPoint mp335 (675, 325);
+    StopCrossSection cs335 (0.00533642, 0.000541519);
+    MassPointParameters mpp335 (cs335, 47373);
+    StopNeutralinoMap.insert(std::make_pair(mp335, mpp335));
+
+    MassPoint mp336 (675, 350);
+    StopCrossSection cs336 (0.00533642, 0.000541519);
+    MassPointParameters mpp336 (cs336, 50675);
+    StopNeutralinoMap.insert(std::make_pair(mp336, mpp336));
+
+    MassPoint mp337 (675, 375);
+    StopCrossSection cs337 (0.00533642, 0.000541519);
+    MassPointParameters mpp337 (cs337, 41396);
+    StopNeutralinoMap.insert(std::make_pair(mp337, mpp337));
+
+    MassPoint mp338 (675, 400);
+    StopCrossSection cs338 (0.00533642, 0.000541519);
+    MassPointParameters mpp338 (cs338, 51192);
+    StopNeutralinoMap.insert(std::make_pair(mp338, mpp338));
+
+    MassPoint mp339 (675, 425);
+    StopCrossSection cs339 (0.00533642, 0.000541519);
+    MassPointParameters mpp339 (cs339, 47809);
+    StopNeutralinoMap.insert(std::make_pair(mp339, mpp339));
+
+    MassPoint mp340 (675, 450);
+    StopCrossSection cs340 (0.00533642, 0.000541519);
+    MassPointParameters mpp340 (cs340, 47596);
+    StopNeutralinoMap.insert(std::make_pair(mp340, mpp340));
+
+    MassPoint mp341 (675, 475);
+    StopCrossSection cs341 (0.00533642, 0.000541519);
+    MassPointParameters mpp341 (cs341, 53884);
+    StopNeutralinoMap.insert(std::make_pair(mp341, mpp341));
+
+    MassPoint mp342 (675, 500);
+    StopCrossSection cs342 (0.00533642, 0.000541519);
+    MassPointParameters mpp342 (cs342, 50410);
+    StopNeutralinoMap.insert(std::make_pair(mp342, mpp342));
+
+    MassPoint mp343 (675, 525);
+    StopCrossSection cs343 (0.00533642, 0.000541519);
+    MassPointParameters mpp343 (cs343, 44762);
+    StopNeutralinoMap.insert(std::make_pair(mp343, mpp343));
+
+    MassPoint mp344 (675, 550);
+    StopCrossSection cs344 (0.00533642, 0.000541519);
+    MassPointParameters mpp344 (cs344, 46476);
+    StopNeutralinoMap.insert(std::make_pair(mp344, mpp344));
+
+    MassPoint mp345 (675, 575);
+    StopCrossSection cs345 (0.00533642, 0.000541519);
+    MassPointParameters mpp345 (cs345, 47077);
+    StopNeutralinoMap.insert(std::make_pair(mp345, mpp345));
+
+    MassPoint mp346 (675, 600);
+    StopCrossSection cs346 (0.00533642, 0.000541519);
+    MassPointParameters mpp346 (cs346, 51380);
+    StopNeutralinoMap.insert(std::make_pair(mp346, mpp346));
+
+    MassPoint mp347 (700, 1);
+    StopCrossSection cs347 (0.0044387, 0.000457123);
+    MassPointParameters mpp347 (cs347, 48092);
+    StopNeutralinoMap.insert(std::make_pair(mp347, mpp347));
+
+    MassPoint mp348 (700, 25);
+    StopCrossSection cs348 (0.0044387, 0.000457123);
+    MassPointParameters mpp348 (cs348, 50206);
+    StopNeutralinoMap.insert(std::make_pair(mp348, mpp348));
+
+    MassPoint mp349 (700, 50);
+    StopCrossSection cs349 (0.0044387, 0.000457123);
+    MassPointParameters mpp349 (cs349, 44996);
+    StopNeutralinoMap.insert(std::make_pair(mp349, mpp349));
+
+    MassPoint mp350 (700, 75);
+    StopCrossSection cs350 (0.0044387, 0.000457123);
+    MassPointParameters mpp350 (cs350, 43303);
+    StopNeutralinoMap.insert(std::make_pair(mp350, mpp350));
+
+    MassPoint mp351 (700, 100);
+    StopCrossSection cs351 (0.0044387, 0.000457123);
+    MassPointParameters mpp351 (cs351, 52318);
+    StopNeutralinoMap.insert(std::make_pair(mp351, mpp351));
+
+    MassPoint mp352 (700, 125);
+    StopCrossSection cs352 (0.0044387, 0.000457123);
+    MassPointParameters mpp352 (cs352, 52874);
+    StopNeutralinoMap.insert(std::make_pair(mp352, mpp352));
+
+    MassPoint mp353 (700, 150);
+    StopCrossSection cs353 (0.0044387, 0.000457123);
+    MassPointParameters mpp353 (cs353, 50128);
+    StopNeutralinoMap.insert(std::make_pair(mp353, mpp353));
+
+    MassPoint mp354 (700, 175);
+    StopCrossSection cs354 (0.0044387, 0.000457123);
+    MassPointParameters mpp354 (cs354, 49619);
+    StopNeutralinoMap.insert(std::make_pair(mp354, mpp354));
+
+    MassPoint mp355 (700, 200);
+    StopCrossSection cs355 (0.0044387, 0.000457123);
+    MassPointParameters mpp355 (cs355, 49873);
+    StopNeutralinoMap.insert(std::make_pair(mp355, mpp355));
+
+    MassPoint mp356 (700, 225);
+    StopCrossSection cs356 (0.0044387, 0.000457123);
+    MassPointParameters mpp356 (cs356, 44017);
+    StopNeutralinoMap.insert(std::make_pair(mp356, mpp356));
+
+    MassPoint mp357 (700, 250);
+    StopCrossSection cs357 (0.0044387, 0.000457123);
+    MassPointParameters mpp357 (cs357, 48215);
+    StopNeutralinoMap.insert(std::make_pair(mp357, mpp357));
+
+    MassPoint mp358 (700, 275);
+    StopCrossSection cs358 (0.0044387, 0.000457123);
+    MassPointParameters mpp358 (cs358, 51344);
+    StopNeutralinoMap.insert(std::make_pair(mp358, mpp358));
+
+    MassPoint mp359 (700, 300);
+    StopCrossSection cs359 (0.0044387, 0.000457123);
+    MassPointParameters mpp359 (cs359, 54461);
+    StopNeutralinoMap.insert(std::make_pair(mp359, mpp359));
+
+    MassPoint mp360 (700, 325);
+    StopCrossSection cs360 (0.0044387, 0.000457123);
+    MassPointParameters mpp360 (cs360, 47025);
+    StopNeutralinoMap.insert(std::make_pair(mp360, mpp360));
+
+    MassPoint mp361 (700, 350);
+    StopCrossSection cs361 (0.0044387, 0.000457123);
+    MassPointParameters mpp361 (cs361, 53220);
+    StopNeutralinoMap.insert(std::make_pair(mp361, mpp361));
+
+    MassPoint mp362 (700, 375);
+    StopCrossSection cs362 (0.0044387, 0.000457123);
+    MassPointParameters mpp362 (cs362, 44983);
+    StopNeutralinoMap.insert(std::make_pair(mp362, mpp362));
+
+    MassPoint mp363 (700, 400);
+    StopCrossSection cs363 (0.0044387, 0.000457123);
+    MassPointParameters mpp363 (cs363, 40253);
+    StopNeutralinoMap.insert(std::make_pair(mp363, mpp363));
+
+    MassPoint mp364 (700, 425);
+    StopCrossSection cs364 (0.0044387, 0.000457123);
+    MassPointParameters mpp364 (cs364, 50819);
+    StopNeutralinoMap.insert(std::make_pair(mp364, mpp364));
+
+    MassPoint mp365 (700, 450);
+    StopCrossSection cs365 (0.0044387, 0.000457123);
+    MassPointParameters mpp365 (cs365, 48140);
+    StopNeutralinoMap.insert(std::make_pair(mp365, mpp365));
+
+    MassPoint mp366 (700, 475);
+    StopCrossSection cs366 (0.0044387, 0.000457123);
+    MassPointParameters mpp366 (cs366, 50851);
+    StopNeutralinoMap.insert(std::make_pair(mp366, mpp366));
+
+    MassPoint mp367 (700, 500);
+    StopCrossSection cs367 (0.0044387, 0.000457123);
+    MassPointParameters mpp367 (cs367, 44310);
+    StopNeutralinoMap.insert(std::make_pair(mp367, mpp367));
+
+    MassPoint mp368 (700, 525);
+    StopCrossSection cs368 (0.0044387, 0.000457123);
+    MassPointParameters mpp368 (cs368, 50292);
+    StopNeutralinoMap.insert(std::make_pair(mp368, mpp368));
+
+    MassPoint mp369 (700, 550);
+    StopCrossSection cs369 (0.0044387, 0.000457123);
+    MassPointParameters mpp369 (cs369, 50226);
+    StopNeutralinoMap.insert(std::make_pair(mp369, mpp369));
+
+    MassPoint mp370 (700, 575);
+    StopCrossSection cs370 (0.0044387, 0.000457123);
+    MassPointParameters mpp370 (cs370, 50771);
+    StopNeutralinoMap.insert(std::make_pair(mp370, mpp370));
+
+    MassPoint mp371 (700, 600);
+    StopCrossSection cs371 (0.0044387, 0.000457123);
+    MassPointParameters mpp371 (cs371, 49120);
+    StopNeutralinoMap.insert(std::make_pair(mp371, mpp371));
+
+    MassPoint mp372 (725, 1);
+    StopCrossSection cs372 (0.00370675, 0.000385799);
+    MassPointParameters mpp372 (cs372, 49654);
+    StopNeutralinoMap.insert(std::make_pair(mp372, mpp372));
+
+    MassPoint mp373 (725, 25);
+    StopCrossSection cs373 (0.00370675, 0.000385799);
+    MassPointParameters mpp373 (cs373, 54279);
+    StopNeutralinoMap.insert(std::make_pair(mp373, mpp373));
+
+    MassPoint mp374 (725, 50);
+    StopCrossSection cs374 (0.00370675, 0.000385799);
+    MassPointParameters mpp374 (cs374, 43911);
+    StopNeutralinoMap.insert(std::make_pair(mp374, mpp374));
+
+    MassPoint mp375 (725, 75);
+    StopCrossSection cs375 (0.00370675, 0.000385799);
+    MassPointParameters mpp375 (cs375, 48816);
+    StopNeutralinoMap.insert(std::make_pair(mp375, mpp375));
+
+    MassPoint mp376 (725, 100);
+    StopCrossSection cs376 (0.00370675, 0.000385799);
+    MassPointParameters mpp376 (cs376, 52643);
+    StopNeutralinoMap.insert(std::make_pair(mp376, mpp376));
+
+    MassPoint mp377 (725, 125);
+    StopCrossSection cs377 (0.00370675, 0.000385799);
+    MassPointParameters mpp377 (cs377, 50389);
+    StopNeutralinoMap.insert(std::make_pair(mp377, mpp377));
+
+    MassPoint mp378 (725, 150);
+    StopCrossSection cs378 (0.00370675, 0.000385799);
+    MassPointParameters mpp378 (cs378, 53972);
+    StopNeutralinoMap.insert(std::make_pair(mp378, mpp378));
+
+    MassPoint mp379 (725, 175);
+    StopCrossSection cs379 (0.00370675, 0.000385799);
+    MassPointParameters mpp379 (cs379, 52198);
+    StopNeutralinoMap.insert(std::make_pair(mp379, mpp379));
+
+    MassPoint mp380 (725, 200);
+    StopCrossSection cs380 (0.00370675, 0.000385799);
+    MassPointParameters mpp380 (cs380, 47309);
+    StopNeutralinoMap.insert(std::make_pair(mp380, mpp380));
+
+    MassPoint mp381 (725, 225);
+    StopCrossSection cs381 (0.00370675, 0.000385799);
+    MassPointParameters mpp381 (cs381, 51338);
+    StopNeutralinoMap.insert(std::make_pair(mp381, mpp381));
+
+    MassPoint mp382 (725, 250);
+    StopCrossSection cs382 (0.00370675, 0.000385799);
+    MassPointParameters mpp382 (cs382, 46512);
+    StopNeutralinoMap.insert(std::make_pair(mp382, mpp382));
+
+    MassPoint mp383 (725, 275);
+    StopCrossSection cs383 (0.00370675, 0.000385799);
+    MassPointParameters mpp383 (cs383, 44440);
+    StopNeutralinoMap.insert(std::make_pair(mp383, mpp383));
+
+    MassPoint mp384 (725, 300);
+    StopCrossSection cs384 (0.00370675, 0.000385799);
+    MassPointParameters mpp384 (cs384, 47354);
+    StopNeutralinoMap.insert(std::make_pair(mp384, mpp384));
+
+    MassPoint mp385 (725, 325);
+    StopCrossSection cs385 (0.00370675, 0.000385799);
+    MassPointParameters mpp385 (cs385, 53844);
+    StopNeutralinoMap.insert(std::make_pair(mp385, mpp385));
+
+    MassPoint mp386 (725, 350);
+    StopCrossSection cs386 (0.00370675, 0.000385799);
+    MassPointParameters mpp386 (cs386, 50538);
+    StopNeutralinoMap.insert(std::make_pair(mp386, mpp386));
+
+    MassPoint mp387 (725, 375);
+    StopCrossSection cs387 (0.00370675, 0.000385799);
+    MassPointParameters mpp387 (cs387, 51728);
+    StopNeutralinoMap.insert(std::make_pair(mp387, mpp387));
+
+    MassPoint mp388 (725, 400);
+    StopCrossSection cs388 (0.00370675, 0.000385799);
+    MassPointParameters mpp388 (cs388, 46897);
+    StopNeutralinoMap.insert(std::make_pair(mp388, mpp388));
+
+    MassPoint mp389 (725, 425);
+    StopCrossSection cs389 (0.00370675, 0.000385799);
+    MassPointParameters mpp389 (cs389, 49736);
+    StopNeutralinoMap.insert(std::make_pair(mp389, mpp389));
+
+    MassPoint mp390 (725, 450);
+    StopCrossSection cs390 (0.00370675, 0.000385799);
+    MassPointParameters mpp390 (cs390, 56034);
+    StopNeutralinoMap.insert(std::make_pair(mp390, mpp390));
+
+    MassPoint mp391 (725, 475);
+    StopCrossSection cs391 (0.00370675, 0.000385799);
+    MassPointParameters mpp391 (cs391, 54963);
+    StopNeutralinoMap.insert(std::make_pair(mp391, mpp391));
+
+    MassPoint mp392 (725, 500);
+    StopCrossSection cs392 (0.00370675, 0.000385799);
+    MassPointParameters mpp392 (cs392, 47607);
+    StopNeutralinoMap.insert(std::make_pair(mp392, mpp392));
+
+    MassPoint mp393 (725, 525);
+    StopCrossSection cs393 (0.00370675, 0.000385799);
+    MassPointParameters mpp393 (cs393, 51313);
+    StopNeutralinoMap.insert(std::make_pair(mp393, mpp393));
+
+    MassPoint mp394 (725, 550);
+    StopCrossSection cs394 (0.00370675, 0.000385799);
+    MassPointParameters mpp394 (cs394, 51166);
+    StopNeutralinoMap.insert(std::make_pair(mp394, mpp394));
+
+    MassPoint mp395 (725, 575);
+    StopCrossSection cs395 (0.00370675, 0.000385799);
+    MassPointParameters mpp395 (cs395, 54147);
+    StopNeutralinoMap.insert(std::make_pair(mp395, mpp395));
+
+    MassPoint mp396 (725, 600);
+    StopCrossSection cs396 (0.00370675, 0.000385799);
+    MassPointParameters mpp396 (cs396, 47308);
+    StopNeutralinoMap.insert(std::make_pair(mp396, mpp396));
+
+    MassPoint mp397 (750, 1);
+    StopCrossSection cs397 (0.00310861, 0.000330353);
+    MassPointParameters mpp397 (cs397, 44838);
+    StopNeutralinoMap.insert(std::make_pair(mp397, mpp397));
+
+    MassPoint mp398 (750, 25);
+    StopCrossSection cs398 (0.00310861, 0.000330353);
+    MassPointParameters mpp398 (cs398, 46064);
+    StopNeutralinoMap.insert(std::make_pair(mp398, mpp398));
+
+    MassPoint mp399 (750, 50);
+    StopCrossSection cs399 (0.00310861, 0.000330353);
+    MassPointParameters mpp399 (cs399, 50667);
+    StopNeutralinoMap.insert(std::make_pair(mp399, mpp399));
+
+    MassPoint mp400 (750, 75);
+    StopCrossSection cs400 (0.00310861, 0.000330353);
+    MassPointParameters mpp400 (cs400, 49931);
+    StopNeutralinoMap.insert(std::make_pair(mp400, mpp400));
+
+    MassPoint mp401 (750, 100);
+    StopCrossSection cs401 (0.00310861, 0.000330353);
+    MassPointParameters mpp401 (cs401, 47500);
+    StopNeutralinoMap.insert(std::make_pair(mp401, mpp401));
+
+    MassPoint mp402 (750, 125);
+    StopCrossSection cs402 (0.00310861, 0.000330353);
+    MassPointParameters mpp402 (cs402, 47999);
+    StopNeutralinoMap.insert(std::make_pair(mp402, mpp402));
+
+    MassPoint mp403 (750, 150);
+    StopCrossSection cs403 (0.00310861, 0.000330353);
+    MassPointParameters mpp403 (cs403, 54054);
+    StopNeutralinoMap.insert(std::make_pair(mp403, mpp403));
+
+    MassPoint mp404 (750, 175);
+    StopCrossSection cs404 (0.00310861, 0.000330353);
+    MassPointParameters mpp404 (cs404, 51175);
+    StopNeutralinoMap.insert(std::make_pair(mp404, mpp404));
+
+    MassPoint mp405 (750, 200);
+    StopCrossSection cs405 (0.00310861, 0.000330353);
+    MassPointParameters mpp405 (cs405, 49615);
+    StopNeutralinoMap.insert(std::make_pair(mp405, mpp405));
+
+    MassPoint mp406 (750, 225);
+    StopCrossSection cs406 (0.00310861, 0.000330353);
+    MassPointParameters mpp406 (cs406, 44755);
+    StopNeutralinoMap.insert(std::make_pair(mp406, mpp406));
+
+    MassPoint mp407 (750, 250);
+    StopCrossSection cs407 (0.00310861, 0.000330353);
+    MassPointParameters mpp407 (cs407, 47874);
+    StopNeutralinoMap.insert(std::make_pair(mp407, mpp407));
+
+    MassPoint mp408 (750, 275);
+    StopCrossSection cs408 (0.00310861, 0.000330353);
+    MassPointParameters mpp408 (cs408, 49319);
+    StopNeutralinoMap.insert(std::make_pair(mp408, mpp408));
+
+    MassPoint mp409 (750, 300);
+    StopCrossSection cs409 (0.00310861, 0.000330353);
+    MassPointParameters mpp409 (cs409, 51223);
+    StopNeutralinoMap.insert(std::make_pair(mp409, mpp409));
+
+    MassPoint mp410 (750, 325);
+    StopCrossSection cs410 (0.00310861, 0.000330353);
+    MassPointParameters mpp410 (cs410, 46208);
+    StopNeutralinoMap.insert(std::make_pair(mp410, mpp410));
+
+    MassPoint mp411 (750, 350);
+    StopCrossSection cs411 (0.00310861, 0.000330353);
+    MassPointParameters mpp411 (cs411, 51153);
+    StopNeutralinoMap.insert(std::make_pair(mp411, mpp411));
+
+    MassPoint mp412 (750, 375);
+    StopCrossSection cs412 (0.00310861, 0.000330353);
+    MassPointParameters mpp412 (cs412, 54547);
+    StopNeutralinoMap.insert(std::make_pair(mp412, mpp412));
+
+    MassPoint mp413 (750, 400);
+    StopCrossSection cs413 (0.00310861, 0.000330353);
+    MassPointParameters mpp413 (cs413, 45297);
+    StopNeutralinoMap.insert(std::make_pair(mp413, mpp413));
+
+    MassPoint mp414 (750, 425);
+    StopCrossSection cs414 (0.00310861, 0.000330353);
+    MassPointParameters mpp414 (cs414, 48519);
+    StopNeutralinoMap.insert(std::make_pair(mp414, mpp414));
+
+    MassPoint mp415 (750, 450);
+    StopCrossSection cs415 (0.00310861, 0.000330353);
+    MassPointParameters mpp415 (cs415, 42164);
+    StopNeutralinoMap.insert(std::make_pair(mp415, mpp415));
+
+    MassPoint mp416 (750, 475);
+    StopCrossSection cs416 (0.00310861, 0.000330353);
+    MassPointParameters mpp416 (cs416, 46163);
+    StopNeutralinoMap.insert(std::make_pair(mp416, mpp416));
+
+    MassPoint mp417 (750, 500);
+    StopCrossSection cs417 (0.00310861, 0.000330353);
+    MassPointParameters mpp417 (cs417, 48119);
+    StopNeutralinoMap.insert(std::make_pair(mp417, mpp417));
+
+    MassPoint mp418 (750, 525);
+    StopCrossSection cs418 (0.00310861, 0.000330353);
+    MassPointParameters mpp418 (cs418, 52644);
+    StopNeutralinoMap.insert(std::make_pair(mp418, mpp418));
+
+    MassPoint mp419 (750, 550);
+    StopCrossSection cs419 (0.00310861, 0.000330353);
+    MassPointParameters mpp419 (cs419, 51787);
+    StopNeutralinoMap.insert(std::make_pair(mp419, mpp419));
+
+    MassPoint mp420 (750, 575);
+    StopCrossSection cs420 (0.00310861, 0.000330353);
+    MassPointParameters mpp420 (cs420, 52876);
+    StopNeutralinoMap.insert(std::make_pair(mp420, mpp420));
+
+    MassPoint mp421 (750, 600);
+    StopCrossSection cs421 (0.00310861, 0.000330353);
+    MassPointParameters mpp421 (cs421, 50870);
+    StopNeutralinoMap.insert(std::make_pair(mp421, mpp421));
+
+    MassPoint mp422 (775, 1);
+    StopCrossSection cs422 (0.00261656, 0.000283139);
+    MassPointParameters mpp422 (cs422, 53007);
+    StopNeutralinoMap.insert(std::make_pair(mp422, mpp422));
+
+    MassPoint mp423 (775, 25);
+    StopCrossSection cs423 (0.00261656, 0.000283139);
+    MassPointParameters mpp423 (cs423, 46246);
+    StopNeutralinoMap.insert(std::make_pair(mp423, mpp423));
+
+    MassPoint mp424 (775, 50);
+    StopCrossSection cs424 (0.00261656, 0.000283139);
+    MassPointParameters mpp424 (cs424, 47856);
+    StopNeutralinoMap.insert(std::make_pair(mp424, mpp424));
+
+    MassPoint mp425 (775, 75);
+    StopCrossSection cs425 (0.00261656, 0.000283139);
+    MassPointParameters mpp425 (cs425, 48268);
+    StopNeutralinoMap.insert(std::make_pair(mp425, mpp425));
+
+    MassPoint mp426 (775, 100);
+    StopCrossSection cs426 (0.00261656, 0.000283139);
+    MassPointParameters mpp426 (cs426, 51294);
+    StopNeutralinoMap.insert(std::make_pair(mp426, mpp426));
+
+    MassPoint mp427 (775, 125);
+    StopCrossSection cs427 (0.00261656, 0.000283139);
+    MassPointParameters mpp427 (cs427, 48224);
+    StopNeutralinoMap.insert(std::make_pair(mp427, mpp427));
+
+    MassPoint mp428 (775, 150);
+    StopCrossSection cs428 (0.00261656, 0.000283139);
+    MassPointParameters mpp428 (cs428, 48545);
+    StopNeutralinoMap.insert(std::make_pair(mp428, mpp428));
+
+    MassPoint mp429 (775, 175);
+    StopCrossSection cs429 (0.00261656, 0.000283139);
+    MassPointParameters mpp429 (cs429, 50181);
+    StopNeutralinoMap.insert(std::make_pair(mp429, mpp429));
+
+    MassPoint mp430 (775, 200);
+    StopCrossSection cs430 (0.00261656, 0.000283139);
+    MassPointParameters mpp430 (cs430, 49232);
+    StopNeutralinoMap.insert(std::make_pair(mp430, mpp430));
+
+    MassPoint mp431 (775, 225);
+    StopCrossSection cs431 (0.00261656, 0.000283139);
+    MassPointParameters mpp431 (cs431, 48471);
+    StopNeutralinoMap.insert(std::make_pair(mp431, mpp431));
+
+    MassPoint mp432 (775, 250);
+    StopCrossSection cs432 (0.00261656, 0.000283139);
+    MassPointParameters mpp432 (cs432, 47661);
+    StopNeutralinoMap.insert(std::make_pair(mp432, mpp432));
+
+    MassPoint mp433 (775, 275);
+    StopCrossSection cs433 (0.00261656, 0.000283139);
+    MassPointParameters mpp433 (cs433, 53054);
+    StopNeutralinoMap.insert(std::make_pair(mp433, mpp433));
+
+    MassPoint mp434 (775, 300);
+    StopCrossSection cs434 (0.00261656, 0.000283139);
+    MassPointParameters mpp434 (cs434, 57102);
+    StopNeutralinoMap.insert(std::make_pair(mp434, mpp434));
+
+    MassPoint mp435 (775, 325);
+    StopCrossSection cs435 (0.00261656, 0.000283139);
+    MassPointParameters mpp435 (cs435, 54810);
+    StopNeutralinoMap.insert(std::make_pair(mp435, mpp435));
+
+    MassPoint mp436 (775, 350);
+    StopCrossSection cs436 (0.00261656, 0.000283139);
+    MassPointParameters mpp436 (cs436, 49821);
+    StopNeutralinoMap.insert(std::make_pair(mp436, mpp436));
+
+    MassPoint mp437 (775, 375);
+    StopCrossSection cs437 (0.00261656, 0.000283139);
+    MassPointParameters mpp437 (cs437, 46639);
+    StopNeutralinoMap.insert(std::make_pair(mp437, mpp437));
+
+    MassPoint mp438 (775, 400);
+    StopCrossSection cs438 (0.00261656, 0.000283139);
+    MassPointParameters mpp438 (cs438, 45677);
+    StopNeutralinoMap.insert(std::make_pair(mp438, mpp438));
+
+    MassPoint mp439 (775, 425);
+    StopCrossSection cs439 (0.00261656, 0.000283139);
+    MassPointParameters mpp439 (cs439, 48957);
+    StopNeutralinoMap.insert(std::make_pair(mp439, mpp439));
+
+    MassPoint mp440 (775, 450);
+    StopCrossSection cs440 (0.00261656, 0.000283139);
+    MassPointParameters mpp440 (cs440, 50332);
+    StopNeutralinoMap.insert(std::make_pair(mp440, mpp440));
+
+    MassPoint mp441 (775, 475);
+    StopCrossSection cs441 (0.00261656, 0.000283139);
+    MassPointParameters mpp441 (cs441, 42853);
+    StopNeutralinoMap.insert(std::make_pair(mp441, mpp441));
+
+    MassPoint mp442 (775, 500);
+    StopCrossSection cs442 (0.00261656, 0.000283139);
+    MassPointParameters mpp442 (cs442, 48317);
+    StopNeutralinoMap.insert(std::make_pair(mp442, mpp442));
+
+    MassPoint mp443 (775, 525);
+    StopCrossSection cs443 (0.00261656, 0.000283139);
+    MassPointParameters mpp443 (cs443, 51120);
+    StopNeutralinoMap.insert(std::make_pair(mp443, mpp443));
+
+    MassPoint mp444 (775, 550);
+    StopCrossSection cs444 (0.00261656, 0.000283139);
+    MassPointParameters mpp444 (cs444, 44471);
+    StopNeutralinoMap.insert(std::make_pair(mp444, mpp444));
+
+    MassPoint mp445 (775, 575);
+    StopCrossSection cs445 (0.00261656, 0.000283139);
+    MassPointParameters mpp445 (cs445, 48917);
+    StopNeutralinoMap.insert(std::make_pair(mp445, mpp445));
+
+    MassPoint mp446 (775, 600);
+    StopCrossSection cs446 (0.00261656, 0.000283139);
+    MassPointParameters mpp446 (cs446, 54290);
+    StopNeutralinoMap.insert(std::make_pair(mp446, mpp446));
+
+    MassPoint mp447 (800, 1);
+    StopCrossSection cs447 (0.00221197, 0.000245196);
+    MassPointParameters mpp447 (cs447, 49747);
+    StopNeutralinoMap.insert(std::make_pair(mp447, mpp447));
+
+    MassPoint mp448 (800, 25);
+    StopCrossSection cs448 (0.00221197, 0.000245196);
+    MassPointParameters mpp448 (cs448, 47776);
+    StopNeutralinoMap.insert(std::make_pair(mp448, mpp448));
+
+    MassPoint mp449 (800, 50);
+    StopCrossSection cs449 (0.00221197, 0.000245196);
+    MassPointParameters mpp449 (cs449, 51222);
+    StopNeutralinoMap.insert(std::make_pair(mp449, mpp449));
+
+    MassPoint mp450 (800, 75);
+    StopCrossSection cs450 (0.00221197, 0.000245196);
+    MassPointParameters mpp450 (cs450, 48427);
+    StopNeutralinoMap.insert(std::make_pair(mp450, mpp450));
+
+    MassPoint mp451 (800, 100);
+    StopCrossSection cs451 (0.00221197, 0.000245196);
+    MassPointParameters mpp451 (cs451, 47709);
+    StopNeutralinoMap.insert(std::make_pair(mp451, mpp451));
+
+    MassPoint mp452 (800, 125);
+    StopCrossSection cs452 (0.00221197, 0.000245196);
+    MassPointParameters mpp452 (cs452, 47551);
+    StopNeutralinoMap.insert(std::make_pair(mp452, mpp452));
+
+    MassPoint mp453 (800, 150);
+    StopCrossSection cs453 (0.00221197, 0.000245196);
+    MassPointParameters mpp453 (cs453, 50106);
+    StopNeutralinoMap.insert(std::make_pair(mp453, mpp453));
+
+    MassPoint mp454 (800, 175);
+    StopCrossSection cs454 (0.00221197, 0.000245196);
+    MassPointParameters mpp454 (cs454, 55232);
+    StopNeutralinoMap.insert(std::make_pair(mp454, mpp454));
+
+    MassPoint mp455 (800, 200);
+    StopCrossSection cs455 (0.00221197, 0.000245196);
+    MassPointParameters mpp455 (cs455, 47616);
+    StopNeutralinoMap.insert(std::make_pair(mp455, mpp455));
+
+    MassPoint mp456 (800, 225);
+    StopCrossSection cs456 (0.00221197, 0.000245196);
+    MassPointParameters mpp456 (cs456, 54843);
+    StopNeutralinoMap.insert(std::make_pair(mp456, mpp456));
+
+    MassPoint mp457 (800, 250);
+    StopCrossSection cs457 (0.00221197, 0.000245196);
+    MassPointParameters mpp457 (cs457, 53711);
+    StopNeutralinoMap.insert(std::make_pair(mp457, mpp457));
+
+    MassPoint mp458 (800, 275);
+    StopCrossSection cs458 (0.00221197, 0.000245196);
+    MassPointParameters mpp458 (cs458, 48662);
+    StopNeutralinoMap.insert(std::make_pair(mp458, mpp458));
+
+    MassPoint mp459 (800, 300);
+    StopCrossSection cs459 (0.00221197, 0.000245196);
+    MassPointParameters mpp459 (cs459, 47712);
+    StopNeutralinoMap.insert(std::make_pair(mp459, mpp459));
+
+    MassPoint mp460 (800, 325);
+    StopCrossSection cs460 (0.00221197, 0.000245196);
+    MassPointParameters mpp460 (cs460, 45909);
+    StopNeutralinoMap.insert(std::make_pair(mp460, mpp460));
+
+    MassPoint mp461 (800, 350);
+    StopCrossSection cs461 (0.00221197, 0.000245196);
+    MassPointParameters mpp461 (cs461, 50099);
+    StopNeutralinoMap.insert(std::make_pair(mp461, mpp461));
+
+    MassPoint mp462 (800, 375);
+    StopCrossSection cs462 (0.00221197, 0.000245196);
+    MassPointParameters mpp462 (cs462, 52501);
+    StopNeutralinoMap.insert(std::make_pair(mp462, mpp462));
+
+    MassPoint mp463 (800, 400);
+    StopCrossSection cs463 (0.00221197, 0.000245196);
+    MassPointParameters mpp463 (cs463, 41825);
+    StopNeutralinoMap.insert(std::make_pair(mp463, mpp463));
+
+    MassPoint mp464 (800, 425);
+    StopCrossSection cs464 (0.00221197, 0.000245196);
+    MassPointParameters mpp464 (cs464, 49529);
+    StopNeutralinoMap.insert(std::make_pair(mp464, mpp464));
+
+    MassPoint mp465 (800, 450);
+    StopCrossSection cs465 (0.00221197, 0.000245196);
+    MassPointParameters mpp465 (cs465, 52564);
+    StopNeutralinoMap.insert(std::make_pair(mp465, mpp465));
+
+    MassPoint mp466 (800, 475);
+    StopCrossSection cs466 (0.00221197, 0.000245196);
+    MassPointParameters mpp466 (cs466, 48811);
+    StopNeutralinoMap.insert(std::make_pair(mp466, mpp466));
+
+    MassPoint mp467 (800, 500);
+    StopCrossSection cs467 (0.00221197, 0.000245196);
+    MassPointParameters mpp467 (cs467, 49303);
+    StopNeutralinoMap.insert(std::make_pair(mp467, mpp467));
+
+    MassPoint mp468 (800, 525);
+    StopCrossSection cs468 (0.00221197, 0.000245196);
+    MassPointParameters mpp468 (cs468, 44363);
+    StopNeutralinoMap.insert(std::make_pair(mp468, mpp468));
+
+    MassPoint mp469 (800, 550);
+    StopCrossSection cs469 (0.00221197, 0.000245196);
+    MassPointParameters mpp469 (cs469, 51626);
+    StopNeutralinoMap.insert(std::make_pair(mp469, mpp469));
+
+    MassPoint mp470 (800, 575);
+    StopCrossSection cs470 (0.00221197, 0.000245196);
+    MassPointParameters mpp470 (cs470, 51956);
+    StopNeutralinoMap.insert(std::make_pair(mp470, mpp470));
+
+    MassPoint mp471 (800, 600);
+    StopCrossSection cs471 (0.00221197, 0.000245196);
+    MassPointParameters mpp471 (cs471, 48690);
+    StopNeutralinoMap.insert(std::make_pair(mp471, mpp471));
+
+    MassPoint mpisr0 (100, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979484));
+
+    MassPoint mpisr1 (100, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr1, 0.979383));
+
+    MassPoint mpisr2 (100, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr2, 0.979387));
+
+    MassPoint mpisr3 (125, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr3, 0.976002));
+
+    MassPoint mpisr4 (125, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr4, 0.976321));
+
+    MassPoint mpisr5 (125, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr5, 0.976085));
+
+    MassPoint mpisr6 (125, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr6, 0.976627));
+
+    MassPoint mpisr7 (150, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr7, 0.974469));
+
+    MassPoint mpisr8 (150, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr8, 0.974205));
+
+    MassPoint mpisr9 (150, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr9, 0.973861));
+
+    MassPoint mpisr10 (150, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr10, 0.974392));
+
+    MassPoint mpisr11 (150, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr11, 0.974044));
+
+    MassPoint mpisr12 (175, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr12, 0.972008));
+
+    MassPoint mpisr13 (175, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr13, 0.971918));
+
+    MassPoint mpisr14 (175, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr14, 0.97162));
+
+    MassPoint mpisr15 (175, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr15, 0.971737));
+
+    MassPoint mpisr16 (175, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr16, 0.971931));
+
+    MassPoint mpisr17 (175, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr17, 0.972129));
+
+    MassPoint mpisr18 (200, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr18, 0.970492));
+
+    MassPoint mpisr19 (200, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr19, 0.970458));
+
+    MassPoint mpisr20 (200, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr20, 0.970609));
+
+    MassPoint mpisr21 (200, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr21, 0.970983));
+
+    MassPoint mpisr22 (200, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr22, 0.970525));
+
+    MassPoint mpisr23 (200, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr23, 0.970592));
+
+    MassPoint mpisr24 (200, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr24, 0.970573));
+
+    MassPoint mpisr25 (225, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr25, 0.969327));
+
+    MassPoint mpisr26 (225, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr26, 0.969657));
+
+    MassPoint mpisr27 (225, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr27, 0.970022));
+
+    MassPoint mpisr28 (225, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr28, 0.969366));
+
+    MassPoint mpisr29 (225, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr29, 0.969095));
+
+    MassPoint mpisr30 (225, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr30, 0.96997));
+
+    MassPoint mpisr31 (225, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr31, 0.969576));
+
+    MassPoint mpisr32 (225, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr32, 0.969564));
+
+    MassPoint mpisr33 (250, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr33, 0.968625));
+
+    MassPoint mpisr34 (250, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr34, 0.968521));
+
+    MassPoint mpisr35 (250, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr35, 0.968577));
+
+    MassPoint mpisr36 (250, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr36, 0.968843));
+
+    MassPoint mpisr37 (250, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr37, 0.969211));
+
+    MassPoint mpisr38 (250, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr38, 0.968396));
+
+    MassPoint mpisr39 (250, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr39, 0.968383));
+
+    MassPoint mpisr40 (250, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr40, 0.968677));
+
+    MassPoint mpisr41 (250, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr41, 0.968671));
+
+    MassPoint mpisr42 (275, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr42, 0.967603));
+
+    MassPoint mpisr43 (275, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr43, 0.968007));
+
+    MassPoint mpisr44 (275, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr44, 0.967501));
+
+    MassPoint mpisr45 (275, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr45, 0.968058));
+
+    MassPoint mpisr46 (275, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr46, 0.967587));
+
+    MassPoint mpisr47 (275, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr47, 0.967957));
+
+    MassPoint mpisr48 (275, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr48, 0.968358));
+
+    MassPoint mpisr49 (275, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr49, 0.96754));
+
+    MassPoint mpisr50 (275, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr50, 0.967782));
+
+    MassPoint mpisr51 (275, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr51, 0.967845));
+
+    MassPoint mpisr52 (300, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr52, 0.967236));
+
+    MassPoint mpisr53 (300, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr53, 0.966929));
+
+    MassPoint mpisr54 (300, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr54, 0.967609));
+
+    MassPoint mpisr55 (300, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr55, 0.967228));
+
+    MassPoint mpisr56 (300, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr56, 0.967423));
+
+    MassPoint mpisr57 (300, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr57, 0.967233));
+
+    MassPoint mpisr58 (300, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr58, 0.967102));
+
+    MassPoint mpisr59 (300, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr59, 0.967076));
+
+    MassPoint mpisr60 (300, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr60, 0.967169));
+
+    MassPoint mpisr61 (300, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr61, 0.96742));
+
+    MassPoint mpisr62 (300, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr62, 0.967101));
+
+    MassPoint mpisr63 (325, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr63, 0.96674));
+
+    MassPoint mpisr64 (325, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr64, 0.967027));
+
+    MassPoint mpisr65 (325, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr65, 0.966995));
+
+    MassPoint mpisr66 (325, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr66, 0.966774));
+
+    MassPoint mpisr67 (325, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr67, 0.966837));
+
+    MassPoint mpisr68 (325, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr68, 0.966847));
+
+    MassPoint mpisr69 (325, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr69, 0.966536));
+
+    MassPoint mpisr70 (325, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr70, 0.966709));
+
+    MassPoint mpisr71 (325, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr71, 0.967417));
+
+    MassPoint mpisr72 (325, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr72, 0.966682));
+
+    MassPoint mpisr73 (325, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr73, 0.966689));
+
+    MassPoint mpisr74 (325, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr74, 0.966755));
+
+    MassPoint mpisr75 (350, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr75, 0.966317));
+
+    MassPoint mpisr76 (350, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr76, 0.966768));
+
+    MassPoint mpisr77 (350, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr77, 0.966021));
+
+    MassPoint mpisr78 (350, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr78, 0.966345));
+
+    MassPoint mpisr79 (350, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr79, 0.966563));
+
+    MassPoint mpisr80 (350, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr80, 0.96658));
+
+    MassPoint mpisr81 (350, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr81, 0.966744));
+
+    MassPoint mpisr82 (350, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr82, 0.966812));
+
+    MassPoint mpisr83 (350, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr83, 0.966515));
+
+    MassPoint mpisr84 (350, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr84, 0.966357));
+
+    MassPoint mpisr85 (350, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr85, 0.966626));
+
+    MassPoint mpisr86 (350, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr86, 0.966774));
+
+    MassPoint mpisr87 (350, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr87, 0.966369));
+
+    MassPoint mpisr88 (375, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr88, 0.965879));
+
+    MassPoint mpisr89 (375, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr89, 0.965847));
+
+    MassPoint mpisr90 (375, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr90, 0.96669));
+
+    MassPoint mpisr91 (375, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr91, 0.966481));
+
+    MassPoint mpisr92 (375, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr92, 0.966439));
+
+    MassPoint mpisr93 (375, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr93, 0.966181));
+
+    MassPoint mpisr94 (375, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr94, 0.966429));
+
+    MassPoint mpisr95 (375, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr95, 0.966081));
+
+    MassPoint mpisr96 (375, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr96, 0.96611));
+
+    MassPoint mpisr97 (375, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr97, 0.966361));
+
+    MassPoint mpisr98 (375, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr98, 0.966157));
+
+    MassPoint mpisr99 (375, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr99, 0.966436));
+
+    MassPoint mpisr100 (375, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr100, 0.966332));
+
+    MassPoint mpisr101 (375, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr101, 0.966608));
+
+    MassPoint mpisr102 (400, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr102, 0.966496));
+
+    MassPoint mpisr103 (400, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr103, 0.96609));
+
+    MassPoint mpisr104 (400, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr104, 0.965977));
+
+    MassPoint mpisr105 (400, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr105, 0.96626));
+
+    MassPoint mpisr106 (400, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr106, 0.96623));
+
+    MassPoint mpisr107 (400, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr107, 0.966493));
+
+    MassPoint mpisr108 (400, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr108, 0.966043));
+
+    MassPoint mpisr109 (400, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr109, 0.966067));
+
+    MassPoint mpisr110 (400, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr110, 0.966145));
+
+    MassPoint mpisr111 (400, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr111, 0.966132));
+
+    MassPoint mpisr112 (400, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr112, 0.966293));
+
+    MassPoint mpisr113 (400, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr113, 0.965803));
+
+    MassPoint mpisr114 (400, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr114, 0.966021));
+
+    MassPoint mpisr115 (400, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr115, 0.966072));
+
+    MassPoint mpisr116 (400, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr116, 0.966014));
+
+    MassPoint mpisr117 (425, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr117, 0.966005));
+
+    MassPoint mpisr118 (425, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr118, 0.965973));
+
+    MassPoint mpisr119 (425, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr119, 0.96547));
+
+    MassPoint mpisr120 (425, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr120, 0.966185));
+
+    MassPoint mpisr121 (425, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr121, 0.965972));
+
+    MassPoint mpisr122 (425, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr122, 0.966));
+
+    MassPoint mpisr123 (425, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr123, 0.966132));
+
+    MassPoint mpisr124 (425, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr124, 0.965792));
+
+    MassPoint mpisr125 (425, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr125, 0.965788));
+
+    MassPoint mpisr126 (425, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr126, 0.966256));
+
+    MassPoint mpisr127 (425, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr127, 0.966428));
+
+    MassPoint mpisr128 (425, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr128, 0.96607));
+
+    MassPoint mpisr129 (425, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr129, 0.965932));
+
+    MassPoint mpisr130 (425, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr130, 0.965888));
+
+    MassPoint mpisr131 (425, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr131, 0.965665));
+
+    MassPoint mpisr132 (425, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr132, 0.965852));
+
+    MassPoint mpisr133 (450, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr133, 0.965124));
+
+    MassPoint mpisr134 (450, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr134, 0.965034));
+
+    MassPoint mpisr135 (450, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr135, 0.965785));
+
+    MassPoint mpisr136 (450, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr136, 0.965857));
+
+    MassPoint mpisr137 (450, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr137, 0.965423));
+
+    MassPoint mpisr138 (450, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr138, 0.96578));
+
+    MassPoint mpisr139 (450, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr139, 0.965651));
+
+    MassPoint mpisr140 (450, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr140, 0.965669));
+
+    MassPoint mpisr141 (450, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr141, 0.965455));
+
+    MassPoint mpisr142 (450, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr142, 0.964995));
+
+    MassPoint mpisr143 (450, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr143, 0.965442));
+
+    MassPoint mpisr144 (450, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr144, 0.965574));
+
+    MassPoint mpisr145 (450, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr145, 0.965733));
+
+    MassPoint mpisr146 (450, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr146, 0.96561));
+
+    MassPoint mpisr147 (450, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr147, 0.965278));
+
+    MassPoint mpisr148 (450, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr148, 0.965607));
+
+    MassPoint mpisr149 (450, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr149, 0.965313));
+
+    MassPoint mpisr150 (475, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr150, 0.965659));
+
+    MassPoint mpisr151 (475, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr151, 0.965653));
+
+    MassPoint mpisr152 (475, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr152, 0.965217));
+
+    MassPoint mpisr153 (475, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr153, 0.965224));
+
+    MassPoint mpisr154 (475, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr154, 0.965494));
+
+    MassPoint mpisr155 (475, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr155, 0.965574));
+
+    MassPoint mpisr156 (475, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr156, 0.964985));
+
+    MassPoint mpisr157 (475, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr157, 0.965599));
+
+    MassPoint mpisr158 (475, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr158, 0.965721));
+
+    MassPoint mpisr159 (475, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr159, 0.965445));
+
+    MassPoint mpisr160 (475, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr160, 0.96546));
+
+    MassPoint mpisr161 (475, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr161, 0.96575));
+
+    MassPoint mpisr162 (475, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr162, 0.96567));
+
+    MassPoint mpisr163 (475, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr163, 0.965686));
+
+    MassPoint mpisr164 (475, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr164, 0.965457));
+
+    MassPoint mpisr165 (475, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr165, 0.965506));
+
+    MassPoint mpisr166 (475, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr166, 0.965763));
+
+    MassPoint mpisr167 (475, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr167, 0.964972));
+
+    MassPoint mpisr168 (500, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr168, 0.964948));
+
+    MassPoint mpisr169 (500, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr169, 0.964783));
+
+    MassPoint mpisr170 (500, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr170, 0.965831));
+
+    MassPoint mpisr171 (500, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr171, 0.965024));
+
+    MassPoint mpisr172 (500, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr172, 0.965301));
+
+    MassPoint mpisr173 (500, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr173, 0.965168));
+
+    MassPoint mpisr174 (500, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr174, 0.966132));
+
+    MassPoint mpisr175 (500, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr175, 0.965145));
+
+    MassPoint mpisr176 (500, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr176, 0.965042));
+
+    MassPoint mpisr177 (500, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr177, 0.964716));
+
+    MassPoint mpisr178 (500, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr178, 0.965531));
+
+    MassPoint mpisr179 (500, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr179, 0.965182));
+
+    MassPoint mpisr180 (500, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr180, 0.965293));
+
+    MassPoint mpisr181 (500, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr181, 0.964981));
+
+    MassPoint mpisr182 (500, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr182, 0.96531));
+
+    MassPoint mpisr183 (500, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr183, 0.965257));
+
+    MassPoint mpisr184 (500, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr184, 0.965123));
+
+    MassPoint mpisr185 (500, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr185, 0.964918));
+
+    MassPoint mpisr186 (500, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr186, 0.965527));
+
+    MassPoint mpisr187 (525, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr187, 0.964922));
+
+    MassPoint mpisr188 (525, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr188, 0.964928));
+
+    MassPoint mpisr189 (525, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr189, 0.965274));
+
+    MassPoint mpisr190 (525, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr190, 0.965074));
+
+    MassPoint mpisr191 (525, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr191, 0.965122));
+
+    MassPoint mpisr192 (525, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr192, 0.96509));
+
+    MassPoint mpisr193 (525, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr193, 0.965308));
+
+    MassPoint mpisr194 (525, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr194, 0.965149));
+
+    MassPoint mpisr195 (525, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr195, 0.965235));
+
+    MassPoint mpisr196 (525, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr196, 0.964805));
+
+    MassPoint mpisr197 (525, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr197, 0.965248));
+
+    MassPoint mpisr198 (525, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr198, 0.965477));
+
+    MassPoint mpisr199 (525, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr199, 0.964826));
+
+    MassPoint mpisr200 (525, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr200, 0.965222));
+
+    MassPoint mpisr201 (525, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr201, 0.965147));
+
+    MassPoint mpisr202 (525, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr202, 0.964869));
+
+    MassPoint mpisr203 (525, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr203, 0.964919));
+
+    MassPoint mpisr204 (525, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr204, 0.965457));
+
+    MassPoint mpisr205 (525, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr205, 0.965312));
+
+    MassPoint mpisr206 (525, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr206, 0.964839));
+
+    MassPoint mpisr207 (550, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr207, 0.965208));
+
+    MassPoint mpisr208 (550, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr208, 0.965097));
+
+    MassPoint mpisr209 (550, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr209, 0.965227));
+
+    MassPoint mpisr210 (550, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr210, 0.964997));
+
+    MassPoint mpisr211 (550, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr211, 0.964968));
+
+    MassPoint mpisr212 (550, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr212, 0.965001));
+
+    MassPoint mpisr213 (550, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr213, 0.96504));
+
+    MassPoint mpisr214 (550, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr214, 0.964894));
+
+    MassPoint mpisr215 (550, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr215, 0.965021));
+
+    MassPoint mpisr216 (550, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr216, 0.965095));
+
+    MassPoint mpisr217 (550, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr217, 0.964938));
+
+    MassPoint mpisr218 (550, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr218, 0.965106));
+
+    MassPoint mpisr219 (550, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr219, 0.965344));
+
+    MassPoint mpisr220 (550, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr220, 0.965022));
+
+    MassPoint mpisr221 (550, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr221, 0.965071));
+
+    MassPoint mpisr222 (550, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr222, 0.965061));
+
+    MassPoint mpisr223 (550, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr223, 0.964456));
+
+    MassPoint mpisr224 (550, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr224, 0.965089));
+
+    MassPoint mpisr225 (550, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr225, 0.964748));
+
+    MassPoint mpisr226 (550, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr226, 0.965034));
+
+    MassPoint mpisr227 (550, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr227, 0.964716));
+
+    MassPoint mpisr228 (575, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr228, 0.964988));
+
+    MassPoint mpisr229 (575, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr229, 0.964761));
+
+    MassPoint mpisr230 (575, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr230, 0.964973));
+
+    MassPoint mpisr231 (575, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr231, 0.965011));
+
+    MassPoint mpisr232 (575, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr232, 0.964705));
+
+    MassPoint mpisr233 (575, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr233, 0.964968));
+
+    MassPoint mpisr234 (575, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr234, 0.964993));
+
+    MassPoint mpisr235 (575, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr235, 0.964824));
+
+    MassPoint mpisr236 (575, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr236, 0.964591));
+
+    MassPoint mpisr237 (575, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr237, 0.964654));
+
+    MassPoint mpisr238 (575, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr238, 0.965003));
+
+    MassPoint mpisr239 (575, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr239, 0.965242));
+
+    MassPoint mpisr240 (575, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr240, 0.964495));
+
+    MassPoint mpisr241 (575, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr241, 0.965039));
+
+    MassPoint mpisr242 (575, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr242, 0.965245));
+
+    MassPoint mpisr243 (575, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr243, 0.965096));
+
+    MassPoint mpisr244 (575, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr244, 0.965515));
+
+    MassPoint mpisr245 (575, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr245, 0.964991));
+
+    MassPoint mpisr246 (575, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr246, 0.964293));
+
+    MassPoint mpisr247 (575, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr247, 0.96422));
+
+    MassPoint mpisr248 (575, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr248, 0.964796));
+
+    MassPoint mpisr249 (575, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr249, 0.965348));
+
+    MassPoint mpisr250 (600, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr250, 0.964441));
+
+    MassPoint mpisr251 (600, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr251, 0.965345));
+
+    MassPoint mpisr252 (600, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr252, 0.964989));
+
+    MassPoint mpisr253 (600, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr253, 0.965339));
+
+    MassPoint mpisr254 (600, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr254, 0.964377));
+
+    MassPoint mpisr255 (600, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr255, 0.964319));
+
+    MassPoint mpisr256 (600, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr256, 0.965322));
+
+    MassPoint mpisr257 (600, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr257, 0.96528));
+
+    MassPoint mpisr258 (600, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr258, 0.964956));
+
+    MassPoint mpisr259 (600, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr259, 0.965391));
+
+    MassPoint mpisr260 (600, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr260, 0.965519));
+
+    MassPoint mpisr261 (600, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr261, 0.965275));
+
+    MassPoint mpisr262 (600, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr262, 0.964568));
+
+    MassPoint mpisr263 (600, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr263, 0.96512));
+
+    MassPoint mpisr264 (600, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr264, 0.964936));
+
+    MassPoint mpisr265 (600, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr265, 0.964805));
+
+    MassPoint mpisr266 (600, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr266, 0.964709));
+
+    MassPoint mpisr267 (600, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr267, 0.9649));
+
+    MassPoint mpisr268 (600, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr268, 0.964549));
+
+    MassPoint mpisr269 (600, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr269, 0.965087));
+
+    MassPoint mpisr270 (600, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr270, 0.964494));
+
+    MassPoint mpisr271 (600, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr271, 0.964574));
+
+    MassPoint mpisr272 (600, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr272, 0.964701));
+
+    MassPoint mpisr273 (625, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr273, 0.964636));
+
+    MassPoint mpisr274 (625, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr274, 0.964714));
+
+    MassPoint mpisr275 (625, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr275, 0.96499));
+
+    MassPoint mpisr276 (625, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr276, 0.964554));
+
+    MassPoint mpisr277 (625, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr277, 0.964262));
+
+    MassPoint mpisr278 (625, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr278, 0.96444));
+
+    MassPoint mpisr279 (625, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr279, 0.964461));
+
+    MassPoint mpisr280 (625, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr280, 0.963986));
+
+    MassPoint mpisr281 (625, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr281, 0.96485));
+
+    MassPoint mpisr282 (625, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr282, 0.964591));
+
+    MassPoint mpisr283 (625, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr283, 0.964522));
+
+    MassPoint mpisr284 (625, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr284, 0.964121));
+
+    MassPoint mpisr285 (625, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr285, 0.964559));
+
+    MassPoint mpisr286 (625, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr286, 0.965675));
+
+    MassPoint mpisr287 (625, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr287, 0.964294));
+
+    MassPoint mpisr288 (625, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr288, 0.965385));
+
+    MassPoint mpisr289 (625, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr289, 0.965163));
+
+    MassPoint mpisr290 (625, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr290, 0.964557));
+
+    MassPoint mpisr291 (625, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr291, 0.964939));
+
+    MassPoint mpisr292 (625, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr292, 0.964737));
+
+    MassPoint mpisr293 (625, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr293, 0.964734));
+
+    MassPoint mpisr294 (625, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr294, 0.964672));
+
+    MassPoint mpisr295 (625, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr295, 0.964878));
+
+    MassPoint mpisr296 (625, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr296, 0.964864));
+
+    MassPoint mpisr297 (650, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr297, 0.964757));
+
+    MassPoint mpisr298 (650, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr298, 0.964961));
+
+    MassPoint mpisr299 (650, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr299, 0.964444));
+
+    MassPoint mpisr300 (650, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr300, 0.964555));
+
+    MassPoint mpisr301 (650, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr301, 0.96473));
+
+    MassPoint mpisr302 (650, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr302, 0.964208));
+
+    MassPoint mpisr303 (650, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr303, 0.965532));
+
+    MassPoint mpisr304 (650, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr304, 0.964927));
+
+    MassPoint mpisr305 (650, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr305, 0.964705));
+
+    MassPoint mpisr306 (650, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr306, 0.964535));
+
+    MassPoint mpisr307 (650, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr307, 0.964714));
+
+    MassPoint mpisr308 (650, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr308, 0.964371));
+
+    MassPoint mpisr309 (650, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr309, 0.964959));
+
+    MassPoint mpisr310 (650, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr310, 0.964313));
+
+    MassPoint mpisr311 (650, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr311, 0.964554));
+
+    MassPoint mpisr312 (650, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr312, 0.964661));
+
+    MassPoint mpisr313 (650, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr313, 0.964696));
+
+    MassPoint mpisr314 (650, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr314, 0.964713));
+
+    MassPoint mpisr315 (650, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr315, 0.96442));
+
+    MassPoint mpisr316 (650, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr316, 0.964668));
+
+    MassPoint mpisr317 (650, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr317, 0.964927));
+
+    MassPoint mpisr318 (650, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr318, 0.964607));
+
+    MassPoint mpisr319 (650, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr319, 0.964556));
+
+    MassPoint mpisr320 (650, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr320, 0.964665));
+
+    MassPoint mpisr321 (650, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr321, 0.964466));
+
+    MassPoint mpisr322 (675, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr322, 0.964728));
+
+    MassPoint mpisr323 (675, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr323, 0.964321));
+
+    MassPoint mpisr324 (675, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr324, 0.964057));
+
+    MassPoint mpisr325 (675, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr325, 0.964098));
+
+    MassPoint mpisr326 (675, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr326, 0.96457));
+
+    MassPoint mpisr327 (675, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr327, 0.964511));
+
+    MassPoint mpisr328 (675, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr328, 0.964766));
+
+    MassPoint mpisr329 (675, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr329, 0.964394));
+
+    MassPoint mpisr330 (675, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr330, 0.964795));
+
+    MassPoint mpisr331 (675, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr331, 0.964441));
+
+    MassPoint mpisr332 (675, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr332, 0.964387));
+
+    MassPoint mpisr333 (675, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr333, 0.964767));
+
+    MassPoint mpisr334 (675, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr334, 0.96427));
+
+    MassPoint mpisr335 (675, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr335, 0.965319));
+
+    MassPoint mpisr336 (675, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr336, 0.964827));
+
+    MassPoint mpisr337 (675, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr337, 0.964891));
+
+    MassPoint mpisr338 (675, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr338, 0.96523));
+
+    MassPoint mpisr339 (675, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr339, 0.964899));
+
+    MassPoint mpisr340 (675, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr340, 0.9648));
+
+    MassPoint mpisr341 (675, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr341, 0.96408));
+
+    MassPoint mpisr342 (675, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr342, 0.964322));
+
+    MassPoint mpisr343 (675, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr343, 0.964621));
+
+    MassPoint mpisr344 (675, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr344, 0.964884));
+
+    MassPoint mpisr345 (675, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr345, 0.964801));
+
+    MassPoint mpisr346 (675, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr346, 0.964839));
+
+    MassPoint mpisr347 (700, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr347, 0.964625));
+
+    MassPoint mpisr348 (700, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr348, 0.964269));
+
+    MassPoint mpisr349 (700, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr349, 0.964682));
+
+    MassPoint mpisr350 (700, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr350, 0.964421));
+
+    MassPoint mpisr351 (700, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr351, 0.964646));
+
+    MassPoint mpisr352 (700, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr352, 0.965158));
+
+    MassPoint mpisr353 (700, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr353, 0.964861));
+
+    MassPoint mpisr354 (700, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr354, 0.964884));
+
+    MassPoint mpisr355 (700, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr355, 0.964323));
+
+    MassPoint mpisr356 (700, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr356, 0.964602));
+
+    MassPoint mpisr357 (700, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr357, 0.964591));
+
+    MassPoint mpisr358 (700, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr358, 0.963935));
+
+    MassPoint mpisr359 (700, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr359, 0.964367));
+
+    MassPoint mpisr360 (700, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr360, 0.964426));
+
+    MassPoint mpisr361 (700, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr361, 0.964791));
+
+    MassPoint mpisr362 (700, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr362, 0.964878));
+
+    MassPoint mpisr363 (700, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr363, 0.96459));
+
+    MassPoint mpisr364 (700, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr364, 0.96459));
+
+    MassPoint mpisr365 (700, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr365, 0.96435));
+
+    MassPoint mpisr366 (700, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr366, 0.964525));
+
+    MassPoint mpisr367 (700, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr367, 0.963882));
+
+    MassPoint mpisr368 (700, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr368, 0.964665));
+
+    MassPoint mpisr369 (700, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr369, 0.964329));
+
+    MassPoint mpisr370 (700, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr370, 0.964872));
+
+    MassPoint mpisr371 (700, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr371, 0.964974));
+
+    MassPoint mpisr372 (725, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr372, 0.964265));
+
+    MassPoint mpisr373 (725, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr373, 0.964692));
+
+    MassPoint mpisr374 (725, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr374, 0.964861));
+
+    MassPoint mpisr375 (725, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr375, 0.964442));
+
+    MassPoint mpisr376 (725, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr376, 0.964371));
+
+    MassPoint mpisr377 (725, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr377, 0.964634));
+
+    MassPoint mpisr378 (725, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr378, 0.964275));
+
+    MassPoint mpisr379 (725, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr379, 0.964636));
+
+    MassPoint mpisr380 (725, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr380, 0.964142));
+
+    MassPoint mpisr381 (725, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr381, 0.964366));
+
+    MassPoint mpisr382 (725, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr382, 0.964723));
+
+    MassPoint mpisr383 (725, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr383, 0.964329));
+
+    MassPoint mpisr384 (725, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr384, 0.964974));
+
+    MassPoint mpisr385 (725, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr385, 0.964726));
+
+    MassPoint mpisr386 (725, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr386, 0.964529));
+
+    MassPoint mpisr387 (725, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr387, 0.964612));
+
+    MassPoint mpisr388 (725, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr388, 0.964815));
+
+    MassPoint mpisr389 (725, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr389, 0.964411));
+
+    MassPoint mpisr390 (725, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr390, 0.964926));
+
+    MassPoint mpisr391 (725, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr391, 0.964624));
+
+    MassPoint mpisr392 (725, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr392, 0.964818));
+
+    MassPoint mpisr393 (725, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr393, 0.964734));
+
+    MassPoint mpisr394 (725, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr394, 0.96438));
+
+    MassPoint mpisr395 (725, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr395, 0.964613));
+
+    MassPoint mpisr396 (725, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr396, 0.964597));
+
+    MassPoint mpisr397 (750, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr397, 0.964778));
+
+    MassPoint mpisr398 (750, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr398, 0.964296));
+
+    MassPoint mpisr399 (750, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr399, 0.964373));
+
+    MassPoint mpisr400 (750, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr400, 0.964574));
+
+    MassPoint mpisr401 (750, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr401, 0.965004));
+
+    MassPoint mpisr402 (750, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr402, 0.964968));
+
+    MassPoint mpisr403 (750, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr403, 0.964209));
+
+    MassPoint mpisr404 (750, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr404, 0.9646));
+
+    MassPoint mpisr405 (750, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr405, 0.964802));
+
+    MassPoint mpisr406 (750, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr406, 0.964423));
+
+    MassPoint mpisr407 (750, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr407, 0.964794));
+
+    MassPoint mpisr408 (750, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr408, 0.964728));
+
+    MassPoint mpisr409 (750, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr409, 0.964093));
+
+    MassPoint mpisr410 (750, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr410, 0.96493));
+
+    MassPoint mpisr411 (750, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr411, 0.964512));
+
+    MassPoint mpisr412 (750, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr412, 0.964627));
+
+    MassPoint mpisr413 (750, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr413, 0.96479));
+
+    MassPoint mpisr414 (750, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr414, 0.964886));
+
+    MassPoint mpisr415 (750, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr415, 0.964173));
+
+    MassPoint mpisr416 (750, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr416, 0.964544));
+
+    MassPoint mpisr417 (750, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr417, 0.96435));
+
+    MassPoint mpisr418 (750, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr418, 0.964751));
+
+    MassPoint mpisr419 (750, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr419, 0.964493));
+
+    MassPoint mpisr420 (750, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr420, 0.964721));
+
+    MassPoint mpisr421 (750, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr421, 0.964076));
+
+    MassPoint mpisr422 (775, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr422, 0.964999));
+
+    MassPoint mpisr423 (775, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr423, 0.965114));
+
+    MassPoint mpisr424 (775, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr424, 0.964482));
+
+    MassPoint mpisr425 (775, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr425, 0.964651));
+
+    MassPoint mpisr426 (775, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr426, 0.964172));
+
+    MassPoint mpisr427 (775, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr427, 0.964685));
+
+    MassPoint mpisr428 (775, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr428, 0.964766));
+
+    MassPoint mpisr429 (775, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr429, 0.964474));
+
+    MassPoint mpisr430 (775, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr430, 0.964852));
+
+    MassPoint mpisr431 (775, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr431, 0.96443));
+
+    MassPoint mpisr432 (775, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr432, 0.964672));
+
+    MassPoint mpisr433 (775, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr433, 0.964417));
+
+    MassPoint mpisr434 (775, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr434, 0.964258));
+
+    MassPoint mpisr435 (775, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr435, 0.964752));
+
+    MassPoint mpisr436 (775, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr436, 0.964186));
+
+    MassPoint mpisr437 (775, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr437, 0.964416));
+
+    MassPoint mpisr438 (775, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr438, 0.964365));
+
+    MassPoint mpisr439 (775, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr439, 0.964396));
+
+    MassPoint mpisr440 (775, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr440, 0.964473));
+
+    MassPoint mpisr441 (775, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr441, 0.964295));
+
+    MassPoint mpisr442 (775, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr442, 0.96428));
+
+    MassPoint mpisr443 (775, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr443, 0.964453));
+
+    MassPoint mpisr444 (775, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr444, 0.964037));
+
+    MassPoint mpisr445 (775, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr445, 0.964883));
+
+    MassPoint mpisr446 (775, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr446, 0.96431));
+
+    MassPoint mpisr447 (800, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr447, 0.964929));
+
+    MassPoint mpisr448 (800, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr448, 0.964337));
+
+    MassPoint mpisr449 (800, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr449, 0.964475));
+
+    MassPoint mpisr450 (800, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr450, 0.964118));
+
+    MassPoint mpisr451 (800, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr451, 0.964236));
+
+    MassPoint mpisr452 (800, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr452, 0.964344));
+
+    MassPoint mpisr453 (800, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr453, 0.964407));
+
+    MassPoint mpisr454 (800, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr454, 0.965062));
+
+    MassPoint mpisr455 (800, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr455, 0.964501));
+
+    MassPoint mpisr456 (800, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr456, 0.964749));
+
+    MassPoint mpisr457 (800, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr457, 0.964539));
+
+    MassPoint mpisr458 (800, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr458, 0.964277));
+
+    MassPoint mpisr459 (800, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr459, 0.964511));
+
+    MassPoint mpisr460 (800, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr460, 0.964709));
+
+    MassPoint mpisr461 (800, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr461, 0.964341));
+
+    MassPoint mpisr462 (800, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr462, 0.964656));
+
+    MassPoint mpisr463 (800, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr463, 0.964026));
+
+    MassPoint mpisr464 (800, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr464, 0.964551));
+
+    MassPoint mpisr465 (800, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr465, 0.964847));
+
+    MassPoint mpisr466 (800, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr466, 0.964131));
+
+    MassPoint mpisr467 (800, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr467, 0.9647));
+
+    MassPoint mpisr468 (800, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr468, 0.964169));
+
+    MassPoint mpisr469 (800, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr469, 0.964785));
+
+    MassPoint mpisr470 (800, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr470, 0.964601));
+
+    MassPoint mpisr471 (800, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr471, 0.964478)); 
+
+  } else  if (SUSYProductionProcess=="TChiSlep") {
+
+    MassPoint mp0 (100, 1);
+    StopCrossSection cs0 (11.6119, 0.518613);
+    MassPointParameters mpp0 (cs0, 8625);
+    StopNeutralinoMap.insert(std::make_pair(mp0, mpp0));
+
+    MassPoint mp1 (100, 25);
+    StopCrossSection cs1 (11.6119, 0.518613);
+    MassPointParameters mpp1 (cs1, 11890);
+    StopNeutralinoMap.insert(std::make_pair(mp1, mpp1));
+
+    MassPoint mp2 (100, 50);
+    StopCrossSection cs2 (11.6119, 0.518613);
+    MassPointParameters mpp2 (cs2, 12845);
+    StopNeutralinoMap.insert(std::make_pair(mp2, mpp2));
+
+    MassPoint mp3 (125, 1);
+    StopCrossSection cs3 (5.09052, 0.249469);
+    MassPointParameters mpp3 (cs3, 9201);
+    StopNeutralinoMap.insert(std::make_pair(mp3, mpp3));
+
+    MassPoint mp4 (125, 25);
+    StopCrossSection cs4 (5.09052, 0.249469);
+    MassPointParameters mpp4 (cs4, 8450);
+    StopNeutralinoMap.insert(std::make_pair(mp4, mpp4));
+
+    MassPoint mp5 (125, 50);
+    StopCrossSection cs5 (5.09052, 0.249469);
+    MassPointParameters mpp5 (cs5, 12360);
+    StopNeutralinoMap.insert(std::make_pair(mp5, mpp5));
+
+    MassPoint mp6 (125, 75);
+    StopCrossSection cs6 (5.09052, 0.249469);
+    MassPointParameters mpp6 (cs6, 9903);
+    StopNeutralinoMap.insert(std::make_pair(mp6, mpp6));
+
+    MassPoint mp7 (150, 1);
+    StopCrossSection cs7 (2.61231, 0.138156);
+    MassPointParameters mpp7 (cs7, 11132);
+    StopNeutralinoMap.insert(std::make_pair(mp7, mpp7));
+
+    MassPoint mp8 (150, 25);
+    StopCrossSection cs8 (2.61231, 0.138156);
+    MassPointParameters mpp8 (cs8, 9169);
+    StopNeutralinoMap.insert(std::make_pair(mp8, mpp8));
+
+    MassPoint mp9 (150, 50);
+    StopCrossSection cs9 (2.61231, 0.138156);
+    MassPointParameters mpp9 (cs9, 10942);
+    StopNeutralinoMap.insert(std::make_pair(mp9, mpp9));
+
+    MassPoint mp10 (150, 75);
+    StopCrossSection cs10 (2.61231, 0.138156);
+    MassPointParameters mpp10 (cs10, 12012);
+    StopNeutralinoMap.insert(std::make_pair(mp10, mpp10));
+
+    MassPoint mp11 (150, 100);
+    StopCrossSection cs11 (2.61231, 0.138156);
+    MassPointParameters mpp11 (cs11, 10779);
+    StopNeutralinoMap.insert(std::make_pair(mp11, mpp11));
+
+    MassPoint mp12 (175, 1);
+    StopCrossSection cs12 (1.48242, 0.0832672);
+    MassPointParameters mpp12 (cs12, 9601);
+    StopNeutralinoMap.insert(std::make_pair(mp12, mpp12));
+
+    MassPoint mp13 (175, 25);
+    StopCrossSection cs13 (1.48242, 0.0832672);
+    MassPointParameters mpp13 (cs13, 11529);
+    StopNeutralinoMap.insert(std::make_pair(mp13, mpp13));
+
+    MassPoint mp14 (175, 50);
+    StopCrossSection cs14 (1.48242, 0.0832672);
+    MassPointParameters mpp14 (cs14, 7725);
+    StopNeutralinoMap.insert(std::make_pair(mp14, mpp14));
+
+    MassPoint mp15 (175, 75);
+    StopCrossSection cs15 (1.48242, 0.0832672);
+    MassPointParameters mpp15 (cs15, 8560);
+    StopNeutralinoMap.insert(std::make_pair(mp15, mpp15));
+
+    MassPoint mp16 (175, 100);
+    StopCrossSection cs16 (1.48242, 0.0832672);
+    MassPointParameters mpp16 (cs16, 6674);
+    StopNeutralinoMap.insert(std::make_pair(mp16, mpp16));
+
+    MassPoint mp17 (175, 125);
+    StopCrossSection cs17 (1.48242, 0.0832672);
+    MassPointParameters mpp17 (cs17, 11973);
+    StopNeutralinoMap.insert(std::make_pair(mp17, mpp17));
+
+    MassPoint mp18 (200, 1);
+    StopCrossSection cs18 (0.902569, 0.0537411);
+    MassPointParameters mpp18 (cs18, 10065);
+    StopNeutralinoMap.insert(std::make_pair(mp18, mpp18));
+
+    MassPoint mp19 (200, 25);
+    StopCrossSection cs19 (0.902569, 0.0537411);
+    MassPointParameters mpp19 (cs19, 8416);
+    StopNeutralinoMap.insert(std::make_pair(mp19, mpp19));
+
+    MassPoint mp20 (200, 50);
+    StopCrossSection cs20 (0.902569, 0.0537411);
+    MassPointParameters mpp20 (cs20, 10885);
+    StopNeutralinoMap.insert(std::make_pair(mp20, mpp20));
+
+    MassPoint mp21 (200, 75);
+    StopCrossSection cs21 (0.902569, 0.0537411);
+    MassPointParameters mpp21 (cs21, 7196);
+    StopNeutralinoMap.insert(std::make_pair(mp21, mpp21));
+
+    MassPoint mp22 (200, 100);
+    StopCrossSection cs22 (0.902569, 0.0537411);
+    MassPointParameters mpp22 (cs22, 11505);
+    StopNeutralinoMap.insert(std::make_pair(mp22, mpp22));
+
+    MassPoint mp23 (200, 125);
+    StopCrossSection cs23 (0.902569, 0.0537411);
+    MassPointParameters mpp23 (cs23, 11256);
+    StopNeutralinoMap.insert(std::make_pair(mp23, mpp23));
+
+    MassPoint mp24 (200, 150);
+    StopCrossSection cs24 (0.902569, 0.0537411);
+    MassPointParameters mpp24 (cs24, 9382);
+    StopNeutralinoMap.insert(std::make_pair(mp24, mpp24));
+
+    MassPoint mp25 (225, 1);
+    StopCrossSection cs25 (0.579564, 0.0360699);
+    MassPointParameters mpp25 (cs25, 11009);
+    StopNeutralinoMap.insert(std::make_pair(mp25, mpp25));
+
+    MassPoint mp26 (225, 25);
+    StopCrossSection cs26 (0.579564, 0.0360699);
+    MassPointParameters mpp26 (cs26, 7996);
+    StopNeutralinoMap.insert(std::make_pair(mp26, mpp26));
+
+    MassPoint mp27 (225, 50);
+    StopCrossSection cs27 (0.579564, 0.0360699);
+    MassPointParameters mpp27 (cs27, 10446);
+    StopNeutralinoMap.insert(std::make_pair(mp27, mpp27));
+
+    MassPoint mp28 (225, 75);
+    StopCrossSection cs28 (0.579564, 0.0360699);
+    MassPointParameters mpp28 (cs28, 9081);
+    StopNeutralinoMap.insert(std::make_pair(mp28, mpp28));
+
+    MassPoint mp29 (225, 100);
+    StopCrossSection cs29 (0.579564, 0.0360699);
+    MassPointParameters mpp29 (cs29, 13155);
+    StopNeutralinoMap.insert(std::make_pair(mp29, mpp29));
+
+    MassPoint mp30 (225, 125);
+    StopCrossSection cs30 (0.579564, 0.0360699);
+    MassPointParameters mpp30 (cs30, 11469);
+    StopNeutralinoMap.insert(std::make_pair(mp30, mpp30));
+
+    MassPoint mp31 (225, 150);
+    StopCrossSection cs31 (0.579564, 0.0360699);
+    MassPointParameters mpp31 (cs31, 9419);
+    StopNeutralinoMap.insert(std::make_pair(mp31, mpp31));
+
+    MassPoint mp32 (225, 175);
+    StopCrossSection cs32 (0.579564, 0.0360699);
+    MassPointParameters mpp32 (cs32, 10153);
+    StopNeutralinoMap.insert(std::make_pair(mp32, mpp32));
+
+    MassPoint mp33 (250, 1);
+    StopCrossSection cs33 (0.387534, 0.0253131);
+    MassPointParameters mpp33 (cs33, 11869);
+    StopNeutralinoMap.insert(std::make_pair(mp33, mpp33));
+
+    MassPoint mp34 (250, 25);
+    StopCrossSection cs34 (0.387534, 0.0253131);
+    MassPointParameters mpp34 (cs34, 8842);
+    StopNeutralinoMap.insert(std::make_pair(mp34, mpp34));
+
+    MassPoint mp35 (250, 50);
+    StopCrossSection cs35 (0.387534, 0.0253131);
+    MassPointParameters mpp35 (cs35, 9855);
+    StopNeutralinoMap.insert(std::make_pair(mp35, mpp35));
+
+    MassPoint mp36 (250, 75);
+    StopCrossSection cs36 (0.387534, 0.0253131);
+    MassPointParameters mpp36 (cs36, 10466);
+    StopNeutralinoMap.insert(std::make_pair(mp36, mpp36));
+
+    MassPoint mp37 (250, 100);
+    StopCrossSection cs37 (0.387534, 0.0253131);
+    MassPointParameters mpp37 (cs37, 9187);
+    StopNeutralinoMap.insert(std::make_pair(mp37, mpp37));
+
+    MassPoint mp38 (250, 125);
+    StopCrossSection cs38 (0.387534, 0.0253131);
+    MassPointParameters mpp38 (cs38, 11896);
+    StopNeutralinoMap.insert(std::make_pair(mp38, mpp38));
+
+    MassPoint mp39 (250, 150);
+    StopCrossSection cs39 (0.387534, 0.0253131);
+    MassPointParameters mpp39 (cs39, 7147);
+    StopNeutralinoMap.insert(std::make_pair(mp39, mpp39));
+
+    MassPoint mp40 (250, 175);
+    StopCrossSection cs40 (0.387534, 0.0253131);
+    MassPointParameters mpp40 (cs40, 7674);
+    StopNeutralinoMap.insert(std::make_pair(mp40, mpp40));
+
+    MassPoint mp41 (250, 200);
+    StopCrossSection cs41 (0.387534, 0.0253131);
+    MassPointParameters mpp41 (cs41, 9130);
+    StopNeutralinoMap.insert(std::make_pair(mp41, mpp41));
+
+    MassPoint mp42 (275, 1);
+    StopCrossSection cs42 (0.267786, 0.0182886);
+    MassPointParameters mpp42 (cs42, 7574);
+    StopNeutralinoMap.insert(std::make_pair(mp42, mpp42));
+
+    MassPoint mp43 (275, 25);
+    StopCrossSection cs43 (0.267786, 0.0182886);
+    MassPointParameters mpp43 (cs43, 9284);
+    StopNeutralinoMap.insert(std::make_pair(mp43, mpp43));
+
+    MassPoint mp44 (275, 50);
+    StopCrossSection cs44 (0.267786, 0.0182886);
+    MassPointParameters mpp44 (cs44, 11034);
+    StopNeutralinoMap.insert(std::make_pair(mp44, mpp44));
+
+    MassPoint mp45 (275, 75);
+    StopCrossSection cs45 (0.267786, 0.0182886);
+    MassPointParameters mpp45 (cs45, 8287);
+    StopNeutralinoMap.insert(std::make_pair(mp45, mpp45));
+
+    MassPoint mp46 (275, 100);
+    StopCrossSection cs46 (0.267786, 0.0182886);
+    MassPointParameters mpp46 (cs46, 10626);
+    StopNeutralinoMap.insert(std::make_pair(mp46, mpp46));
+
+    MassPoint mp47 (275, 125);
+    StopCrossSection cs47 (0.267786, 0.0182886);
+    MassPointParameters mpp47 (cs47, 9369);
+    StopNeutralinoMap.insert(std::make_pair(mp47, mpp47));
+
+    MassPoint mp48 (275, 150);
+    StopCrossSection cs48 (0.267786, 0.0182886);
+    MassPointParameters mpp48 (cs48, 10156);
+    StopNeutralinoMap.insert(std::make_pair(mp48, mpp48));
+
+    MassPoint mp49 (275, 175);
+    StopCrossSection cs49 (0.267786, 0.0182886);
+    MassPointParameters mpp49 (cs49, 9102);
+    StopNeutralinoMap.insert(std::make_pair(mp49, mpp49));
+
+    MassPoint mp50 (275, 200);
+    StopCrossSection cs50 (0.267786, 0.0182886);
+    MassPointParameters mpp50 (cs50, 11781);
+    StopNeutralinoMap.insert(std::make_pair(mp50, mpp50));
+
+    MassPoint mp51 (275, 225);
+    StopCrossSection cs51 (0.267786, 0.0182886);
+    MassPointParameters mpp51 (cs51, 9505);
+    StopNeutralinoMap.insert(std::make_pair(mp51, mpp51));
+
+    MassPoint mp52 (300, 1);
+    StopCrossSection cs52 (0.190159, 0.0134438);
+    MassPointParameters mpp52 (cs52, 10052);
+    StopNeutralinoMap.insert(std::make_pair(mp52, mpp52));
+
+    MassPoint mp53 (300, 25);
+    StopCrossSection cs53 (0.190159, 0.0134438);
+    MassPointParameters mpp53 (cs53, 10917);
+    StopNeutralinoMap.insert(std::make_pair(mp53, mpp53));
+
+    MassPoint mp54 (300, 50);
+    StopCrossSection cs54 (0.190159, 0.0134438);
+    MassPointParameters mpp54 (cs54, 8040);
+    StopNeutralinoMap.insert(std::make_pair(mp54, mpp54));
+
+    MassPoint mp55 (300, 75);
+    StopCrossSection cs55 (0.190159, 0.0134438);
+    MassPointParameters mpp55 (cs55, 7470);
+    StopNeutralinoMap.insert(std::make_pair(mp55, mpp55));
+
+    MassPoint mp56 (300, 100);
+    StopCrossSection cs56 (0.190159, 0.0134438);
+    MassPointParameters mpp56 (cs56, 11334);
+    StopNeutralinoMap.insert(std::make_pair(mp56, mpp56));
+
+    MassPoint mp57 (300, 125);
+    StopCrossSection cs57 (0.190159, 0.0134438);
+    MassPointParameters mpp57 (cs57, 9540);
+    StopNeutralinoMap.insert(std::make_pair(mp57, mpp57));
+
+    MassPoint mp58 (300, 150);
+    StopCrossSection cs58 (0.190159, 0.0134438);
+    MassPointParameters mpp58 (cs58, 11137);
+    StopNeutralinoMap.insert(std::make_pair(mp58, mpp58));
+
+    MassPoint mp59 (300, 175);
+    StopCrossSection cs59 (0.190159, 0.0134438);
+    MassPointParameters mpp59 (cs59, 11029);
+    StopNeutralinoMap.insert(std::make_pair(mp59, mpp59));
+
+    MassPoint mp60 (300, 200);
+    StopCrossSection cs60 (0.190159, 0.0134438);
+    MassPointParameters mpp60 (cs60, 11164);
+    StopNeutralinoMap.insert(std::make_pair(mp60, mpp60));
+
+    MassPoint mp61 (300, 225);
+    StopCrossSection cs61 (0.190159, 0.0134438);
+    MassPointParameters mpp61 (cs61, 9929);
+    StopNeutralinoMap.insert(std::make_pair(mp61, mpp61));
+
+    MassPoint mp62 (300, 250);
+    StopCrossSection cs62 (0.190159, 0.0134438);
+    MassPointParameters mpp62 (cs62, 10078);
+    StopNeutralinoMap.insert(std::make_pair(mp62, mpp62));
+
+    MassPoint mp63 (325, 1);
+    StopCrossSection cs63 (0.138086, 0.0101835);
+    MassPointParameters mpp63 (cs63, 10713);
+    StopNeutralinoMap.insert(std::make_pair(mp63, mpp63));
+
+    MassPoint mp64 (325, 25);
+    StopCrossSection cs64 (0.138086, 0.0101835);
+    MassPointParameters mpp64 (cs64, 8988);
+    StopNeutralinoMap.insert(std::make_pair(mp64, mpp64));
+
+    MassPoint mp65 (325, 50);
+    StopCrossSection cs65 (0.138086, 0.0101835);
+    MassPointParameters mpp65 (cs65, 7569);
+    StopNeutralinoMap.insert(std::make_pair(mp65, mpp65));
+
+    MassPoint mp66 (325, 75);
+    StopCrossSection cs66 (0.138086, 0.0101835);
+    MassPointParameters mpp66 (cs66, 6793);
+    StopNeutralinoMap.insert(std::make_pair(mp66, mpp66));
+
+    MassPoint mp67 (325, 100);
+    StopCrossSection cs67 (0.138086, 0.0101835);
+    MassPointParameters mpp67 (cs67, 7608);
+    StopNeutralinoMap.insert(std::make_pair(mp67, mpp67));
+
+    MassPoint mp68 (325, 125);
+    StopCrossSection cs68 (0.138086, 0.0101835);
+    MassPointParameters mpp68 (cs68, 11778);
+    StopNeutralinoMap.insert(std::make_pair(mp68, mpp68));
+
+    MassPoint mp69 (325, 150);
+    StopCrossSection cs69 (0.138086, 0.0101835);
+    MassPointParameters mpp69 (cs69, 9547);
+    StopNeutralinoMap.insert(std::make_pair(mp69, mpp69));
+
+    MassPoint mp70 (325, 175);
+    StopCrossSection cs70 (0.138086, 0.0101835);
+    MassPointParameters mpp70 (cs70, 11230);
+    StopNeutralinoMap.insert(std::make_pair(mp70, mpp70));
+
+    MassPoint mp71 (325, 200);
+    StopCrossSection cs71 (0.138086, 0.0101835);
+    MassPointParameters mpp71 (cs71, 10468);
+    StopNeutralinoMap.insert(std::make_pair(mp71, mpp71));
+
+    MassPoint mp72 (325, 225);
+    StopCrossSection cs72 (0.138086, 0.0101835);
+    MassPointParameters mpp72 (cs72, 8122);
+    StopNeutralinoMap.insert(std::make_pair(mp72, mpp72));
+
+    MassPoint mp73 (325, 250);
+    StopCrossSection cs73 (0.138086, 0.0101835);
+    MassPointParameters mpp73 (cs73, 8664);
+    StopNeutralinoMap.insert(std::make_pair(mp73, mpp73));
+
+    MassPoint mp74 (325, 275);
+    StopCrossSection cs74 (0.138086, 0.0101835);
+    MassPointParameters mpp74 (cs74, 9403);
+    StopNeutralinoMap.insert(std::make_pair(mp74, mpp74));
+
+    MassPoint mp75 (350, 1);
+    StopCrossSection cs75 (0.102199, 0.00775261);
+    MassPointParameters mpp75 (cs75, 10723);
+    StopNeutralinoMap.insert(std::make_pair(mp75, mpp75));
+
+    MassPoint mp76 (350, 25);
+    StopCrossSection cs76 (0.102199, 0.00775261);
+    MassPointParameters mpp76 (cs76, 6873);
+    StopNeutralinoMap.insert(std::make_pair(mp76, mpp76));
+
+    MassPoint mp77 (350, 50);
+    StopCrossSection cs77 (0.102199, 0.00775261);
+    MassPointParameters mpp77 (cs77, 7917);
+    StopNeutralinoMap.insert(std::make_pair(mp77, mpp77));
+
+    MassPoint mp78 (350, 75);
+    StopCrossSection cs78 (0.102199, 0.00775261);
+    MassPointParameters mpp78 (cs78, 9548);
+    StopNeutralinoMap.insert(std::make_pair(mp78, mpp78));
+
+    MassPoint mp79 (350, 100);
+    StopCrossSection cs79 (0.102199, 0.00775261);
+    MassPointParameters mpp79 (cs79, 9267);
+    StopNeutralinoMap.insert(std::make_pair(mp79, mpp79));
+
+    MassPoint mp80 (350, 125);
+    StopCrossSection cs80 (0.102199, 0.00775261);
+    MassPointParameters mpp80 (cs80, 10030);
+    StopNeutralinoMap.insert(std::make_pair(mp80, mpp80));
+
+    MassPoint mp81 (350, 150);
+    StopCrossSection cs81 (0.102199, 0.00775261);
+    MassPointParameters mpp81 (cs81, 12319);
+    StopNeutralinoMap.insert(std::make_pair(mp81, mpp81));
+
+    MassPoint mp82 (350, 175);
+    StopCrossSection cs82 (0.102199, 0.00775261);
+    MassPointParameters mpp82 (cs82, 12558);
+    StopNeutralinoMap.insert(std::make_pair(mp82, mpp82));
+
+    MassPoint mp83 (350, 200);
+    StopCrossSection cs83 (0.102199, 0.00775261);
+    MassPointParameters mpp83 (cs83, 9694);
+    StopNeutralinoMap.insert(std::make_pair(mp83, mpp83));
+
+    MassPoint mp84 (350, 225);
+    StopCrossSection cs84 (0.102199, 0.00775261);
+    MassPointParameters mpp84 (cs84, 6913);
+    StopNeutralinoMap.insert(std::make_pair(mp84, mpp84));
+
+    MassPoint mp85 (350, 250);
+    StopCrossSection cs85 (0.102199, 0.00775261);
+    MassPointParameters mpp85 (cs85, 10531);
+    StopNeutralinoMap.insert(std::make_pair(mp85, mpp85));
+
+    MassPoint mp86 (350, 275);
+    StopCrossSection cs86 (0.102199, 0.00775261);
+    MassPointParameters mpp86 (cs86, 9286);
+    StopNeutralinoMap.insert(std::make_pair(mp86, mpp86));
+
+    MassPoint mp87 (350, 300);
+    StopCrossSection cs87 (0.102199, 0.00775261);
+    MassPointParameters mpp87 (cs87, 9862);
+    StopNeutralinoMap.insert(std::make_pair(mp87, mpp87));
+
+    MassPoint mp88 (375, 1);
+    StopCrossSection cs88 (0.0768342, 0.00602606);
+    MassPointParameters mpp88 (cs88, 10185);
+    StopNeutralinoMap.insert(std::make_pair(mp88, mpp88));
+
+    MassPoint mp89 (375, 25);
+    StopCrossSection cs89 (0.0768342, 0.00602606);
+    MassPointParameters mpp89 (cs89, 8200);
+    StopNeutralinoMap.insert(std::make_pair(mp89, mpp89));
+
+    MassPoint mp90 (375, 50);
+    StopCrossSection cs90 (0.0768342, 0.00602606);
+    MassPointParameters mpp90 (cs90, 10921);
+    StopNeutralinoMap.insert(std::make_pair(mp90, mpp90));
+
+    MassPoint mp91 (375, 75);
+    StopCrossSection cs91 (0.0768342, 0.00602606);
+    MassPointParameters mpp91 (cs91, 9279);
+    StopNeutralinoMap.insert(std::make_pair(mp91, mpp91));
+
+    MassPoint mp92 (375, 100);
+    StopCrossSection cs92 (0.0768342, 0.00602606);
+    MassPointParameters mpp92 (cs92, 6808);
+    StopNeutralinoMap.insert(std::make_pair(mp92, mpp92));
+
+    MassPoint mp93 (375, 125);
+    StopCrossSection cs93 (0.0768342, 0.00602606);
+    MassPointParameters mpp93 (cs93, 8529);
+    StopNeutralinoMap.insert(std::make_pair(mp93, mpp93));
+
+    MassPoint mp94 (375, 150);
+    StopCrossSection cs94 (0.0768342, 0.00602606);
+    MassPointParameters mpp94 (cs94, 11022);
+    StopNeutralinoMap.insert(std::make_pair(mp94, mpp94));
+
+    MassPoint mp95 (375, 175);
+    StopCrossSection cs95 (0.0768342, 0.00602606);
+    MassPointParameters mpp95 (cs95, 8076);
+    StopNeutralinoMap.insert(std::make_pair(mp95, mpp95));
+
+    MassPoint mp96 (375, 200);
+    StopCrossSection cs96 (0.0768342, 0.00602606);
+    MassPointParameters mpp96 (cs96, 9394);
+    StopNeutralinoMap.insert(std::make_pair(mp96, mpp96));
+
+    MassPoint mp97 (375, 225);
+    StopCrossSection cs97 (0.0768342, 0.00602606);
+    MassPointParameters mpp97 (cs97, 9647);
+    StopNeutralinoMap.insert(std::make_pair(mp97, mpp97));
+
+    MassPoint mp98 (375, 250);
+    StopCrossSection cs98 (0.0768342, 0.00602606);
+    MassPointParameters mpp98 (cs98, 8084);
+    StopNeutralinoMap.insert(std::make_pair(mp98, mpp98));
+
+    MassPoint mp99 (375, 275);
+    StopCrossSection cs99 (0.0768342, 0.00602606);
+    MassPointParameters mpp99 (cs99, 10570);
+    StopNeutralinoMap.insert(std::make_pair(mp99, mpp99));
+
+    MassPoint mp100 (375, 300);
+    StopCrossSection cs100 (0.0768342, 0.00602606);
+    MassPointParameters mpp100 (cs100, 8454);
+    StopNeutralinoMap.insert(std::make_pair(mp100, mpp100));
+
+    MassPoint mp101 (375, 325);
+    StopCrossSection cs101 (0.0768342, 0.00602606);
+    MassPointParameters mpp101 (cs101, 11182);
+    StopNeutralinoMap.insert(std::make_pair(mp101, mpp101));
+
+    MassPoint mp102 (400, 1);
+    StopCrossSection cs102 (0.0586311, 0.0047276);
+    MassPointParameters mpp102 (cs102, 8180);
+    StopNeutralinoMap.insert(std::make_pair(mp102, mpp102));
+
+    MassPoint mp103 (400, 25);
+    StopCrossSection cs103 (0.0586311, 0.0047276);
+    MassPointParameters mpp103 (cs103, 9144);
+    StopNeutralinoMap.insert(std::make_pair(mp103, mpp103));
+
+    MassPoint mp104 (400, 50);
+    StopCrossSection cs104 (0.0586311, 0.0047276);
+    MassPointParameters mpp104 (cs104, 14234);
+    StopNeutralinoMap.insert(std::make_pair(mp104, mpp104));
+
+    MassPoint mp105 (400, 75);
+    StopCrossSection cs105 (0.0586311, 0.0047276);
+    MassPointParameters mpp105 (cs105, 10180);
+    StopNeutralinoMap.insert(std::make_pair(mp105, mpp105));
+
+    MassPoint mp106 (400, 100);
+    StopCrossSection cs106 (0.0586311, 0.0047276);
+    MassPointParameters mpp106 (cs106, 8656);
+    StopNeutralinoMap.insert(std::make_pair(mp106, mpp106));
+
+    MassPoint mp107 (400, 125);
+    StopCrossSection cs107 (0.0586311, 0.0047276);
+    MassPointParameters mpp107 (cs107, 11250);
+    StopNeutralinoMap.insert(std::make_pair(mp107, mpp107));
+
+    MassPoint mp108 (400, 150);
+    StopCrossSection cs108 (0.0586311, 0.0047276);
+    MassPointParameters mpp108 (cs108, 8933);
+    StopNeutralinoMap.insert(std::make_pair(mp108, mpp108));
+
+    MassPoint mp109 (400, 175);
+    StopCrossSection cs109 (0.0586311, 0.0047276);
+    MassPointParameters mpp109 (cs109, 12403);
+    StopNeutralinoMap.insert(std::make_pair(mp109, mpp109));
+
+    MassPoint mp110 (400, 200);
+    StopCrossSection cs110 (0.0586311, 0.0047276);
+    MassPointParameters mpp110 (cs110, 7706);
+    StopNeutralinoMap.insert(std::make_pair(mp110, mpp110));
+
+    MassPoint mp111 (400, 225);
+    StopCrossSection cs111 (0.0586311, 0.0047276);
+    MassPointParameters mpp111 (cs111, 8795);
+    StopNeutralinoMap.insert(std::make_pair(mp111, mpp111));
+
+    MassPoint mp112 (400, 250);
+    StopCrossSection cs112 (0.0586311, 0.0047276);
+    MassPointParameters mpp112 (cs112, 11721);
+    StopNeutralinoMap.insert(std::make_pair(mp112, mpp112));
+
+    MassPoint mp113 (400, 275);
+    StopCrossSection cs113 (0.0586311, 0.0047276);
+    MassPointParameters mpp113 (cs113, 11593);
+    StopNeutralinoMap.insert(std::make_pair(mp113, mpp113));
+
+    MassPoint mp114 (400, 300);
+    StopCrossSection cs114 (0.0586311, 0.0047276);
+    MassPointParameters mpp114 (cs114, 10036);
+    StopNeutralinoMap.insert(std::make_pair(mp114, mpp114));
+
+    MassPoint mp115 (400, 325);
+    StopCrossSection cs115 (0.0586311, 0.0047276);
+    MassPointParameters mpp115 (cs115, 10870);
+    StopNeutralinoMap.insert(std::make_pair(mp115, mpp115));
+
+    MassPoint mp116 (400, 350);
+    StopCrossSection cs116 (0.0586311, 0.0047276);
+    MassPointParameters mpp116 (cs116, 10291);
+    StopNeutralinoMap.insert(std::make_pair(mp116, mpp116));
+
+    MassPoint mp117 (425, 1);
+    StopCrossSection cs117 (0.0452189, 0.00371547);
+    MassPointParameters mpp117 (cs117, 10002);
+    StopNeutralinoMap.insert(std::make_pair(mp117, mpp117));
+
+    MassPoint mp118 (425, 25);
+    StopCrossSection cs118 (0.0452189, 0.00371547);
+    MassPointParameters mpp118 (cs118, 12401);
+    StopNeutralinoMap.insert(std::make_pair(mp118, mpp118));
+
+    MassPoint mp119 (425, 50);
+    StopCrossSection cs119 (0.0452189, 0.00371547);
+    MassPointParameters mpp119 (cs119, 8267);
+    StopNeutralinoMap.insert(std::make_pair(mp119, mpp119));
+
+    MassPoint mp120 (425, 75);
+    StopCrossSection cs120 (0.0452189, 0.00371547);
+    MassPointParameters mpp120 (cs120, 11919);
+    StopNeutralinoMap.insert(std::make_pair(mp120, mpp120));
+
+    MassPoint mp121 (425, 100);
+    StopCrossSection cs121 (0.0452189, 0.00371547);
+    MassPointParameters mpp121 (cs121, 9785);
+    StopNeutralinoMap.insert(std::make_pair(mp121, mpp121));
+
+    MassPoint mp122 (425, 125);
+    StopCrossSection cs122 (0.0452189, 0.00371547);
+    MassPointParameters mpp122 (cs122, 10192);
+    StopNeutralinoMap.insert(std::make_pair(mp122, mpp122));
+
+    MassPoint mp123 (425, 150);
+    StopCrossSection cs123 (0.0452189, 0.00371547);
+    MassPointParameters mpp123 (cs123, 11793);
+    StopNeutralinoMap.insert(std::make_pair(mp123, mpp123));
+
+    MassPoint mp124 (425, 175);
+    StopCrossSection cs124 (0.0452189, 0.00371547);
+    MassPointParameters mpp124 (cs124, 8942);
+    StopNeutralinoMap.insert(std::make_pair(mp124, mpp124));
+
+    MassPoint mp125 (425, 200);
+    StopCrossSection cs125 (0.0452189, 0.00371547);
+    MassPointParameters mpp125 (cs125, 9816);
+    StopNeutralinoMap.insert(std::make_pair(mp125, mpp125));
+
+    MassPoint mp126 (425, 225);
+    StopCrossSection cs126 (0.0452189, 0.00371547);
+    MassPointParameters mpp126 (cs126, 8097);
+    StopNeutralinoMap.insert(std::make_pair(mp126, mpp126));
+
+    MassPoint mp127 (425, 250);
+    StopCrossSection cs127 (0.0452189, 0.00371547);
+    MassPointParameters mpp127 (cs127, 10061);
+    StopNeutralinoMap.insert(std::make_pair(mp127, mpp127));
+
+    MassPoint mp128 (425, 275);
+    StopCrossSection cs128 (0.0452189, 0.00371547);
+    MassPointParameters mpp128 (cs128, 7061);
+    StopNeutralinoMap.insert(std::make_pair(mp128, mpp128));
+
+    MassPoint mp129 (425, 300);
+    StopCrossSection cs129 (0.0452189, 0.00371547);
+    MassPointParameters mpp129 (cs129, 12116);
+    StopNeutralinoMap.insert(std::make_pair(mp129, mpp129));
+
+    MassPoint mp130 (425, 325);
+    StopCrossSection cs130 (0.0452189, 0.00371547);
+    MassPointParameters mpp130 (cs130, 7767);
+    StopNeutralinoMap.insert(std::make_pair(mp130, mpp130));
+
+    MassPoint mp131 (425, 350);
+    StopCrossSection cs131 (0.0452189, 0.00371547);
+    MassPointParameters mpp131 (cs131, 8984);
+    StopNeutralinoMap.insert(std::make_pair(mp131, mpp131));
+
+    MassPoint mp132 (425, 375);
+    StopCrossSection cs132 (0.0452189, 0.00371547);
+    MassPointParameters mpp132 (cs132, 10291);
+    StopNeutralinoMap.insert(std::make_pair(mp132, mpp132));
+
+    MassPoint mp133 (450, 1);
+    StopCrossSection cs133 (0.0353143, 0.00297283);
+    MassPointParameters mpp133 (cs133, 9496);
+    StopNeutralinoMap.insert(std::make_pair(mp133, mpp133));
+
+    MassPoint mp134 (450, 25);
+    StopCrossSection cs134 (0.0353143, 0.00297283);
+    MassPointParameters mpp134 (cs134, 9840);
+    StopNeutralinoMap.insert(std::make_pair(mp134, mpp134));
+
+    MassPoint mp135 (450, 50);
+    StopCrossSection cs135 (0.0353143, 0.00297283);
+    MassPointParameters mpp135 (cs135, 8628);
+    StopNeutralinoMap.insert(std::make_pair(mp135, mpp135));
+
+    MassPoint mp136 (450, 75);
+    StopCrossSection cs136 (0.0353143, 0.00297283);
+    MassPointParameters mpp136 (cs136, 8139);
+    StopNeutralinoMap.insert(std::make_pair(mp136, mpp136));
+
+    MassPoint mp137 (450, 100);
+    StopCrossSection cs137 (0.0353143, 0.00297283);
+    MassPointParameters mpp137 (cs137, 10629);
+    StopNeutralinoMap.insert(std::make_pair(mp137, mpp137));
+
+    MassPoint mp138 (450, 125);
+    StopCrossSection cs138 (0.0353143, 0.00297283);
+    MassPointParameters mpp138 (cs138, 8914);
+    StopNeutralinoMap.insert(std::make_pair(mp138, mpp138));
+
+    MassPoint mp139 (450, 150);
+    StopCrossSection cs139 (0.0353143, 0.00297283);
+    MassPointParameters mpp139 (cs139, 6636);
+    StopNeutralinoMap.insert(std::make_pair(mp139, mpp139));
+
+    MassPoint mp140 (450, 175);
+    StopCrossSection cs140 (0.0353143, 0.00297283);
+    MassPointParameters mpp140 (cs140, 9281);
+    StopNeutralinoMap.insert(std::make_pair(mp140, mpp140));
+
+    MassPoint mp141 (450, 200);
+    StopCrossSection cs141 (0.0353143, 0.00297283);
+    MassPointParameters mpp141 (cs141, 10347);
+    StopNeutralinoMap.insert(std::make_pair(mp141, mpp141));
+
+    MassPoint mp142 (450, 225);
+    StopCrossSection cs142 (0.0353143, 0.00297283);
+    MassPointParameters mpp142 (cs142, 9520);
+    StopNeutralinoMap.insert(std::make_pair(mp142, mpp142));
+
+    MassPoint mp143 (450, 250);
+    StopCrossSection cs143 (0.0353143, 0.00297283);
+    MassPointParameters mpp143 (cs143, 9963);
+    StopNeutralinoMap.insert(std::make_pair(mp143, mpp143));
+
+    MassPoint mp144 (450, 275);
+    StopCrossSection cs144 (0.0353143, 0.00297283);
+    MassPointParameters mpp144 (cs144, 11475);
+    StopNeutralinoMap.insert(std::make_pair(mp144, mpp144));
+
+    MassPoint mp145 (450, 300);
+    StopCrossSection cs145 (0.0353143, 0.00297283);
+    MassPointParameters mpp145 (cs145, 8759);
+    StopNeutralinoMap.insert(std::make_pair(mp145, mpp145));
+
+    MassPoint mp146 (450, 325);
+    StopCrossSection cs146 (0.0353143, 0.00297283);
+    MassPointParameters mpp146 (cs146, 10892);
+    StopNeutralinoMap.insert(std::make_pair(mp146, mpp146));
+
+    MassPoint mp147 (450, 350);
+    StopCrossSection cs147 (0.0353143, 0.00297283);
+    MassPointParameters mpp147 (cs147, 11120);
+    StopNeutralinoMap.insert(std::make_pair(mp147, mpp147));
+
+    MassPoint mp148 (450, 375);
+    StopCrossSection cs148 (0.0353143, 0.00297283);
+    MassPointParameters mpp148 (cs148, 8672);
+    StopNeutralinoMap.insert(std::make_pair(mp148, mpp148));
+
+    MassPoint mp149 (450, 400);
+    StopCrossSection cs149 (0.0353143, 0.00297283);
+    MassPointParameters mpp149 (cs149, 10438);
+    StopNeutralinoMap.insert(std::make_pair(mp149, mpp149));
+
+    MassPoint mp150 (475, 1);
+    StopCrossSection cs150 (0.0278342, 0.00241224);
+    MassPointParameters mpp150 (cs150, 7249);
+    StopNeutralinoMap.insert(std::make_pair(mp150, mpp150));
+
+    MassPoint mp151 (475, 25);
+    StopCrossSection cs151 (0.0278342, 0.00241224);
+    MassPointParameters mpp151 (cs151, 10422);
+    StopNeutralinoMap.insert(std::make_pair(mp151, mpp151));
+
+    MassPoint mp152 (475, 50);
+    StopCrossSection cs152 (0.0278342, 0.00241224);
+    MassPointParameters mpp152 (cs152, 11239);
+    StopNeutralinoMap.insert(std::make_pair(mp152, mpp152));
+
+    MassPoint mp153 (475, 75);
+    StopCrossSection cs153 (0.0278342, 0.00241224);
+    MassPointParameters mpp153 (cs153, 11610);
+    StopNeutralinoMap.insert(std::make_pair(mp153, mpp153));
+
+    MassPoint mp154 (475, 100);
+    StopCrossSection cs154 (0.0278342, 0.00241224);
+    MassPointParameters mpp154 (cs154, 9638);
+    StopNeutralinoMap.insert(std::make_pair(mp154, mpp154));
+
+    MassPoint mp155 (475, 125);
+    StopCrossSection cs155 (0.0278342, 0.00241224);
+    MassPointParameters mpp155 (cs155, 9129);
+    StopNeutralinoMap.insert(std::make_pair(mp155, mpp155));
+
+    MassPoint mp156 (475, 150);
+    StopCrossSection cs156 (0.0278342, 0.00241224);
+    MassPointParameters mpp156 (cs156, 10317);
+    StopNeutralinoMap.insert(std::make_pair(mp156, mpp156));
+
+    MassPoint mp157 (475, 175);
+    StopCrossSection cs157 (0.0278342, 0.00241224);
+    MassPointParameters mpp157 (cs157, 8420);
+    StopNeutralinoMap.insert(std::make_pair(mp157, mpp157));
+
+    MassPoint mp158 (475, 200);
+    StopCrossSection cs158 (0.0278342, 0.00241224);
+    MassPointParameters mpp158 (cs158, 11173);
+    StopNeutralinoMap.insert(std::make_pair(mp158, mpp158));
+
+    MassPoint mp159 (475, 225);
+    StopCrossSection cs159 (0.0278342, 0.00241224);
+    MassPointParameters mpp159 (cs159, 9265);
+    StopNeutralinoMap.insert(std::make_pair(mp159, mpp159));
+
+    MassPoint mp160 (475, 250);
+    StopCrossSection cs160 (0.0278342, 0.00241224);
+    MassPointParameters mpp160 (cs160, 8553);
+    StopNeutralinoMap.insert(std::make_pair(mp160, mpp160));
+
+    MassPoint mp161 (475, 275);
+    StopCrossSection cs161 (0.0278342, 0.00241224);
+    MassPointParameters mpp161 (cs161, 10697);
+    StopNeutralinoMap.insert(std::make_pair(mp161, mpp161));
+
+    MassPoint mp162 (475, 300);
+    StopCrossSection cs162 (0.0278342, 0.00241224);
+    MassPointParameters mpp162 (cs162, 9275);
+    StopNeutralinoMap.insert(std::make_pair(mp162, mpp162));
+
+    MassPoint mp163 (475, 325);
+    StopCrossSection cs163 (0.0278342, 0.00241224);
+    MassPointParameters mpp163 (cs163, 11217);
+    StopNeutralinoMap.insert(std::make_pair(mp163, mpp163));
+
+    MassPoint mp164 (475, 350);
+    StopCrossSection cs164 (0.0278342, 0.00241224);
+    MassPointParameters mpp164 (cs164, 9039);
+    StopNeutralinoMap.insert(std::make_pair(mp164, mpp164));
+
+    MassPoint mp165 (475, 375);
+    StopCrossSection cs165 (0.0278342, 0.00241224);
+    MassPointParameters mpp165 (cs165, 10089);
+    StopNeutralinoMap.insert(std::make_pair(mp165, mpp165));
+
+    MassPoint mp166 (475, 400);
+    StopCrossSection cs166 (0.0278342, 0.00241224);
+    MassPointParameters mpp166 (cs166, 8235);
+    StopNeutralinoMap.insert(std::make_pair(mp166, mpp166));
+
+    MassPoint mp167 (475, 425);
+    StopCrossSection cs167 (0.0278342, 0.00241224);
+    MassPointParameters mpp167 (cs167, 11470);
+    StopNeutralinoMap.insert(std::make_pair(mp167, mpp167));
+
+    MassPoint mp168 (500, 1);
+    StopCrossSection cs168 (0.0221265, 0.00194904);
+    MassPointParameters mpp168 (cs168, 10959);
+    StopNeutralinoMap.insert(std::make_pair(mp168, mpp168));
+
+    MassPoint mp169 (500, 25);
+    StopCrossSection cs169 (0.0221265, 0.00194904);
+    MassPointParameters mpp169 (cs169, 8939);
+    StopNeutralinoMap.insert(std::make_pair(mp169, mpp169));
+
+    MassPoint mp170 (500, 50);
+    StopCrossSection cs170 (0.0221265, 0.00194904);
+    MassPointParameters mpp170 (cs170, 12301);
+    StopNeutralinoMap.insert(std::make_pair(mp170, mpp170));
+
+    MassPoint mp171 (500, 75);
+    StopCrossSection cs171 (0.0221265, 0.00194904);
+    MassPointParameters mpp171 (cs171, 9597);
+    StopNeutralinoMap.insert(std::make_pair(mp171, mpp171));
+
+    MassPoint mp172 (500, 100);
+    StopCrossSection cs172 (0.0221265, 0.00194904);
+    MassPointParameters mpp172 (cs172, 8051);
+    StopNeutralinoMap.insert(std::make_pair(mp172, mpp172));
+
+    MassPoint mp173 (500, 125);
+    StopCrossSection cs173 (0.0221265, 0.00194904);
+    MassPointParameters mpp173 (cs173, 8768);
+    StopNeutralinoMap.insert(std::make_pair(mp173, mpp173));
+
+    MassPoint mp174 (500, 150);
+    StopCrossSection cs174 (0.0221265, 0.00194904);
+    MassPointParameters mpp174 (cs174, 9610);
+    StopNeutralinoMap.insert(std::make_pair(mp174, mpp174));
+
+    MassPoint mp175 (500, 175);
+    StopCrossSection cs175 (0.0221265, 0.00194904);
+    MassPointParameters mpp175 (cs175, 9347);
+    StopNeutralinoMap.insert(std::make_pair(mp175, mpp175));
+
+    MassPoint mp176 (500, 200);
+    StopCrossSection cs176 (0.0221265, 0.00194904);
+    MassPointParameters mpp176 (cs176, 10709);
+    StopNeutralinoMap.insert(std::make_pair(mp176, mpp176));
+
+    MassPoint mp177 (500, 225);
+    StopCrossSection cs177 (0.0221265, 0.00194904);
+    MassPointParameters mpp177 (cs177, 10744);
+    StopNeutralinoMap.insert(std::make_pair(mp177, mpp177));
+
+    MassPoint mp178 (500, 250);
+    StopCrossSection cs178 (0.0221265, 0.00194904);
+    MassPointParameters mpp178 (cs178, 7921);
+    StopNeutralinoMap.insert(std::make_pair(mp178, mpp178));
+
+    MassPoint mp179 (500, 275);
+    StopCrossSection cs179 (0.0221265, 0.00194904);
+    MassPointParameters mpp179 (cs179, 10542);
+    StopNeutralinoMap.insert(std::make_pair(mp179, mpp179));
+
+    MassPoint mp180 (500, 300);
+    StopCrossSection cs180 (0.0221265, 0.00194904);
+    MassPointParameters mpp180 (cs180, 11685);
+    StopNeutralinoMap.insert(std::make_pair(mp180, mpp180));
+
+    MassPoint mp181 (500, 325);
+    StopCrossSection cs181 (0.0221265, 0.00194904);
+    MassPointParameters mpp181 (cs181, 9177);
+    StopNeutralinoMap.insert(std::make_pair(mp181, mpp181));
+
+    MassPoint mp182 (500, 350);
+    StopCrossSection cs182 (0.0221265, 0.00194904);
+    MassPointParameters mpp182 (cs182, 11439);
+    StopNeutralinoMap.insert(std::make_pair(mp182, mpp182));
+
+    MassPoint mp183 (500, 375);
+    StopCrossSection cs183 (0.0221265, 0.00194904);
+    MassPointParameters mpp183 (cs183, 8450);
+    StopNeutralinoMap.insert(std::make_pair(mp183, mpp183));
+
+    MassPoint mp184 (500, 400);
+    StopCrossSection cs184 (0.0221265, 0.00194904);
+    MassPointParameters mpp184 (cs184, 8119);
+    StopNeutralinoMap.insert(std::make_pair(mp184, mpp184));
+
+    MassPoint mp185 (500, 425);
+    StopCrossSection cs185 (0.0221265, 0.00194904);
+    MassPointParameters mpp185 (cs185, 9269);
+    StopNeutralinoMap.insert(std::make_pair(mp185, mpp185));
+
+    MassPoint mp186 (500, 450);
+    StopCrossSection cs186 (0.0221265, 0.00194904);
+    MassPointParameters mpp186 (cs186, 9182);
+    StopNeutralinoMap.insert(std::make_pair(mp186, mpp186));
+
+    MassPoint mp187 (525, 1);
+    StopCrossSection cs187 (0.0177394, 0.0015992);
+    MassPointParameters mpp187 (cs187, 8608);
+    StopNeutralinoMap.insert(std::make_pair(mp187, mpp187));
+
+    MassPoint mp188 (525, 25);
+    StopCrossSection cs188 (0.0177394, 0.0015992);
+    MassPointParameters mpp188 (cs188, 7459);
+    StopNeutralinoMap.insert(std::make_pair(mp188, mpp188));
+
+    MassPoint mp189 (525, 50);
+    StopCrossSection cs189 (0.0177394, 0.0015992);
+    MassPointParameters mpp189 (cs189, 9103);
+    StopNeutralinoMap.insert(std::make_pair(mp189, mpp189));
+
+    MassPoint mp190 (525, 75);
+    StopCrossSection cs190 (0.0177394, 0.0015992);
+    MassPointParameters mpp190 (cs190, 9180);
+    StopNeutralinoMap.insert(std::make_pair(mp190, mpp190));
+
+    MassPoint mp191 (525, 100);
+    StopCrossSection cs191 (0.0177394, 0.0015992);
+    MassPointParameters mpp191 (cs191, 10620);
+    StopNeutralinoMap.insert(std::make_pair(mp191, mpp191));
+
+    MassPoint mp192 (525, 125);
+    StopCrossSection cs192 (0.0177394, 0.0015992);
+    MassPointParameters mpp192 (cs192, 9554);
+    StopNeutralinoMap.insert(std::make_pair(mp192, mpp192));
+
+    MassPoint mp193 (525, 150);
+    StopCrossSection cs193 (0.0177394, 0.0015992);
+    MassPointParameters mpp193 (cs193, 9098);
+    StopNeutralinoMap.insert(std::make_pair(mp193, mpp193));
+
+    MassPoint mp194 (525, 175);
+    StopCrossSection cs194 (0.0177394, 0.0015992);
+    MassPointParameters mpp194 (cs194, 13788);
+    StopNeutralinoMap.insert(std::make_pair(mp194, mpp194));
+
+    MassPoint mp195 (525, 200);
+    StopCrossSection cs195 (0.0177394, 0.0015992);
+    MassPointParameters mpp195 (cs195, 8656);
+    StopNeutralinoMap.insert(std::make_pair(mp195, mpp195));
+
+    MassPoint mp196 (525, 225);
+    StopCrossSection cs196 (0.0177394, 0.0015992);
+    MassPointParameters mpp196 (cs196, 9977);
+    StopNeutralinoMap.insert(std::make_pair(mp196, mpp196));
+
+    MassPoint mp197 (525, 250);
+    StopCrossSection cs197 (0.0177394, 0.0015992);
+    MassPointParameters mpp197 (cs197, 7321);
+    StopNeutralinoMap.insert(std::make_pair(mp197, mpp197));
+
+    MassPoint mp198 (525, 275);
+    StopCrossSection cs198 (0.0177394, 0.0015992);
+    MassPointParameters mpp198 (cs198, 10389);
+    StopNeutralinoMap.insert(std::make_pair(mp198, mpp198));
+
+    MassPoint mp199 (525, 300);
+    StopCrossSection cs199 (0.0177394, 0.0015992);
+    MassPointParameters mpp199 (cs199, 11743);
+    StopNeutralinoMap.insert(std::make_pair(mp199, mpp199));
+
+    MassPoint mp200 (525, 325);
+    StopCrossSection cs200 (0.0177394, 0.0015992);
+    MassPointParameters mpp200 (cs200, 10820);
+    StopNeutralinoMap.insert(std::make_pair(mp200, mpp200));
+
+    MassPoint mp201 (525, 350);
+    StopCrossSection cs201 (0.0177394, 0.0015992);
+    MassPointParameters mpp201 (cs201, 7900);
+    StopNeutralinoMap.insert(std::make_pair(mp201, mpp201));
+
+    MassPoint mp202 (525, 375);
+    StopCrossSection cs202 (0.0177394, 0.0015992);
+    MassPointParameters mpp202 (cs202, 11208);
+    StopNeutralinoMap.insert(std::make_pair(mp202, mpp202));
+
+    MassPoint mp203 (525, 400);
+    StopCrossSection cs203 (0.0177394, 0.0015992);
+    MassPointParameters mpp203 (cs203, 12322);
+    StopNeutralinoMap.insert(std::make_pair(mp203, mpp203));
+
+    MassPoint mp204 (525, 425);
+    StopCrossSection cs204 (0.0177394, 0.0015992);
+    MassPointParameters mpp204 (cs204, 12071);
+    StopNeutralinoMap.insert(std::make_pair(mp204, mpp204));
+
+    MassPoint mp205 (525, 450);
+    StopCrossSection cs205 (0.0177394, 0.0015992);
+    MassPointParameters mpp205 (cs205, 10739);
+    StopNeutralinoMap.insert(std::make_pair(mp205, mpp205));
+
+    MassPoint mp206 (525, 475);
+    StopCrossSection cs206 (0.0177394, 0.0015992);
+    MassPointParameters mpp206 (cs206, 10219);
+    StopNeutralinoMap.insert(std::make_pair(mp206, mpp206));
+
+    MassPoint mp207 (550, 1);
+    StopCrossSection cs207 (0.0143134, 0.00132368);
+    MassPointParameters mpp207 (cs207, 10881);
+    StopNeutralinoMap.insert(std::make_pair(mp207, mpp207));
+
+    MassPoint mp208 (550, 25);
+    StopCrossSection cs208 (0.0143134, 0.00132368);
+    MassPointParameters mpp208 (cs208, 11462);
+    StopNeutralinoMap.insert(std::make_pair(mp208, mpp208));
+
+    MassPoint mp209 (550, 50);
+    StopCrossSection cs209 (0.0143134, 0.00132368);
+    MassPointParameters mpp209 (cs209, 10430);
+    StopNeutralinoMap.insert(std::make_pair(mp209, mpp209));
+
+    MassPoint mp210 (550, 75);
+    StopCrossSection cs210 (0.0143134, 0.00132368);
+    MassPointParameters mpp210 (cs210, 9232);
+    StopNeutralinoMap.insert(std::make_pair(mp210, mpp210));
+
+    MassPoint mp211 (550, 100);
+    StopCrossSection cs211 (0.0143134, 0.00132368);
+    MassPointParameters mpp211 (cs211, 11523);
+    StopNeutralinoMap.insert(std::make_pair(mp211, mpp211));
+
+    MassPoint mp212 (550, 125);
+    StopCrossSection cs212 (0.0143134, 0.00132368);
+    MassPointParameters mpp212 (cs212, 8869);
+    StopNeutralinoMap.insert(std::make_pair(mp212, mpp212));
+
+    MassPoint mp213 (550, 150);
+    StopCrossSection cs213 (0.0143134, 0.00132368);
+    MassPointParameters mpp213 (cs213, 9229);
+    StopNeutralinoMap.insert(std::make_pair(mp213, mpp213));
+
+    MassPoint mp214 (550, 175);
+    StopCrossSection cs214 (0.0143134, 0.00132368);
+    MassPointParameters mpp214 (cs214, 11196);
+    StopNeutralinoMap.insert(std::make_pair(mp214, mpp214));
+
+    MassPoint mp215 (550, 200);
+    StopCrossSection cs215 (0.0143134, 0.00132368);
+    MassPointParameters mpp215 (cs215, 12472);
+    StopNeutralinoMap.insert(std::make_pair(mp215, mpp215));
+
+    MassPoint mp216 (550, 225);
+    StopCrossSection cs216 (0.0143134, 0.00132368);
+    MassPointParameters mpp216 (cs216, 8643);
+    StopNeutralinoMap.insert(std::make_pair(mp216, mpp216));
+
+    MassPoint mp217 (550, 250);
+    StopCrossSection cs217 (0.0143134, 0.00132368);
+    MassPointParameters mpp217 (cs217, 9345);
+    StopNeutralinoMap.insert(std::make_pair(mp217, mpp217));
+
+    MassPoint mp218 (550, 275);
+    StopCrossSection cs218 (0.0143134, 0.00132368);
+    MassPointParameters mpp218 (cs218, 8314);
+    StopNeutralinoMap.insert(std::make_pair(mp218, mpp218));
+
+    MassPoint mp219 (550, 300);
+    StopCrossSection cs219 (0.0143134, 0.00132368);
+    MassPointParameters mpp219 (cs219, 8842);
+    StopNeutralinoMap.insert(std::make_pair(mp219, mpp219));
+
+    MassPoint mp220 (550, 325);
+    StopCrossSection cs220 (0.0143134, 0.00132368);
+    MassPointParameters mpp220 (cs220, 10318);
+    StopNeutralinoMap.insert(std::make_pair(mp220, mpp220));
+
+    MassPoint mp221 (550, 350);
+    StopCrossSection cs221 (0.0143134, 0.00132368);
+    MassPointParameters mpp221 (cs221, 10006);
+    StopNeutralinoMap.insert(std::make_pair(mp221, mpp221));
+
+    MassPoint mp222 (550, 375);
+    StopCrossSection cs222 (0.0143134, 0.00132368);
+    MassPointParameters mpp222 (cs222, 10379);
+    StopNeutralinoMap.insert(std::make_pair(mp222, mpp222));
+
+    MassPoint mp223 (550, 400);
+    StopCrossSection cs223 (0.0143134, 0.00132368);
+    MassPointParameters mpp223 (cs223, 9028);
+    StopNeutralinoMap.insert(std::make_pair(mp223, mpp223));
+
+    MassPoint mp224 (550, 425);
+    StopCrossSection cs224 (0.0143134, 0.00132368);
+    MassPointParameters mpp224 (cs224, 9750);
+    StopNeutralinoMap.insert(std::make_pair(mp224, mpp224));
+
+    MassPoint mp225 (550, 450);
+    StopCrossSection cs225 (0.0143134, 0.00132368);
+    MassPointParameters mpp225 (cs225, 9125);
+    StopNeutralinoMap.insert(std::make_pair(mp225, mpp225));
+
+    MassPoint mp226 (550, 475);
+    StopCrossSection cs226 (0.0143134, 0.00132368);
+    MassPointParameters mpp226 (cs226, 10044);
+    StopNeutralinoMap.insert(std::make_pair(mp226, mpp226));
+
+    MassPoint mp227 (550, 500);
+    StopCrossSection cs227 (0.0143134, 0.00132368);
+    MassPointParameters mpp227 (cs227, 10171);
+    StopNeutralinoMap.insert(std::make_pair(mp227, mpp227));
+
+    MassPoint mp228 (575, 1);
+    StopCrossSection cs228 (0.0116266, 0.00109669);
+    MassPointParameters mpp228 (cs228, 10829);
+    StopNeutralinoMap.insert(std::make_pair(mp228, mpp228));
+
+    MassPoint mp229 (575, 25);
+    StopCrossSection cs229 (0.0116266, 0.00109669);
+    MassPointParameters mpp229 (cs229, 11052);
+    StopNeutralinoMap.insert(std::make_pair(mp229, mpp229));
+
+    MassPoint mp230 (575, 50);
+    StopCrossSection cs230 (0.0116266, 0.00109669);
+    MassPointParameters mpp230 (cs230, 10915);
+    StopNeutralinoMap.insert(std::make_pair(mp230, mpp230));
+
+    MassPoint mp231 (575, 75);
+    StopCrossSection cs231 (0.0116266, 0.00109669);
+    MassPointParameters mpp231 (cs231, 10234);
+    StopNeutralinoMap.insert(std::make_pair(mp231, mpp231));
+
+    MassPoint mp232 (575, 100);
+    StopCrossSection cs232 (0.0116266, 0.00109669);
+    MassPointParameters mpp232 (cs232, 7214);
+    StopNeutralinoMap.insert(std::make_pair(mp232, mpp232));
+
+    MassPoint mp233 (575, 125);
+    StopCrossSection cs233 (0.0116266, 0.00109669);
+    MassPointParameters mpp233 (cs233, 11342);
+    StopNeutralinoMap.insert(std::make_pair(mp233, mpp233));
+
+    MassPoint mp234 (575, 150);
+    StopCrossSection cs234 (0.0116266, 0.00109669);
+    MassPointParameters mpp234 (cs234, 10086);
+    StopNeutralinoMap.insert(std::make_pair(mp234, mpp234));
+
+    MassPoint mp235 (575, 175);
+    StopCrossSection cs235 (0.0116266, 0.00109669);
+    MassPointParameters mpp235 (cs235, 10994);
+    StopNeutralinoMap.insert(std::make_pair(mp235, mpp235));
+
+    MassPoint mp236 (575, 200);
+    StopCrossSection cs236 (0.0116266, 0.00109669);
+    MassPointParameters mpp236 (cs236, 9767);
+    StopNeutralinoMap.insert(std::make_pair(mp236, mpp236));
+
+    MassPoint mp237 (575, 225);
+    StopCrossSection cs237 (0.0116266, 0.00109669);
+    MassPointParameters mpp237 (cs237, 8807);
+    StopNeutralinoMap.insert(std::make_pair(mp237, mpp237));
+
+    MassPoint mp238 (575, 250);
+    StopCrossSection cs238 (0.0116266, 0.00109669);
+    MassPointParameters mpp238 (cs238, 10007);
+    StopNeutralinoMap.insert(std::make_pair(mp238, mpp238));
+
+    MassPoint mp239 (575, 275);
+    StopCrossSection cs239 (0.0116266, 0.00109669);
+    MassPointParameters mpp239 (cs239, 9540);
+    StopNeutralinoMap.insert(std::make_pair(mp239, mpp239));
+
+    MassPoint mp240 (575, 300);
+    StopCrossSection cs240 (0.0116266, 0.00109669);
+    MassPointParameters mpp240 (cs240, 9325);
+    StopNeutralinoMap.insert(std::make_pair(mp240, mpp240));
+
+    MassPoint mp241 (575, 325);
+    StopCrossSection cs241 (0.0116266, 0.00109669);
+    MassPointParameters mpp241 (cs241, 10815);
+    StopNeutralinoMap.insert(std::make_pair(mp241, mpp241));
+
+    MassPoint mp242 (575, 350);
+    StopCrossSection cs242 (0.0116266, 0.00109669);
+    MassPointParameters mpp242 (cs242, 7039);
+    StopNeutralinoMap.insert(std::make_pair(mp242, mpp242));
+
+    MassPoint mp243 (575, 375);
+    StopCrossSection cs243 (0.0116266, 0.00109669);
+    MassPointParameters mpp243 (cs243, 10835);
+    StopNeutralinoMap.insert(std::make_pair(mp243, mpp243));
+
+    MassPoint mp244 (575, 400);
+    StopCrossSection cs244 (0.0116266, 0.00109669);
+    MassPointParameters mpp244 (cs244, 8270);
+    StopNeutralinoMap.insert(std::make_pair(mp244, mpp244));
+
+    MassPoint mp245 (575, 425);
+    StopCrossSection cs245 (0.0116266, 0.00109669);
+    MassPointParameters mpp245 (cs245, 9965);
+    StopNeutralinoMap.insert(std::make_pair(mp245, mpp245));
+
+    MassPoint mp246 (575, 450);
+    StopCrossSection cs246 (0.0116266, 0.00109669);
+    MassPointParameters mpp246 (cs246, 8679);
+    StopNeutralinoMap.insert(std::make_pair(mp246, mpp246));
+
+    MassPoint mp247 (575, 475);
+    StopCrossSection cs247 (0.0116266, 0.00109669);
+    MassPointParameters mpp247 (cs247, 10320);
+    StopNeutralinoMap.insert(std::make_pair(mp247, mpp247));
+
+    MassPoint mp248 (575, 500);
+    StopCrossSection cs248 (0.0116266, 0.00109669);
+    MassPointParameters mpp248 (cs248, 11639);
+    StopNeutralinoMap.insert(std::make_pair(mp248, mpp248));
+
+    MassPoint mp249 (575, 525);
+    StopCrossSection cs249 (0.0116266, 0.00109669);
+    MassPointParameters mpp249 (cs249, 7738);
+    StopNeutralinoMap.insert(std::make_pair(mp249, mpp249));
+
+    MassPoint mp250 (600, 1);
+    StopCrossSection cs250 (0.00949913, 0.000912324);
+    MassPointParameters mpp250 (cs250, 10527);
+    StopNeutralinoMap.insert(std::make_pair(mp250, mpp250));
+
+    MassPoint mp251 (600, 25);
+    StopCrossSection cs251 (0.00949913, 0.000912324);
+    MassPointParameters mpp251 (cs251, 13538);
+    StopNeutralinoMap.insert(std::make_pair(mp251, mpp251));
+
+    MassPoint mp252 (600, 50);
+    StopCrossSection cs252 (0.00949913, 0.000912324);
+    MassPointParameters mpp252 (cs252, 9501);
+    StopNeutralinoMap.insert(std::make_pair(mp252, mpp252));
+
+    MassPoint mp253 (600, 75);
+    StopCrossSection cs253 (0.00949913, 0.000912324);
+    MassPointParameters mpp253 (cs253, 10430);
+    StopNeutralinoMap.insert(std::make_pair(mp253, mpp253));
+
+    MassPoint mp254 (600, 100);
+    StopCrossSection cs254 (0.00949913, 0.000912324);
+    MassPointParameters mpp254 (cs254, 10030);
+    StopNeutralinoMap.insert(std::make_pair(mp254, mpp254));
+
+    MassPoint mp255 (600, 125);
+    StopCrossSection cs255 (0.00949913, 0.000912324);
+    MassPointParameters mpp255 (cs255, 10586);
+    StopNeutralinoMap.insert(std::make_pair(mp255, mpp255));
+
+    MassPoint mp256 (600, 150);
+    StopCrossSection cs256 (0.00949913, 0.000912324);
+    MassPointParameters mpp256 (cs256, 11202);
+    StopNeutralinoMap.insert(std::make_pair(mp256, mpp256));
+
+    MassPoint mp257 (600, 175);
+    StopCrossSection cs257 (0.00949913, 0.000912324);
+    MassPointParameters mpp257 (cs257, 10170);
+    StopNeutralinoMap.insert(std::make_pair(mp257, mpp257));
+
+    MassPoint mp258 (600, 200);
+    StopCrossSection cs258 (0.00949913, 0.000912324);
+    MassPointParameters mpp258 (cs258, 8913);
+    StopNeutralinoMap.insert(std::make_pair(mp258, mpp258));
+
+    MassPoint mp259 (600, 225);
+    StopCrossSection cs259 (0.00949913, 0.000912324);
+    MassPointParameters mpp259 (cs259, 8247);
+    StopNeutralinoMap.insert(std::make_pair(mp259, mpp259));
+
+    MassPoint mp260 (600, 250);
+    StopCrossSection cs260 (0.00949913, 0.000912324);
+    MassPointParameters mpp260 (cs260, 12189);
+    StopNeutralinoMap.insert(std::make_pair(mp260, mpp260));
+
+    MassPoint mp261 (600, 275);
+    StopCrossSection cs261 (0.00949913, 0.000912324);
+    MassPointParameters mpp261 (cs261, 10313);
+    StopNeutralinoMap.insert(std::make_pair(mp261, mpp261));
+
+    MassPoint mp262 (600, 300);
+    StopCrossSection cs262 (0.00949913, 0.000912324);
+    MassPointParameters mpp262 (cs262, 8271);
+    StopNeutralinoMap.insert(std::make_pair(mp262, mpp262));
+
+    MassPoint mp263 (600, 325);
+    StopCrossSection cs263 (0.00949913, 0.000912324);
+    MassPointParameters mpp263 (cs263, 11083);
+    StopNeutralinoMap.insert(std::make_pair(mp263, mpp263));
+
+    MassPoint mp264 (600, 350);
+    StopCrossSection cs264 (0.00949913, 0.000912324);
+    MassPointParameters mpp264 (cs264, 9276);
+    StopNeutralinoMap.insert(std::make_pair(mp264, mpp264));
+
+    MassPoint mp265 (600, 375);
+    StopCrossSection cs265 (0.00949913, 0.000912324);
+    MassPointParameters mpp265 (cs265, 8672);
+    StopNeutralinoMap.insert(std::make_pair(mp265, mpp265));
+
+    MassPoint mp266 (600, 400);
+    StopCrossSection cs266 (0.00949913, 0.000912324);
+    MassPointParameters mpp266 (cs266, 9720);
+    StopNeutralinoMap.insert(std::make_pair(mp266, mpp266));
+
+    MassPoint mp267 (600, 425);
+    StopCrossSection cs267 (0.00949913, 0.000912324);
+    MassPointParameters mpp267 (cs267, 6899);
+    StopNeutralinoMap.insert(std::make_pair(mp267, mpp267));
+
+    MassPoint mp268 (600, 450);
+    StopCrossSection cs268 (0.00949913, 0.000912324);
+    MassPointParameters mpp268 (cs268, 9472);
+    StopNeutralinoMap.insert(std::make_pair(mp268, mpp268));
+
+    MassPoint mp269 (600, 475);
+    StopCrossSection cs269 (0.00949913, 0.000912324);
+    MassPointParameters mpp269 (cs269, 14832);
+    StopNeutralinoMap.insert(std::make_pair(mp269, mpp269));
+
+    MassPoint mp270 (600, 500);
+    StopCrossSection cs270 (0.00949913, 0.000912324);
+    MassPointParameters mpp270 (cs270, 10062);
+    StopNeutralinoMap.insert(std::make_pair(mp270, mpp270));
+
+    MassPoint mp271 (600, 525);
+    StopCrossSection cs271 (0.00949913, 0.000912324);
+    MassPointParameters mpp271 (cs271, 10175);
+    StopNeutralinoMap.insert(std::make_pair(mp271, mpp271));
+
+    MassPoint mp272 (600, 550);
+    StopCrossSection cs272 (0.00949913, 0.000912324);
+    MassPointParameters mpp272 (cs272, 9599);
+    StopNeutralinoMap.insert(std::make_pair(mp272, mpp272));
+
+    MassPoint mp273 (625, 1);
+    StopCrossSection cs273 (0.00780081, 0.000768988);
+    MassPointParameters mpp273 (cs273, 10223);
+    StopNeutralinoMap.insert(std::make_pair(mp273, mpp273));
+
+    MassPoint mp274 (625, 25);
+    StopCrossSection cs274 (0.00780081, 0.000768988);
+    MassPointParameters mpp274 (cs274, 9798);
+    StopNeutralinoMap.insert(std::make_pair(mp274, mpp274));
+
+    MassPoint mp275 (625, 50);
+    StopCrossSection cs275 (0.00780081, 0.000768988);
+    MassPointParameters mpp275 (cs275, 8478);
+    StopNeutralinoMap.insert(std::make_pair(mp275, mpp275));
+
+    MassPoint mp276 (625, 75);
+    StopCrossSection cs276 (0.00780081, 0.000768988);
+    MassPointParameters mpp276 (cs276, 8564);
+    StopNeutralinoMap.insert(std::make_pair(mp276, mpp276));
+
+    MassPoint mp277 (625, 100);
+    StopCrossSection cs277 (0.00780081, 0.000768988);
+    MassPointParameters mpp277 (cs277, 7793);
+    StopNeutralinoMap.insert(std::make_pair(mp277, mpp277));
+
+    MassPoint mp278 (625, 125);
+    StopCrossSection cs278 (0.00780081, 0.000768988);
+    MassPointParameters mpp278 (cs278, 9113);
+    StopNeutralinoMap.insert(std::make_pair(mp278, mpp278));
+
+    MassPoint mp279 (625, 150);
+    StopCrossSection cs279 (0.00780081, 0.000768988);
+    MassPointParameters mpp279 (cs279, 9434);
+    StopNeutralinoMap.insert(std::make_pair(mp279, mpp279));
+
+    MassPoint mp280 (625, 175);
+    StopCrossSection cs280 (0.00780081, 0.000768988);
+    MassPointParameters mpp280 (cs280, 10009);
+    StopNeutralinoMap.insert(std::make_pair(mp280, mpp280));
+
+    MassPoint mp281 (625, 200);
+    StopCrossSection cs281 (0.00780081, 0.000768988);
+    MassPointParameters mpp281 (cs281, 7091);
+    StopNeutralinoMap.insert(std::make_pair(mp281, mpp281));
+
+    MassPoint mp282 (625, 225);
+    StopCrossSection cs282 (0.00780081, 0.000768988);
+    MassPointParameters mpp282 (cs282, 9006);
+    StopNeutralinoMap.insert(std::make_pair(mp282, mpp282));
+
+    MassPoint mp283 (625, 250);
+    StopCrossSection cs283 (0.00780081, 0.000768988);
+    MassPointParameters mpp283 (cs283, 8233);
+    StopNeutralinoMap.insert(std::make_pair(mp283, mpp283));
+
+    MassPoint mp284 (625, 275);
+    StopCrossSection cs284 (0.00780081, 0.000768988);
+    MassPointParameters mpp284 (cs284, 10373);
+    StopNeutralinoMap.insert(std::make_pair(mp284, mpp284));
+
+    MassPoint mp285 (625, 300);
+    StopCrossSection cs285 (0.00780081, 0.000768988);
+    MassPointParameters mpp285 (cs285, 9558);
+    StopNeutralinoMap.insert(std::make_pair(mp285, mpp285));
+
+    MassPoint mp286 (625, 325);
+    StopCrossSection cs286 (0.00780081, 0.000768988);
+    MassPointParameters mpp286 (cs286, 10825);
+    StopNeutralinoMap.insert(std::make_pair(mp286, mpp286));
+
+    MassPoint mp287 (625, 350);
+    StopCrossSection cs287 (0.00780081, 0.000768988);
+    MassPointParameters mpp287 (cs287, 10064);
+    StopNeutralinoMap.insert(std::make_pair(mp287, mpp287));
+
+    MassPoint mp288 (625, 375);
+    StopCrossSection cs288 (0.00780081, 0.000768988);
+    MassPointParameters mpp288 (cs288, 10663);
+    StopNeutralinoMap.insert(std::make_pair(mp288, mpp288));
+
+    MassPoint mp289 (625, 400);
+    StopCrossSection cs289 (0.00780081, 0.000768988);
+    MassPointParameters mpp289 (cs289, 8142);
+    StopNeutralinoMap.insert(std::make_pair(mp289, mpp289));
+
+    MassPoint mp290 (625, 425);
+    StopCrossSection cs290 (0.00780081, 0.000768988);
+    MassPointParameters mpp290 (cs290, 8315);
+    StopNeutralinoMap.insert(std::make_pair(mp290, mpp290));
+
+    MassPoint mp291 (625, 450);
+    StopCrossSection cs291 (0.00780081, 0.000768988);
+    MassPointParameters mpp291 (cs291, 8839);
+    StopNeutralinoMap.insert(std::make_pair(mp291, mpp291));
+
+    MassPoint mp292 (625, 475);
+    StopCrossSection cs292 (0.00780081, 0.000768988);
+    MassPointParameters mpp292 (cs292, 8679);
+    StopNeutralinoMap.insert(std::make_pair(mp292, mpp292));
+
+    MassPoint mp293 (625, 500);
+    StopCrossSection cs293 (0.00780081, 0.000768988);
+    MassPointParameters mpp293 (cs293, 9274);
+    StopNeutralinoMap.insert(std::make_pair(mp293, mpp293));
+
+    MassPoint mp294 (625, 525);
+    StopCrossSection cs294 (0.00780081, 0.000768988);
+    MassPointParameters mpp294 (cs294, 11146);
+    StopNeutralinoMap.insert(std::make_pair(mp294, mpp294));
+
+    MassPoint mp295 (625, 550);
+    StopCrossSection cs295 (0.00780081, 0.000768988);
+    MassPointParameters mpp295 (cs295, 6998);
+    StopNeutralinoMap.insert(std::make_pair(mp295, mpp295));
+
+    MassPoint mp296 (625, 575);
+    StopCrossSection cs296 (0.00780081, 0.000768988);
+    MassPointParameters mpp296 (cs296, 9727);
+    StopNeutralinoMap.insert(std::make_pair(mp296, mpp296));
+
+    MassPoint mp297 (650, 1);
+    StopCrossSection cs297 (0.00643244, 0.000638889);
+    MassPointParameters mpp297 (cs297, 8402);
+    StopNeutralinoMap.insert(std::make_pair(mp297, mpp297));
+
+    MassPoint mp298 (650, 25);
+    StopCrossSection cs298 (0.00643244, 0.000638889);
+    MassPointParameters mpp298 (cs298, 8728);
+    StopNeutralinoMap.insert(std::make_pair(mp298, mpp298));
+
+    MassPoint mp299 (650, 50);
+    StopCrossSection cs299 (0.00643244, 0.000638889);
+    MassPointParameters mpp299 (cs299, 9169);
+    StopNeutralinoMap.insert(std::make_pair(mp299, mpp299));
+
+    MassPoint mp300 (650, 75);
+    StopCrossSection cs300 (0.00643244, 0.000638889);
+    MassPointParameters mpp300 (cs300, 8729);
+    StopNeutralinoMap.insert(std::make_pair(mp300, mpp300));
+
+    MassPoint mp301 (650, 100);
+    StopCrossSection cs301 (0.00643244, 0.000638889);
+    MassPointParameters mpp301 (cs301, 10072);
+    StopNeutralinoMap.insert(std::make_pair(mp301, mpp301));
+
+    MassPoint mp302 (650, 125);
+    StopCrossSection cs302 (0.00643244, 0.000638889);
+    MassPointParameters mpp302 (cs302, 8031);
+    StopNeutralinoMap.insert(std::make_pair(mp302, mpp302));
+
+    MassPoint mp303 (650, 150);
+    StopCrossSection cs303 (0.00643244, 0.000638889);
+    MassPointParameters mpp303 (cs303, 8850);
+    StopNeutralinoMap.insert(std::make_pair(mp303, mpp303));
+
+    MassPoint mp304 (650, 175);
+    StopCrossSection cs304 (0.00643244, 0.000638889);
+    MassPointParameters mpp304 (cs304, 9667);
+    StopNeutralinoMap.insert(std::make_pair(mp304, mpp304));
+
+    MassPoint mp305 (650, 200);
+    StopCrossSection cs305 (0.00643244, 0.000638889);
+    MassPointParameters mpp305 (cs305, 11324);
+    StopNeutralinoMap.insert(std::make_pair(mp305, mpp305));
+
+    MassPoint mp306 (650, 225);
+    StopCrossSection cs306 (0.00643244, 0.000638889);
+    MassPointParameters mpp306 (cs306, 8605);
+    StopNeutralinoMap.insert(std::make_pair(mp306, mpp306));
+
+    MassPoint mp307 (650, 250);
+    StopCrossSection cs307 (0.00643244, 0.000638889);
+    MassPointParameters mpp307 (cs307, 10657);
+    StopNeutralinoMap.insert(std::make_pair(mp307, mpp307));
+
+    MassPoint mp308 (650, 275);
+    StopCrossSection cs308 (0.00643244, 0.000638889);
+    MassPointParameters mpp308 (cs308, 12414);
+    StopNeutralinoMap.insert(std::make_pair(mp308, mpp308));
+
+    MassPoint mp309 (650, 300);
+    StopCrossSection cs309 (0.00643244, 0.000638889);
+    MassPointParameters mpp309 (cs309, 7558);
+    StopNeutralinoMap.insert(std::make_pair(mp309, mpp309));
+
+    MassPoint mp310 (650, 325);
+    StopCrossSection cs310 (0.00643244, 0.000638889);
+    MassPointParameters mpp310 (cs310, 10587);
+    StopNeutralinoMap.insert(std::make_pair(mp310, mpp310));
+
+    MassPoint mp311 (650, 350);
+    StopCrossSection cs311 (0.00643244, 0.000638889);
+    MassPointParameters mpp311 (cs311, 8277);
+    StopNeutralinoMap.insert(std::make_pair(mp311, mpp311));
+
+    MassPoint mp312 (650, 375);
+    StopCrossSection cs312 (0.00643244, 0.000638889);
+    MassPointParameters mpp312 (cs312, 10160);
+    StopNeutralinoMap.insert(std::make_pair(mp312, mpp312));
+
+    MassPoint mp313 (650, 400);
+    StopCrossSection cs313 (0.00643244, 0.000638889);
+    MassPointParameters mpp313 (cs313, 11045);
+    StopNeutralinoMap.insert(std::make_pair(mp313, mpp313));
+
+    MassPoint mp314 (650, 425);
+    StopCrossSection cs314 (0.00643244, 0.000638889);
+    MassPointParameters mpp314 (cs314, 10574);
+    StopNeutralinoMap.insert(std::make_pair(mp314, mpp314));
+
+    MassPoint mp315 (650, 450);
+    StopCrossSection cs315 (0.00643244, 0.000638889);
+    MassPointParameters mpp315 (cs315, 11600);
+    StopNeutralinoMap.insert(std::make_pair(mp315, mpp315));
+
+    MassPoint mp316 (650, 475);
+    StopCrossSection cs316 (0.00643244, 0.000638889);
+    MassPointParameters mpp316 (cs316, 10152);
+    StopNeutralinoMap.insert(std::make_pair(mp316, mpp316));
+
+    MassPoint mp317 (650, 500);
+    StopCrossSection cs317 (0.00643244, 0.000638889);
+    MassPointParameters mpp317 (cs317, 9881);
+    StopNeutralinoMap.insert(std::make_pair(mp317, mpp317));
+
+    MassPoint mp318 (650, 525);
+    StopCrossSection cs318 (0.00643244, 0.000638889);
+    MassPointParameters mpp318 (cs318, 11143);
+    StopNeutralinoMap.insert(std::make_pair(mp318, mpp318));
+
+    MassPoint mp319 (650, 550);
+    StopCrossSection cs319 (0.00643244, 0.000638889);
+    MassPointParameters mpp319 (cs319, 8953);
+    StopNeutralinoMap.insert(std::make_pair(mp319, mpp319));
+
+    MassPoint mp320 (650, 575);
+    StopCrossSection cs320 (0.00643244, 0.000638889);
+    MassPointParameters mpp320 (cs320, 10989);
+    StopNeutralinoMap.insert(std::make_pair(mp320, mpp320));
+
+    MassPoint mp321 (650, 600);
+    StopCrossSection cs321 (0.00643244, 0.000638889);
+    MassPointParameters mpp321 (cs321, 11589);
+    StopNeutralinoMap.insert(std::make_pair(mp321, mpp321));
+
+    MassPoint mp322 (675, 1);
+    StopCrossSection cs322 (0.00533642, 0.000541519);
+    MassPointParameters mpp322 (cs322, 8289);
+    StopNeutralinoMap.insert(std::make_pair(mp322, mpp322));
+
+    MassPoint mp323 (675, 25);
+    StopCrossSection cs323 (0.00533642, 0.000541519);
+    MassPointParameters mpp323 (cs323, 9664);
+    StopNeutralinoMap.insert(std::make_pair(mp323, mpp323));
+
+    MassPoint mp324 (675, 50);
+    StopCrossSection cs324 (0.00533642, 0.000541519);
+    MassPointParameters mpp324 (cs324, 9956);
+    StopNeutralinoMap.insert(std::make_pair(mp324, mpp324));
+
+    MassPoint mp325 (675, 75);
+    StopCrossSection cs325 (0.00533642, 0.000541519);
+    MassPointParameters mpp325 (cs325, 10132);
+    StopNeutralinoMap.insert(std::make_pair(mp325, mpp325));
+
+    MassPoint mp326 (675, 100);
+    StopCrossSection cs326 (0.00533642, 0.000541519);
+    MassPointParameters mpp326 (cs326, 10810);
+    StopNeutralinoMap.insert(std::make_pair(mp326, mpp326));
+
+    MassPoint mp327 (675, 125);
+    StopCrossSection cs327 (0.00533642, 0.000541519);
+    MassPointParameters mpp327 (cs327, 10863);
+    StopNeutralinoMap.insert(std::make_pair(mp327, mpp327));
+
+    MassPoint mp328 (675, 150);
+    StopCrossSection cs328 (0.00533642, 0.000541519);
+    MassPointParameters mpp328 (cs328, 10569);
+    StopNeutralinoMap.insert(std::make_pair(mp328, mpp328));
+
+    MassPoint mp329 (675, 175);
+    StopCrossSection cs329 (0.00533642, 0.000541519);
+    MassPointParameters mpp329 (cs329, 7268);
+    StopNeutralinoMap.insert(std::make_pair(mp329, mpp329));
+
+    MassPoint mp330 (675, 200);
+    StopCrossSection cs330 (0.00533642, 0.000541519);
+    MassPointParameters mpp330 (cs330, 10793);
+    StopNeutralinoMap.insert(std::make_pair(mp330, mpp330));
+
+    MassPoint mp331 (675, 225);
+    StopCrossSection cs331 (0.00533642, 0.000541519);
+    MassPointParameters mpp331 (cs331, 12232);
+    StopNeutralinoMap.insert(std::make_pair(mp331, mpp331));
+
+    MassPoint mp332 (675, 250);
+    StopCrossSection cs332 (0.00533642, 0.000541519);
+    MassPointParameters mpp332 (cs332, 11222);
+    StopNeutralinoMap.insert(std::make_pair(mp332, mpp332));
+
+    MassPoint mp333 (675, 275);
+    StopCrossSection cs333 (0.00533642, 0.000541519);
+    MassPointParameters mpp333 (cs333, 8038);
+    StopNeutralinoMap.insert(std::make_pair(mp333, mpp333));
+
+    MassPoint mp334 (675, 300);
+    StopCrossSection cs334 (0.00533642, 0.000541519);
+    MassPointParameters mpp334 (cs334, 9343);
+    StopNeutralinoMap.insert(std::make_pair(mp334, mpp334));
+
+    MassPoint mp335 (675, 325);
+    StopCrossSection cs335 (0.00533642, 0.000541519);
+    MassPointParameters mpp335 (cs335, 7430);
+    StopNeutralinoMap.insert(std::make_pair(mp335, mpp335));
+
+    MassPoint mp336 (675, 350);
+    StopCrossSection cs336 (0.00533642, 0.000541519);
+    MassPointParameters mpp336 (cs336, 8925);
+    StopNeutralinoMap.insert(std::make_pair(mp336, mpp336));
+
+    MassPoint mp337 (675, 375);
+    StopCrossSection cs337 (0.00533642, 0.000541519);
+    MassPointParameters mpp337 (cs337, 10322);
+    StopNeutralinoMap.insert(std::make_pair(mp337, mpp337));
+
+    MassPoint mp338 (675, 400);
+    StopCrossSection cs338 (0.00533642, 0.000541519);
+    MassPointParameters mpp338 (cs338, 9039);
+    StopNeutralinoMap.insert(std::make_pair(mp338, mpp338));
+
+    MassPoint mp339 (675, 425);
+    StopCrossSection cs339 (0.00533642, 0.000541519);
+    MassPointParameters mpp339 (cs339, 9165);
+    StopNeutralinoMap.insert(std::make_pair(mp339, mpp339));
+
+    MassPoint mp340 (675, 450);
+    StopCrossSection cs340 (0.00533642, 0.000541519);
+    MassPointParameters mpp340 (cs340, 8510);
+    StopNeutralinoMap.insert(std::make_pair(mp340, mpp340));
+
+    MassPoint mp341 (675, 475);
+    StopCrossSection cs341 (0.00533642, 0.000541519);
+    MassPointParameters mpp341 (cs341, 8536);
+    StopNeutralinoMap.insert(std::make_pair(mp341, mpp341));
+
+    MassPoint mp342 (675, 500);
+    StopCrossSection cs342 (0.00533642, 0.000541519);
+    MassPointParameters mpp342 (cs342, 10106);
+    StopNeutralinoMap.insert(std::make_pair(mp342, mpp342));
+
+    MassPoint mp343 (675, 525);
+    StopCrossSection cs343 (0.00533642, 0.000541519);
+    MassPointParameters mpp343 (cs343, 10390);
+    StopNeutralinoMap.insert(std::make_pair(mp343, mpp343));
+
+    MassPoint mp344 (675, 550);
+    StopCrossSection cs344 (0.00533642, 0.000541519);
+    MassPointParameters mpp344 (cs344, 8160);
+    StopNeutralinoMap.insert(std::make_pair(mp344, mpp344));
+
+    MassPoint mp345 (675, 575);
+    StopCrossSection cs345 (0.00533642, 0.000541519);
+    MassPointParameters mpp345 (cs345, 9999);
+    StopNeutralinoMap.insert(std::make_pair(mp345, mpp345));
+
+    MassPoint mp346 (675, 600);
+    StopCrossSection cs346 (0.00533642, 0.000541519);
+    MassPointParameters mpp346 (cs346, 11630);
+    StopNeutralinoMap.insert(std::make_pair(mp346, mpp346));
+
+    MassPoint mp347 (700, 1);
+    StopCrossSection cs347 (0.0044387, 0.000457123);
+    MassPointParameters mpp347 (cs347, 9518);
+    StopNeutralinoMap.insert(std::make_pair(mp347, mpp347));
+
+    MassPoint mp348 (700, 25);
+    StopCrossSection cs348 (0.0044387, 0.000457123);
+    MassPointParameters mpp348 (cs348, 8403);
+    StopNeutralinoMap.insert(std::make_pair(mp348, mpp348));
+
+    MassPoint mp349 (700, 50);
+    StopCrossSection cs349 (0.0044387, 0.000457123);
+    MassPointParameters mpp349 (cs349, 11377);
+    StopNeutralinoMap.insert(std::make_pair(mp349, mpp349));
+
+    MassPoint mp350 (700, 75);
+    StopCrossSection cs350 (0.0044387, 0.000457123);
+    MassPointParameters mpp350 (cs350, 11289);
+    StopNeutralinoMap.insert(std::make_pair(mp350, mpp350));
+
+    MassPoint mp351 (700, 100);
+    StopCrossSection cs351 (0.0044387, 0.000457123);
+    MassPointParameters mpp351 (cs351, 7889);
+    StopNeutralinoMap.insert(std::make_pair(mp351, mpp351));
+
+    MassPoint mp352 (700, 125);
+    StopCrossSection cs352 (0.0044387, 0.000457123);
+    MassPointParameters mpp352 (cs352, 10619);
+    StopNeutralinoMap.insert(std::make_pair(mp352, mpp352));
+
+    MassPoint mp353 (700, 150);
+    StopCrossSection cs353 (0.0044387, 0.000457123);
+    MassPointParameters mpp353 (cs353, 9114);
+    StopNeutralinoMap.insert(std::make_pair(mp353, mpp353));
+
+    MassPoint mp354 (700, 175);
+    StopCrossSection cs354 (0.0044387, 0.000457123);
+    MassPointParameters mpp354 (cs354, 9259);
+    StopNeutralinoMap.insert(std::make_pair(mp354, mpp354));
+
+    MassPoint mp355 (700, 200);
+    StopCrossSection cs355 (0.0044387, 0.000457123);
+    MassPointParameters mpp355 (cs355, 10139);
+    StopNeutralinoMap.insert(std::make_pair(mp355, mpp355));
+
+    MassPoint mp356 (700, 225);
+    StopCrossSection cs356 (0.0044387, 0.000457123);
+    MassPointParameters mpp356 (cs356, 10465);
+    StopNeutralinoMap.insert(std::make_pair(mp356, mpp356));
+
+    MassPoint mp357 (700, 250);
+    StopCrossSection cs357 (0.0044387, 0.000457123);
+    MassPointParameters mpp357 (cs357, 9865);
+    StopNeutralinoMap.insert(std::make_pair(mp357, mpp357));
+
+    MassPoint mp358 (700, 275);
+    StopCrossSection cs358 (0.0044387, 0.000457123);
+    MassPointParameters mpp358 (cs358, 10170);
+    StopNeutralinoMap.insert(std::make_pair(mp358, mpp358));
+
+    MassPoint mp359 (700, 300);
+    StopCrossSection cs359 (0.0044387, 0.000457123);
+    MassPointParameters mpp359 (cs359, 11538);
+    StopNeutralinoMap.insert(std::make_pair(mp359, mpp359));
+
+    MassPoint mp360 (700, 325);
+    StopCrossSection cs360 (0.0044387, 0.000457123);
+    MassPointParameters mpp360 (cs360, 10110);
+    StopNeutralinoMap.insert(std::make_pair(mp360, mpp360));
+
+    MassPoint mp361 (700, 350);
+    StopCrossSection cs361 (0.0044387, 0.000457123);
+    MassPointParameters mpp361 (cs361, 9014);
+    StopNeutralinoMap.insert(std::make_pair(mp361, mpp361));
+
+    MassPoint mp362 (700, 375);
+    StopCrossSection cs362 (0.0044387, 0.000457123);
+    MassPointParameters mpp362 (cs362, 9739);
+    StopNeutralinoMap.insert(std::make_pair(mp362, mpp362));
+
+    MassPoint mp363 (700, 400);
+    StopCrossSection cs363 (0.0044387, 0.000457123);
+    MassPointParameters mpp363 (cs363, 7566);
+    StopNeutralinoMap.insert(std::make_pair(mp363, mpp363));
+
+    MassPoint mp364 (700, 425);
+    StopCrossSection cs364 (0.0044387, 0.000457123);
+    MassPointParameters mpp364 (cs364, 8382);
+    StopNeutralinoMap.insert(std::make_pair(mp364, mpp364));
+
+    MassPoint mp365 (700, 450);
+    StopCrossSection cs365 (0.0044387, 0.000457123);
+    MassPointParameters mpp365 (cs365, 9861);
+    StopNeutralinoMap.insert(std::make_pair(mp365, mpp365));
+
+    MassPoint mp366 (700, 475);
+    StopCrossSection cs366 (0.0044387, 0.000457123);
+    MassPointParameters mpp366 (cs366, 10184);
+    StopNeutralinoMap.insert(std::make_pair(mp366, mpp366));
+
+    MassPoint mp367 (700, 500);
+    StopCrossSection cs367 (0.0044387, 0.000457123);
+    MassPointParameters mpp367 (cs367, 8202);
+    StopNeutralinoMap.insert(std::make_pair(mp367, mpp367));
+
+    MassPoint mp368 (700, 525);
+    StopCrossSection cs368 (0.0044387, 0.000457123);
+    MassPointParameters mpp368 (cs368, 12038);
+    StopNeutralinoMap.insert(std::make_pair(mp368, mpp368));
+
+    MassPoint mp369 (700, 550);
+    StopCrossSection cs369 (0.0044387, 0.000457123);
+    MassPointParameters mpp369 (cs369, 8475);
+    StopNeutralinoMap.insert(std::make_pair(mp369, mpp369));
+
+    MassPoint mp370 (700, 575);
+    StopCrossSection cs370 (0.0044387, 0.000457123);
+    MassPointParameters mpp370 (cs370, 8612);
+    StopNeutralinoMap.insert(std::make_pair(mp370, mpp370));
+
+    MassPoint mp371 (700, 600);
+    StopCrossSection cs371 (0.0044387, 0.000457123);
+    MassPointParameters mpp371 (cs371, 11479);
+    StopNeutralinoMap.insert(std::make_pair(mp371, mpp371));
+
+    MassPoint mp372 (725, 1);
+    StopCrossSection cs372 (0.00370675, 0.000385799);
+    MassPointParameters mpp372 (cs372, 9683);
+    StopNeutralinoMap.insert(std::make_pair(mp372, mpp372));
+
+    MassPoint mp373 (725, 25);
+    StopCrossSection cs373 (0.00370675, 0.000385799);
+    MassPointParameters mpp373 (cs373, 11784);
+    StopNeutralinoMap.insert(std::make_pair(mp373, mpp373));
+
+    MassPoint mp374 (725, 50);
+    StopCrossSection cs374 (0.00370675, 0.000385799);
+    MassPointParameters mpp374 (cs374, 6940);
+    StopNeutralinoMap.insert(std::make_pair(mp374, mpp374));
+
+    MassPoint mp375 (725, 75);
+    StopCrossSection cs375 (0.00370675, 0.000385799);
+    MassPointParameters mpp375 (cs375, 13035);
+    StopNeutralinoMap.insert(std::make_pair(mp375, mpp375));
+
+    MassPoint mp376 (725, 100);
+    StopCrossSection cs376 (0.00370675, 0.000385799);
+    MassPointParameters mpp376 (cs376, 11261);
+    StopNeutralinoMap.insert(std::make_pair(mp376, mpp376));
+
+    MassPoint mp377 (725, 125);
+    StopCrossSection cs377 (0.00370675, 0.000385799);
+    MassPointParameters mpp377 (cs377, 10616);
+    StopNeutralinoMap.insert(std::make_pair(mp377, mpp377));
+
+    MassPoint mp378 (725, 150);
+    StopCrossSection cs378 (0.00370675, 0.000385799);
+    MassPointParameters mpp378 (cs378, 8528);
+    StopNeutralinoMap.insert(std::make_pair(mp378, mpp378));
+
+    MassPoint mp379 (725, 175);
+    StopCrossSection cs379 (0.00370675, 0.000385799);
+    MassPointParameters mpp379 (cs379, 11044);
+    StopNeutralinoMap.insert(std::make_pair(mp379, mpp379));
+
+    MassPoint mp380 (725, 200);
+    StopCrossSection cs380 (0.00370675, 0.000385799);
+    MassPointParameters mpp380 (cs380, 10797);
+    StopNeutralinoMap.insert(std::make_pair(mp380, mpp380));
+
+    MassPoint mp381 (725, 225);
+    StopCrossSection cs381 (0.00370675, 0.000385799);
+    MassPointParameters mpp381 (cs381, 8092);
+    StopNeutralinoMap.insert(std::make_pair(mp381, mpp381));
+
+    MassPoint mp382 (725, 250);
+    StopCrossSection cs382 (0.00370675, 0.000385799);
+    MassPointParameters mpp382 (cs382, 10422);
+    StopNeutralinoMap.insert(std::make_pair(mp382, mpp382));
+
+    MassPoint mp383 (725, 275);
+    StopCrossSection cs383 (0.00370675, 0.000385799);
+    MassPointParameters mpp383 (cs383, 9075);
+    StopNeutralinoMap.insert(std::make_pair(mp383, mpp383));
+
+    MassPoint mp384 (725, 300);
+    StopCrossSection cs384 (0.00370675, 0.000385799);
+    MassPointParameters mpp384 (cs384, 8673);
+    StopNeutralinoMap.insert(std::make_pair(mp384, mpp384));
+
+    MassPoint mp385 (725, 325);
+    StopCrossSection cs385 (0.00370675, 0.000385799);
+    MassPointParameters mpp385 (cs385, 8416);
+    StopNeutralinoMap.insert(std::make_pair(mp385, mpp385));
+
+    MassPoint mp386 (725, 350);
+    StopCrossSection cs386 (0.00370675, 0.000385799);
+    MassPointParameters mpp386 (cs386, 11066);
+    StopNeutralinoMap.insert(std::make_pair(mp386, mpp386));
+
+    MassPoint mp387 (725, 375);
+    StopCrossSection cs387 (0.00370675, 0.000385799);
+    MassPointParameters mpp387 (cs387, 11390);
+    StopNeutralinoMap.insert(std::make_pair(mp387, mpp387));
+
+    MassPoint mp388 (725, 400);
+    StopCrossSection cs388 (0.00370675, 0.000385799);
+    MassPointParameters mpp388 (cs388, 11453);
+    StopNeutralinoMap.insert(std::make_pair(mp388, mpp388));
+
+    MassPoint mp389 (725, 425);
+    StopCrossSection cs389 (0.00370675, 0.000385799);
+    MassPointParameters mpp389 (cs389, 10094);
+    StopNeutralinoMap.insert(std::make_pair(mp389, mpp389));
+
+    MassPoint mp390 (725, 450);
+    StopCrossSection cs390 (0.00370675, 0.000385799);
+    MassPointParameters mpp390 (cs390, 7249);
+    StopNeutralinoMap.insert(std::make_pair(mp390, mpp390));
+
+    MassPoint mp391 (725, 475);
+    StopCrossSection cs391 (0.00370675, 0.000385799);
+    MassPointParameters mpp391 (cs391, 8634);
+    StopNeutralinoMap.insert(std::make_pair(mp391, mpp391));
+
+    MassPoint mp392 (725, 500);
+    StopCrossSection cs392 (0.00370675, 0.000385799);
+    MassPointParameters mpp392 (cs392, 12076);
+    StopNeutralinoMap.insert(std::make_pair(mp392, mpp392));
+
+    MassPoint mp393 (725, 525);
+    StopCrossSection cs393 (0.00370675, 0.000385799);
+    MassPointParameters mpp393 (cs393, 10605);
+    StopNeutralinoMap.insert(std::make_pair(mp393, mpp393));
+
+    MassPoint mp394 (725, 550);
+    StopCrossSection cs394 (0.00370675, 0.000385799);
+    MassPointParameters mpp394 (cs394, 9683);
+    StopNeutralinoMap.insert(std::make_pair(mp394, mpp394));
+
+    MassPoint mp395 (725, 575);
+    StopCrossSection cs395 (0.00370675, 0.000385799);
+    MassPointParameters mpp395 (cs395, 10696);
+    StopNeutralinoMap.insert(std::make_pair(mp395, mpp395));
+
+    MassPoint mp396 (725, 600);
+    StopCrossSection cs396 (0.00370675, 0.000385799);
+    MassPointParameters mpp396 (cs396, 10683);
+    StopNeutralinoMap.insert(std::make_pair(mp396, mpp396));
+
+    MassPoint mp397 (750, 1);
+    StopCrossSection cs397 (0.00310861, 0.000330353);
+    MassPointParameters mpp397 (cs397, 11724);
+    StopNeutralinoMap.insert(std::make_pair(mp397, mpp397));
+
+    MassPoint mp398 (750, 25);
+    StopCrossSection cs398 (0.00310861, 0.000330353);
+    MassPointParameters mpp398 (cs398, 11565);
+    StopNeutralinoMap.insert(std::make_pair(mp398, mpp398));
+
+    MassPoint mp399 (750, 50);
+    StopCrossSection cs399 (0.00310861, 0.000330353);
+    MassPointParameters mpp399 (cs399, 11761);
+    StopNeutralinoMap.insert(std::make_pair(mp399, mpp399));
+
+    MassPoint mp400 (750, 75);
+    StopCrossSection cs400 (0.00310861, 0.000330353);
+    MassPointParameters mpp400 (cs400, 11726);
+    StopNeutralinoMap.insert(std::make_pair(mp400, mpp400));
+
+    MassPoint mp401 (750, 100);
+    StopCrossSection cs401 (0.00310861, 0.000330353);
+    MassPointParameters mpp401 (cs401, 8057);
+    StopNeutralinoMap.insert(std::make_pair(mp401, mpp401));
+
+    MassPoint mp402 (750, 125);
+    StopCrossSection cs402 (0.00310861, 0.000330353);
+    MassPointParameters mpp402 (cs402, 11231);
+    StopNeutralinoMap.insert(std::make_pair(mp402, mpp402));
+
+    MassPoint mp403 (750, 150);
+    StopCrossSection cs403 (0.00310861, 0.000330353);
+    MassPointParameters mpp403 (cs403, 9646);
+    StopNeutralinoMap.insert(std::make_pair(mp403, mpp403));
+
+    MassPoint mp404 (750, 175);
+    StopCrossSection cs404 (0.00310861, 0.000330353);
+    MassPointParameters mpp404 (cs404, 11141);
+    StopNeutralinoMap.insert(std::make_pair(mp404, mpp404));
+
+    MassPoint mp405 (750, 200);
+    StopCrossSection cs405 (0.00310861, 0.000330353);
+    MassPointParameters mpp405 (cs405, 10005);
+    StopNeutralinoMap.insert(std::make_pair(mp405, mpp405));
+
+    MassPoint mp406 (750, 225);
+    StopCrossSection cs406 (0.00310861, 0.000330353);
+    MassPointParameters mpp406 (cs406, 9547);
+    StopNeutralinoMap.insert(std::make_pair(mp406, mpp406));
+
+    MassPoint mp407 (750, 250);
+    StopCrossSection cs407 (0.00310861, 0.000330353);
+    MassPointParameters mpp407 (cs407, 10304);
+    StopNeutralinoMap.insert(std::make_pair(mp407, mpp407));
+
+    MassPoint mp408 (750, 275);
+    StopCrossSection cs408 (0.00310861, 0.000330353);
+    MassPointParameters mpp408 (cs408, 10703);
+    StopNeutralinoMap.insert(std::make_pair(mp408, mpp408));
+
+    MassPoint mp409 (750, 300);
+    StopCrossSection cs409 (0.00310861, 0.000330353);
+    MassPointParameters mpp409 (cs409, 11342);
+    StopNeutralinoMap.insert(std::make_pair(mp409, mpp409));
+
+    MassPoint mp410 (750, 325);
+    StopCrossSection cs410 (0.00310861, 0.000330353);
+    MassPointParameters mpp410 (cs410, 8466);
+    StopNeutralinoMap.insert(std::make_pair(mp410, mpp410));
+
+    MassPoint mp411 (750, 350);
+    StopCrossSection cs411 (0.00310861, 0.000330353);
+    MassPointParameters mpp411 (cs411, 12166);
+    StopNeutralinoMap.insert(std::make_pair(mp411, mpp411));
+
+    MassPoint mp412 (750, 375);
+    StopCrossSection cs412 (0.00310861, 0.000330353);
+    MassPointParameters mpp412 (cs412, 9765);
+    StopNeutralinoMap.insert(std::make_pair(mp412, mpp412));
+
+    MassPoint mp413 (750, 400);
+    StopCrossSection cs413 (0.00310861, 0.000330353);
+    MassPointParameters mpp413 (cs413, 10085);
+    StopNeutralinoMap.insert(std::make_pair(mp413, mpp413));
+
+    MassPoint mp414 (750, 425);
+    StopCrossSection cs414 (0.00310861, 0.000330353);
+    MassPointParameters mpp414 (cs414, 10825);
+    StopNeutralinoMap.insert(std::make_pair(mp414, mpp414));
+
+    MassPoint mp415 (750, 450);
+    StopCrossSection cs415 (0.00310861, 0.000330353);
+    MassPointParameters mpp415 (cs415, 10469);
+    StopNeutralinoMap.insert(std::make_pair(mp415, mpp415));
+
+    MassPoint mp416 (750, 475);
+    StopCrossSection cs416 (0.00310861, 0.000330353);
+    MassPointParameters mpp416 (cs416, 10614);
+    StopNeutralinoMap.insert(std::make_pair(mp416, mpp416));
+
+    MassPoint mp417 (750, 500);
+    StopCrossSection cs417 (0.00310861, 0.000330353);
+    MassPointParameters mpp417 (cs417, 10561);
+    StopNeutralinoMap.insert(std::make_pair(mp417, mpp417));
+
+    MassPoint mp418 (750, 525);
+    StopCrossSection cs418 (0.00310861, 0.000330353);
+    MassPointParameters mpp418 (cs418, 10217);
+    StopNeutralinoMap.insert(std::make_pair(mp418, mpp418));
+
+    MassPoint mp419 (750, 550);
+    StopCrossSection cs419 (0.00310861, 0.000330353);
+    MassPointParameters mpp419 (cs419, 8478);
+    StopNeutralinoMap.insert(std::make_pair(mp419, mpp419));
+
+    MassPoint mp420 (750, 575);
+    StopCrossSection cs420 (0.00310861, 0.000330353);
+    MassPointParameters mpp420 (cs420, 8197);
+    StopNeutralinoMap.insert(std::make_pair(mp420, mpp420));
+
+    MassPoint mp421 (750, 600);
+    StopCrossSection cs421 (0.00310861, 0.000330353);
+    MassPointParameters mpp421 (cs421, 10734);
+    StopNeutralinoMap.insert(std::make_pair(mp421, mpp421));
+
+    MassPoint mp422 (775, 1);
+    StopCrossSection cs422 (0.00261656, 0.000283139);
+    MassPointParameters mpp422 (cs422, 10233);
+    StopNeutralinoMap.insert(std::make_pair(mp422, mpp422));
+
+    MassPoint mp423 (775, 25);
+    StopCrossSection cs423 (0.00261656, 0.000283139);
+    MassPointParameters mpp423 (cs423, 12032);
+    StopNeutralinoMap.insert(std::make_pair(mp423, mpp423));
+
+    MassPoint mp424 (775, 50);
+    StopCrossSection cs424 (0.00261656, 0.000283139);
+    MassPointParameters mpp424 (cs424, 10309);
+    StopNeutralinoMap.insert(std::make_pair(mp424, mpp424));
+
+    MassPoint mp425 (775, 75);
+    StopCrossSection cs425 (0.00261656, 0.000283139);
+    MassPointParameters mpp425 (cs425, 10780);
+    StopNeutralinoMap.insert(std::make_pair(mp425, mpp425));
+
+    MassPoint mp426 (775, 100);
+    StopCrossSection cs426 (0.00261656, 0.000283139);
+    MassPointParameters mpp426 (cs426, 8577);
+    StopNeutralinoMap.insert(std::make_pair(mp426, mpp426));
+
+    MassPoint mp427 (775, 125);
+    StopCrossSection cs427 (0.00261656, 0.000283139);
+    MassPointParameters mpp427 (cs427, 11512);
+    StopNeutralinoMap.insert(std::make_pair(mp427, mpp427));
+
+    MassPoint mp428 (775, 150);
+    StopCrossSection cs428 (0.00261656, 0.000283139);
+    MassPointParameters mpp428 (cs428, 9715);
+    StopNeutralinoMap.insert(std::make_pair(mp428, mpp428));
+
+    MassPoint mp429 (775, 175);
+    StopCrossSection cs429 (0.00261656, 0.000283139);
+    MassPointParameters mpp429 (cs429, 10039);
+    StopNeutralinoMap.insert(std::make_pair(mp429, mpp429));
+
+    MassPoint mp430 (775, 200);
+    StopCrossSection cs430 (0.00261656, 0.000283139);
+    MassPointParameters mpp430 (cs430, 9076);
+    StopNeutralinoMap.insert(std::make_pair(mp430, mpp430));
+
+    MassPoint mp431 (775, 225);
+    StopCrossSection cs431 (0.00261656, 0.000283139);
+    MassPointParameters mpp431 (cs431, 11571);
+    StopNeutralinoMap.insert(std::make_pair(mp431, mpp431));
+
+    MassPoint mp432 (775, 250);
+    StopCrossSection cs432 (0.00261656, 0.000283139);
+    MassPointParameters mpp432 (cs432, 8055);
+    StopNeutralinoMap.insert(std::make_pair(mp432, mpp432));
+
+    MassPoint mp433 (775, 275);
+    StopCrossSection cs433 (0.00261656, 0.000283139);
+    MassPointParameters mpp433 (cs433, 9001);
+    StopNeutralinoMap.insert(std::make_pair(mp433, mpp433));
+
+    MassPoint mp434 (775, 300);
+    StopCrossSection cs434 (0.00261656, 0.000283139);
+    MassPointParameters mpp434 (cs434, 11357);
+    StopNeutralinoMap.insert(std::make_pair(mp434, mpp434));
+
+    MassPoint mp435 (775, 325);
+    StopCrossSection cs435 (0.00261656, 0.000283139);
+    MassPointParameters mpp435 (cs435, 11478);
+    StopNeutralinoMap.insert(std::make_pair(mp435, mpp435));
+
+    MassPoint mp436 (775, 350);
+    StopCrossSection cs436 (0.00261656, 0.000283139);
+    MassPointParameters mpp436 (cs436, 10798);
+    StopNeutralinoMap.insert(std::make_pair(mp436, mpp436));
+
+    MassPoint mp437 (775, 375);
+    StopCrossSection cs437 (0.00261656, 0.000283139);
+    MassPointParameters mpp437 (cs437, 10849);
+    StopNeutralinoMap.insert(std::make_pair(mp437, mpp437));
+
+    MassPoint mp438 (775, 400);
+    StopCrossSection cs438 (0.00261656, 0.000283139);
+    MassPointParameters mpp438 (cs438, 11336);
+    StopNeutralinoMap.insert(std::make_pair(mp438, mpp438));
+
+    MassPoint mp439 (775, 425);
+    StopCrossSection cs439 (0.00261656, 0.000283139);
+    MassPointParameters mpp439 (cs439, 11183);
+    StopNeutralinoMap.insert(std::make_pair(mp439, mpp439));
+
+    MassPoint mp440 (775, 450);
+    StopCrossSection cs440 (0.00261656, 0.000283139);
+    MassPointParameters mpp440 (cs440, 11130);
+    StopNeutralinoMap.insert(std::make_pair(mp440, mpp440));
+
+    MassPoint mp441 (775, 475);
+    StopCrossSection cs441 (0.00261656, 0.000283139);
+    MassPointParameters mpp441 (cs441, 8683);
+    StopNeutralinoMap.insert(std::make_pair(mp441, mpp441));
+
+    MassPoint mp442 (775, 500);
+    StopCrossSection cs442 (0.00261656, 0.000283139);
+    MassPointParameters mpp442 (cs442, 10186);
+    StopNeutralinoMap.insert(std::make_pair(mp442, mpp442));
+
+    MassPoint mp443 (775, 525);
+    StopCrossSection cs443 (0.00261656, 0.000283139);
+    MassPointParameters mpp443 (cs443, 8313);
+    StopNeutralinoMap.insert(std::make_pair(mp443, mpp443));
+
+    MassPoint mp444 (775, 550);
+    StopCrossSection cs444 (0.00261656, 0.000283139);
+    MassPointParameters mpp444 (cs444, 8554);
+    StopNeutralinoMap.insert(std::make_pair(mp444, mpp444));
+
+    MassPoint mp445 (775, 575);
+    StopCrossSection cs445 (0.00261656, 0.000283139);
+    MassPointParameters mpp445 (cs445, 12557);
+    StopNeutralinoMap.insert(std::make_pair(mp445, mpp445));
+
+    MassPoint mp446 (775, 600);
+    StopCrossSection cs446 (0.00261656, 0.000283139);
+    MassPointParameters mpp446 (cs446, 8718);
+    StopNeutralinoMap.insert(std::make_pair(mp446, mpp446));
+
+    MassPoint mp447 (800, 1);
+    StopCrossSection cs447 (0.00221197, 0.000245196);
+    MassPointParameters mpp447 (cs447, 7401);
+    StopNeutralinoMap.insert(std::make_pair(mp447, mpp447));
+
+    MassPoint mp448 (800, 25);
+    StopCrossSection cs448 (0.00221197, 0.000245196);
+    MassPointParameters mpp448 (cs448, 10303);
+    StopNeutralinoMap.insert(std::make_pair(mp448, mpp448));
+
+    MassPoint mp449 (800, 50);
+    StopCrossSection cs449 (0.00221197, 0.000245196);
+    MassPointParameters mpp449 (cs449, 10522);
+    StopNeutralinoMap.insert(std::make_pair(mp449, mpp449));
+
+    MassPoint mp450 (800, 75);
+    StopCrossSection cs450 (0.00221197, 0.000245196);
+    MassPointParameters mpp450 (cs450, 11842);
+    StopNeutralinoMap.insert(std::make_pair(mp450, mpp450));
+
+    MassPoint mp451 (800, 100);
+    StopCrossSection cs451 (0.00221197, 0.000245196);
+    MassPointParameters mpp451 (cs451, 11364);
+    StopNeutralinoMap.insert(std::make_pair(mp451, mpp451));
+
+    MassPoint mp452 (800, 125);
+    StopCrossSection cs452 (0.00221197, 0.000245196);
+    MassPointParameters mpp452 (cs452, 7996);
+    StopNeutralinoMap.insert(std::make_pair(mp452, mpp452));
+
+    MassPoint mp453 (800, 150);
+    StopCrossSection cs453 (0.00221197, 0.000245196);
+    MassPointParameters mpp453 (cs453, 8674);
+    StopNeutralinoMap.insert(std::make_pair(mp453, mpp453));
+
+    MassPoint mp454 (800, 175);
+    StopCrossSection cs454 (0.00221197, 0.000245196);
+    MassPointParameters mpp454 (cs454, 9150);
+    StopNeutralinoMap.insert(std::make_pair(mp454, mpp454));
+
+    MassPoint mp455 (800, 200);
+    StopCrossSection cs455 (0.00221197, 0.000245196);
+    MassPointParameters mpp455 (cs455, 10402);
+    StopNeutralinoMap.insert(std::make_pair(mp455, mpp455));
+
+    MassPoint mp456 (800, 225);
+    StopCrossSection cs456 (0.00221197, 0.000245196);
+    MassPointParameters mpp456 (cs456, 9645);
+    StopNeutralinoMap.insert(std::make_pair(mp456, mpp456));
+
+    MassPoint mp457 (800, 250);
+    StopCrossSection cs457 (0.00221197, 0.000245196);
+    MassPointParameters mpp457 (cs457, 10344);
+    StopNeutralinoMap.insert(std::make_pair(mp457, mpp457));
+
+    MassPoint mp458 (800, 275);
+    StopCrossSection cs458 (0.00221197, 0.000245196);
+    MassPointParameters mpp458 (cs458, 7010);
+    StopNeutralinoMap.insert(std::make_pair(mp458, mpp458));
+
+    MassPoint mp459 (800, 300);
+    StopCrossSection cs459 (0.00221197, 0.000245196);
+    MassPointParameters mpp459 (cs459, 10259);
+    StopNeutralinoMap.insert(std::make_pair(mp459, mpp459));
+
+    MassPoint mp460 (800, 325);
+    StopCrossSection cs460 (0.00221197, 0.000245196);
+    MassPointParameters mpp460 (cs460, 11380);
+    StopNeutralinoMap.insert(std::make_pair(mp460, mpp460));
+
+    MassPoint mp461 (800, 350);
+    StopCrossSection cs461 (0.00221197, 0.000245196);
+    MassPointParameters mpp461 (cs461, 10624);
+    StopNeutralinoMap.insert(std::make_pair(mp461, mpp461));
+
+    MassPoint mp462 (800, 375);
+    StopCrossSection cs462 (0.00221197, 0.000245196);
+    MassPointParameters mpp462 (cs462, 12881);
+    StopNeutralinoMap.insert(std::make_pair(mp462, mpp462));
+
+    MassPoint mp463 (800, 400);
+    StopCrossSection cs463 (0.00221197, 0.000245196);
+    MassPointParameters mpp463 (cs463, 9584);
+    StopNeutralinoMap.insert(std::make_pair(mp463, mpp463));
+
+    MassPoint mp464 (800, 425);
+    StopCrossSection cs464 (0.00221197, 0.000245196);
+    MassPointParameters mpp464 (cs464, 9235);
+    StopNeutralinoMap.insert(std::make_pair(mp464, mpp464));
+
+    MassPoint mp465 (800, 450);
+    StopCrossSection cs465 (0.00221197, 0.000245196);
+    MassPointParameters mpp465 (cs465, 12168);
+    StopNeutralinoMap.insert(std::make_pair(mp465, mpp465));
+
+    MassPoint mp466 (800, 475);
+    StopCrossSection cs466 (0.00221197, 0.000245196);
+    MassPointParameters mpp466 (cs466, 8508);
+    StopNeutralinoMap.insert(std::make_pair(mp466, mpp466));
+
+    MassPoint mp467 (800, 500);
+    StopCrossSection cs467 (0.00221197, 0.000245196);
+    MassPointParameters mpp467 (cs467, 10758);
+    StopNeutralinoMap.insert(std::make_pair(mp467, mpp467));
+
+    MassPoint mp468 (800, 525);
+    StopCrossSection cs468 (0.00221197, 0.000245196);
+    MassPointParameters mpp468 (cs468, 11118);
+    StopNeutralinoMap.insert(std::make_pair(mp468, mpp468));
+
+    MassPoint mp469 (800, 550);
+    StopCrossSection cs469 (0.00221197, 0.000245196);
+    MassPointParameters mpp469 (cs469, 9167);
+    StopNeutralinoMap.insert(std::make_pair(mp469, mpp469));
+
+    MassPoint mp470 (800, 575);
+    StopCrossSection cs470 (0.00221197, 0.000245196);
+    MassPointParameters mpp470 (cs470, 9986);
+    StopNeutralinoMap.insert(std::make_pair(mp470, mpp470));
+
+    MassPoint mp471 (800, 600);
+    StopCrossSection cs471 (0.00221197, 0.000245196);
+    MassPointParameters mpp471 (cs471, 10662);
+    StopNeutralinoMap.insert(std::make_pair(mp471, mpp471));
+
+    MassPoint mpext0 (825, 1);
+    StopCrossSection csext0 (0.00186142, 0.000201762);
+    MassPointParameters mppext0 (csext0, 8916);
+    StopNeutralinoMap.insert(std::make_pair(mpext0, mppext0));
+
+    MassPoint mpext1 (825, 25);
+    StopCrossSection csext1 (0.00186142, 0.000201762);
+    MassPointParameters mppext1 (csext1, 9070);
+    StopNeutralinoMap.insert(std::make_pair(mpext1, mppext1));
+
+    MassPoint mpext2 (825, 50);
+    StopCrossSection csext2 (0.00186142, 0.000201762);
+    MassPointParameters mppext2 (csext2, 13241);
+    StopNeutralinoMap.insert(std::make_pair(mpext2, mppext2));
+
+    MassPoint mpext3 (825, 75);
+    StopCrossSection csext3 (0.00186142, 0.000201762);
+    MassPointParameters mppext3 (csext3, 8117);
+    StopNeutralinoMap.insert(std::make_pair(mpext3, mppext3));
+
+    MassPoint mpext4 (825, 100);
+    StopCrossSection csext4 (0.00186142, 0.000201762);
+    MassPointParameters mppext4 (csext4, 11753);
+    StopNeutralinoMap.insert(std::make_pair(mpext4, mppext4));
+
+    MassPoint mpext5 (825, 125);
+    StopCrossSection csext5 (0.00186142, 0.000201762);
+    MassPointParameters mppext5 (csext5, 9669);
+    StopNeutralinoMap.insert(std::make_pair(mpext5, mppext5));
+
+    MassPoint mpext6 (825, 150);
+    StopCrossSection csext6 (0.00186142, 0.000201762);
+    MassPointParameters mppext6 (csext6, 11899);
+    StopNeutralinoMap.insert(std::make_pair(mpext6, mppext6));
+
+    MassPoint mpext7 (825, 175);
+    StopCrossSection csext7 (0.00186142, 0.000201762);
+    MassPointParameters mppext7 (csext7, 9897);
+    StopNeutralinoMap.insert(std::make_pair(mpext7, mppext7));
+
+    MassPoint mpext8 (825, 200);
+    StopCrossSection csext8 (0.00186142, 0.000201762);
+    MassPointParameters mppext8 (csext8, 9368);
+    StopNeutralinoMap.insert(std::make_pair(mpext8, mppext8));
+
+    MassPoint mpext9 (825, 225);
+    StopCrossSection csext9 (0.00186142, 0.000201762);
+    MassPointParameters mppext9 (csext9, 11492);
+    StopNeutralinoMap.insert(std::make_pair(mpext9, mppext9));
+
+    MassPoint mpext10 (825, 250);
+    StopCrossSection csext10 (0.00186142, 0.000201762);
+    MassPointParameters mppext10 (csext10, 11350);
+    StopNeutralinoMap.insert(std::make_pair(mpext10, mppext10));
+
+    MassPoint mpext11 (825, 275);
+    StopCrossSection csext11 (0.00186142, 0.000201762);
+    MassPointParameters mppext11 (csext11, 8913);
+    StopNeutralinoMap.insert(std::make_pair(mpext11, mppext11));
+
+    MassPoint mpext12 (825, 300);
+    StopCrossSection csext12 (0.00186142, 0.000201762);
+    MassPointParameters mppext12 (csext12, 11326);
+    StopNeutralinoMap.insert(std::make_pair(mpext12, mppext12));
+
+    MassPoint mpext13 (825, 325);
+    StopCrossSection csext13 (0.00186142, 0.000201762);
+    MassPointParameters mppext13 (csext13, 12785);
+    StopNeutralinoMap.insert(std::make_pair(mpext13, mppext13));
+
+    MassPoint mpext14 (825, 350);
+    StopCrossSection csext14 (0.00186142, 0.000201762);
+    MassPointParameters mppext14 (csext14, 10873);
+    StopNeutralinoMap.insert(std::make_pair(mpext14, mppext14));
+
+    MassPoint mpext15 (825, 375);
+    StopCrossSection csext15 (0.00186142, 0.000201762);
+    MassPointParameters mppext15 (csext15, 11987);
+    StopNeutralinoMap.insert(std::make_pair(mpext15, mppext15));
+
+    MassPoint mpext16 (825, 400);
+    StopCrossSection csext16 (0.00186142, 0.000201762);
+    MassPointParameters mppext16 (csext16, 11298);
+    StopNeutralinoMap.insert(std::make_pair(mpext16, mppext16));
+
+    MassPoint mpext17 (825, 425);
+    StopCrossSection csext17 (0.00186142, 0.000201762);
+    MassPointParameters mppext17 (csext17, 8799);
+    StopNeutralinoMap.insert(std::make_pair(mpext17, mppext17));
+
+    MassPoint mpext18 (825, 450);
+    StopCrossSection csext18 (0.00186142, 0.000201762);
+    MassPointParameters mppext18 (csext18, 8809);
+    StopNeutralinoMap.insert(std::make_pair(mpext18, mppext18));
+
+    MassPoint mpext19 (825, 475);
+    StopCrossSection csext19 (0.00186142, 0.000201762);
+    MassPointParameters mppext19 (csext19, 9519);
+    StopNeutralinoMap.insert(std::make_pair(mpext19, mppext19));
+
+    MassPoint mpext20 (825, 500);
+    StopCrossSection csext20 (0.00186142, 0.000201762);
+    MassPointParameters mppext20 (csext20, 8177);
+    StopNeutralinoMap.insert(std::make_pair(mpext20, mppext20));
+
+    MassPoint mpext21 (825, 525);
+    StopCrossSection csext21 (0.00186142, 0.000201762);
+    MassPointParameters mppext21 (csext21, 10502);
+    StopNeutralinoMap.insert(std::make_pair(mpext21, mppext21));
+
+    MassPoint mpext22 (825, 550);
+    StopCrossSection csext22 (0.00186142, 0.000201762);
+    MassPointParameters mppext22 (csext22, 8388);
+    StopNeutralinoMap.insert(std::make_pair(mpext22, mppext22));
+
+    MassPoint mpext23 (825, 575);
+    StopCrossSection csext23 (0.00186142, 0.000201762);
+    MassPointParameters mppext23 (csext23, 9804);
+    StopNeutralinoMap.insert(std::make_pair(mpext23, mppext23));
+
+    MassPoint mpext24 (825, 600);
+    StopCrossSection csext24 (0.00186142, 0.000201762);
+    MassPointParameters mppext24 (csext24, 8710);
+    StopNeutralinoMap.insert(std::make_pair(mpext24, mppext24));
+
+    MassPoint mpext25 (850, 1);
+    StopCrossSection csext25 (0.00158356, 0.000177806);
+    MassPointParameters mppext25 (csext25, 10942);
+    StopNeutralinoMap.insert(std::make_pair(mpext25, mppext25));
+
+    MassPoint mpext26 (850, 25);
+    StopCrossSection csext26 (0.00158356, 0.000177806);
+    MassPointParameters mppext26 (csext26, 8745);
+    StopNeutralinoMap.insert(std::make_pair(mpext26, mppext26));
+
+    MassPoint mpext27 (850, 50);
+    StopCrossSection csext27 (0.00158356, 0.000177806);
+    MassPointParameters mppext27 (csext27, 8888);
+    StopNeutralinoMap.insert(std::make_pair(mpext27, mppext27));
+
+    MassPoint mpext28 (850, 75);
+    StopCrossSection csext28 (0.00158356, 0.000177806);
+    MassPointParameters mppext28 (csext28, 8299);
+    StopNeutralinoMap.insert(std::make_pair(mpext28, mppext28));
+
+    MassPoint mpext29 (850, 100);
+    StopCrossSection csext29 (0.00158356, 0.000177806);
+    MassPointParameters mppext29 (csext29, 12612);
+    StopNeutralinoMap.insert(std::make_pair(mpext29, mppext29));
+
+    MassPoint mpext30 (850, 125);
+    StopCrossSection csext30 (0.00158356, 0.000177806);
+    MassPointParameters mppext30 (csext30, 10722);
+    StopNeutralinoMap.insert(std::make_pair(mpext30, mppext30));
+
+    MassPoint mpext31 (850, 150);
+    StopCrossSection csext31 (0.00158356, 0.000177806);
+    MassPointParameters mppext31 (csext31, 10393);
+    StopNeutralinoMap.insert(std::make_pair(mpext31, mppext31));
+
+    MassPoint mpext32 (850, 175);
+    StopCrossSection csext32 (0.00158356, 0.000177806);
+    MassPointParameters mppext32 (csext32, 9052);
+    StopNeutralinoMap.insert(std::make_pair(mpext32, mppext32));
+
+    MassPoint mpext33 (850, 200);
+    StopCrossSection csext33 (0.00158356, 0.000177806);
+    MassPointParameters mppext33 (csext33, 9551);
+    StopNeutralinoMap.insert(std::make_pair(mpext33, mppext33));
+
+    MassPoint mpext34 (850, 225);
+    StopCrossSection csext34 (0.00158356, 0.000177806);
+    MassPointParameters mppext34 (csext34, 10612);
+    StopNeutralinoMap.insert(std::make_pair(mpext34, mppext34));
+
+    MassPoint mpext35 (850, 250);
+    StopCrossSection csext35 (0.00158356, 0.000177806);
+    MassPointParameters mppext35 (csext35, 9933);
+    StopNeutralinoMap.insert(std::make_pair(mpext35, mppext35));
+
+    MassPoint mpext36 (850, 275);
+    StopCrossSection csext36 (0.00158356, 0.000177806);
+    MassPointParameters mppext36 (csext36, 11430);
+    StopNeutralinoMap.insert(std::make_pair(mpext36, mppext36));
+
+    MassPoint mpext37 (850, 300);
+    StopCrossSection csext37 (0.00158356, 0.000177806);
+    MassPointParameters mppext37 (csext37, 9245);
+    StopNeutralinoMap.insert(std::make_pair(mpext37, mppext37));
+
+    MassPoint mpext38 (850, 325);
+    StopCrossSection csext38 (0.00158356, 0.000177806);
+    MassPointParameters mppext38 (csext38, 11135);
+    StopNeutralinoMap.insert(std::make_pair(mpext38, mppext38));
+
+    MassPoint mpext39 (850, 350);
+    StopCrossSection csext39 (0.00158356, 0.000177806);
+    MassPointParameters mppext39 (csext39, 9137);
+    StopNeutralinoMap.insert(std::make_pair(mpext39, mppext39));
+
+    MassPoint mpext40 (850, 375);
+    StopCrossSection csext40 (0.00158356, 0.000177806);
+    MassPointParameters mppext40 (csext40, 10509);
+    StopNeutralinoMap.insert(std::make_pair(mpext40, mppext40));
+
+    MassPoint mpext41 (850, 400);
+    StopCrossSection csext41 (0.00158356, 0.000177806);
+    MassPointParameters mppext41 (csext41, 9920);
+    StopNeutralinoMap.insert(std::make_pair(mpext41, mppext41));
+
+    MassPoint mpext42 (850, 425);
+    StopCrossSection csext42 (0.00158356, 0.000177806);
+    MassPointParameters mppext42 (csext42, 10869);
+    StopNeutralinoMap.insert(std::make_pair(mpext42, mppext42));
+
+    MassPoint mpext43 (850, 450);
+    StopCrossSection csext43 (0.00158356, 0.000177806);
+    MassPointParameters mppext43 (csext43, 13727);
+    StopNeutralinoMap.insert(std::make_pair(mpext43, mppext43));
+
+    MassPoint mpext44 (850, 475);
+    StopCrossSection csext44 (0.00158356, 0.000177806);
+    MassPointParameters mppext44 (csext44, 11411);
+    StopNeutralinoMap.insert(std::make_pair(mpext44, mppext44));
+
+    MassPoint mpext45 (850, 500);
+    StopCrossSection csext45 (0.00158356, 0.000177806);
+    MassPointParameters mppext45 (csext45, 10155);
+    StopNeutralinoMap.insert(std::make_pair(mpext45, mppext45));
+
+    MassPoint mpext46 (850, 525);
+    StopCrossSection csext46 (0.00158356, 0.000177806);
+    MassPointParameters mppext46 (csext46, 9237);
+    StopNeutralinoMap.insert(std::make_pair(mpext46, mppext46));
+
+    MassPoint mpext47 (850, 550);
+    StopCrossSection csext47 (0.00158356, 0.000177806);
+    MassPointParameters mppext47 (csext47, 9936);
+    StopNeutralinoMap.insert(std::make_pair(mpext47, mppext47));
+
+    MassPoint mpext48 (850, 575);
+    StopCrossSection csext48 (0.00158356, 0.000177806);
+    MassPointParameters mppext48 (csext48, 9449);
+    StopNeutralinoMap.insert(std::make_pair(mpext48, mppext48));
+
+    MassPoint mpext49 (850, 600);
+    StopCrossSection csext49 (0.00158356, 0.000177806);
+    MassPointParameters mppext49 (csext49, 9047);
+    StopNeutralinoMap.insert(std::make_pair(mpext49, mppext49));
+
+    MassPoint mpext50 (875, 1);
+    StopCrossSection csext50 (0.00134699, 0.000150075);
+    MassPointParameters mppext50 (csext50, 9791);
+    StopNeutralinoMap.insert(std::make_pair(mpext50, mppext50));
+
+    MassPoint mpext51 (875, 25);
+    StopCrossSection csext51 (0.00134699, 0.000150075);
+    MassPointParameters mppext51 (csext51, 12365);
+    StopNeutralinoMap.insert(std::make_pair(mpext51, mppext51));
+
+    MassPoint mpext52 (875, 50);
+    StopCrossSection csext52 (0.00134699, 0.000150075);
+    MassPointParameters mppext52 (csext52, 11819);
+    StopNeutralinoMap.insert(std::make_pair(mpext52, mppext52));
+
+    MassPoint mpext53 (875, 75);
+    StopCrossSection csext53 (0.00134699, 0.000150075);
+    MassPointParameters mppext53 (csext53, 8680);
+    StopNeutralinoMap.insert(std::make_pair(mpext53, mppext53));
+
+    MassPoint mpext54 (875, 100);
+    StopCrossSection csext54 (0.00134699, 0.000150075);
+    MassPointParameters mppext54 (csext54, 9542);
+    StopNeutralinoMap.insert(std::make_pair(mpext54, mppext54));
+
+    MassPoint mpext55 (875, 125);
+    StopCrossSection csext55 (0.00134699, 0.000150075);
+    MassPointParameters mppext55 (csext55, 10652);
+    StopNeutralinoMap.insert(std::make_pair(mpext55, mppext55));
+
+    MassPoint mpext56 (875, 150);
+    StopCrossSection csext56 (0.00134699, 0.000150075);
+    MassPointParameters mppext56 (csext56, 6869);
+    StopNeutralinoMap.insert(std::make_pair(mpext56, mppext56));
+
+    MassPoint mpext57 (875, 175);
+    StopCrossSection csext57 (0.00134699, 0.000150075);
+    MassPointParameters mppext57 (csext57, 10580);
+    StopNeutralinoMap.insert(std::make_pair(mpext57, mppext57));
+
+    MassPoint mpext58 (875, 200);
+    StopCrossSection csext58 (0.00134699, 0.000150075);
+    MassPointParameters mppext58 (csext58, 11055);
+    StopNeutralinoMap.insert(std::make_pair(mpext58, mppext58));
+
+    MassPoint mpext59 (875, 225);
+    StopCrossSection csext59 (0.00134699, 0.000150075);
+    MassPointParameters mppext59 (csext59, 10806);
+    StopNeutralinoMap.insert(std::make_pair(mpext59, mppext59));
+
+    MassPoint mpext60 (875, 250);
+    StopCrossSection csext60 (0.00134699, 0.000150075);
+    MassPointParameters mppext60 (csext60, 10163);
+    StopNeutralinoMap.insert(std::make_pair(mpext60, mppext60));
+
+    MassPoint mpext61 (875, 275);
+    StopCrossSection csext61 (0.00134699, 0.000150075);
+    MassPointParameters mppext61 (csext61, 10809);
+    StopNeutralinoMap.insert(std::make_pair(mpext61, mppext61));
+
+    MassPoint mpext62 (875, 300);
+    StopCrossSection csext62 (0.00134699, 0.000150075);
+    MassPointParameters mppext62 (csext62, 11076);
+    StopNeutralinoMap.insert(std::make_pair(mpext62, mppext62));
+
+    MassPoint mpext63 (875, 325);
+    StopCrossSection csext63 (0.00134699, 0.000150075);
+    MassPointParameters mppext63 (csext63, 12265);
+    StopNeutralinoMap.insert(std::make_pair(mpext63, mppext63));
+
+    MassPoint mpext64 (875, 350);
+    StopCrossSection csext64 (0.00134699, 0.000150075);
+    MassPointParameters mppext64 (csext64, 10143);
+    StopNeutralinoMap.insert(std::make_pair(mpext64, mppext64));
+
+    MassPoint mpext65 (875, 375);
+    StopCrossSection csext65 (0.00134699, 0.000150075);
+    MassPointParameters mppext65 (csext65, 9047);
+    StopNeutralinoMap.insert(std::make_pair(mpext65, mppext65));
+
+    MassPoint mpext66 (875, 400);
+    StopCrossSection csext66 (0.00134699, 0.000150075);
+    MassPointParameters mppext66 (csext66, 11825);
+    StopNeutralinoMap.insert(std::make_pair(mpext66, mppext66));
+
+    MassPoint mpext67 (875, 425);
+    StopCrossSection csext67 (0.00134699, 0.000150075);
+    MassPointParameters mppext67 (csext67, 11518);
+    StopNeutralinoMap.insert(std::make_pair(mpext67, mppext67));
+
+    MassPoint mpext68 (875, 450);
+    StopCrossSection csext68 (0.00134699, 0.000150075);
+    MassPointParameters mppext68 (csext68, 8572);
+    StopNeutralinoMap.insert(std::make_pair(mpext68, mppext68));
+
+    MassPoint mpext69 (875, 475);
+    StopCrossSection csext69 (0.00134699, 0.000150075);
+    MassPointParameters mppext69 (csext69, 9515);
+    StopNeutralinoMap.insert(std::make_pair(mpext69, mppext69));
+
+    MassPoint mpext70 (875, 500);
+    StopCrossSection csext70 (0.00134699, 0.000150075);
+    MassPointParameters mppext70 (csext70, 9687);
+    StopNeutralinoMap.insert(std::make_pair(mpext70, mppext70));
+
+    MassPoint mpext71 (875, 525);
+    StopCrossSection csext71 (0.00134699, 0.000150075);
+    MassPointParameters mppext71 (csext71, 10418);
+    StopNeutralinoMap.insert(std::make_pair(mpext71, mppext71));
+
+    MassPoint mpext72 (875, 550);
+    StopCrossSection csext72 (0.00134699, 0.000150075);
+    MassPointParameters mppext72 (csext72, 7877);
+    StopNeutralinoMap.insert(std::make_pair(mpext72, mppext72));
+
+    MassPoint mpext73 (875, 575);
+    StopCrossSection csext73 (0.00134699, 0.000150075);
+    MassPointParameters mppext73 (csext73, 10652);
+    StopNeutralinoMap.insert(std::make_pair(mpext73, mppext73));
+
+    MassPoint mpext74 (875, 600);
+    StopCrossSection csext74 (0.00134699, 0.000150075);
+    MassPointParameters mppext74 (csext74, 9831);
+    StopNeutralinoMap.insert(std::make_pair(mpext74, mppext74));
+
+    MassPoint mpext75 (900, 1);
+    StopCrossSection csext75 (0.00115301, 0.000135822);
+    MassPointParameters mppext75 (csext75, 6790);
+    StopNeutralinoMap.insert(std::make_pair(mpext75, mppext75));
+
+    MassPoint mpext76 (900, 25);
+    StopCrossSection csext76 (0.00115301, 0.000135822);
+    MassPointParameters mppext76 (csext76, 10766);
+    StopNeutralinoMap.insert(std::make_pair(mpext76, mppext76));
+
+    MassPoint mpext77 (900, 50);
+    StopCrossSection csext77 (0.00115301, 0.000135822);
+    MassPointParameters mppext77 (csext77, 11396);
+    StopNeutralinoMap.insert(std::make_pair(mpext77, mppext77));
+
+    MassPoint mpext78 (900, 75);
+    StopCrossSection csext78 (0.00115301, 0.000135822);
+    MassPointParameters mppext78 (csext78, 10038);
+    StopNeutralinoMap.insert(std::make_pair(mpext78, mppext78));
+
+    MassPoint mpext79 (900, 100);
+    StopCrossSection csext79 (0.00115301, 0.000135822);
+    MassPointParameters mppext79 (csext79, 9856);
+    StopNeutralinoMap.insert(std::make_pair(mpext79, mppext79));
+
+    MassPoint mpext80 (900, 125);
+    StopCrossSection csext80 (0.00115301, 0.000135822);
+    MassPointParameters mppext80 (csext80, 7403);
+    StopNeutralinoMap.insert(std::make_pair(mpext80, mppext80));
+
+    MassPoint mpext81 (900, 150);
+    StopCrossSection csext81 (0.00115301, 0.000135822);
+    MassPointParameters mppext81 (csext81, 9749);
+    StopNeutralinoMap.insert(std::make_pair(mpext81, mppext81));
+
+    MassPoint mpext82 (900, 175);
+    StopCrossSection csext82 (0.00115301, 0.000135822);
+    MassPointParameters mppext82 (csext82, 8267);
+    StopNeutralinoMap.insert(std::make_pair(mpext82, mppext82));
+
+    MassPoint mpext83 (900, 200);
+    StopCrossSection csext83 (0.00115301, 0.000135822);
+    MassPointParameters mppext83 (csext83, 11446);
+    StopNeutralinoMap.insert(std::make_pair(mpext83, mppext83));
+
+    MassPoint mpext84 (900, 225);
+    StopCrossSection csext84 (0.00115301, 0.000135822);
+    MassPointParameters mppext84 (csext84, 10870);
+    StopNeutralinoMap.insert(std::make_pair(mpext84, mppext84));
+
+    MassPoint mpext85 (900, 250);
+    StopCrossSection csext85 (0.00115301, 0.000135822);
+    MassPointParameters mppext85 (csext85, 7312);
+    StopNeutralinoMap.insert(std::make_pair(mpext85, mppext85));
+
+    MassPoint mpext86 (900, 275);
+    StopCrossSection csext86 (0.00115301, 0.000135822);
+    MassPointParameters mppext86 (csext86, 8646);
+    StopNeutralinoMap.insert(std::make_pair(mpext86, mppext86));
+
+    MassPoint mpext87 (900, 300);
+    StopCrossSection csext87 (0.00115301, 0.000135822);
+    MassPointParameters mppext87 (csext87, 10252);
+    StopNeutralinoMap.insert(std::make_pair(mpext87, mppext87));
+
+    MassPoint mpext88 (900, 325);
+    StopCrossSection csext88 (0.00115301, 0.000135822);
+    MassPointParameters mppext88 (csext88, 8515);
+    StopNeutralinoMap.insert(std::make_pair(mpext88, mppext88));
+
+    MassPoint mpext89 (900, 350);
+    StopCrossSection csext89 (0.00115301, 0.000135822);
+    MassPointParameters mppext89 (csext89, 9660);
+    StopNeutralinoMap.insert(std::make_pair(mpext89, mppext89));
+
+    MassPoint mpext90 (900, 375);
+    StopCrossSection csext90 (0.00115301, 0.000135822);
+    MassPointParameters mppext90 (csext90, 8347);
+    StopNeutralinoMap.insert(std::make_pair(mpext90, mppext90));
+
+    MassPoint mpext91 (900, 400);
+    StopCrossSection csext91 (0.00115301, 0.000135822);
+    MassPointParameters mppext91 (csext91, 7756);
+    StopNeutralinoMap.insert(std::make_pair(mpext91, mppext91));
+
+    MassPoint mpext92 (900, 425);
+    StopCrossSection csext92 (0.00115301, 0.000135822);
+    MassPointParameters mppext92 (csext92, 10342);
+    StopNeutralinoMap.insert(std::make_pair(mpext92, mppext92));
+
+    MassPoint mpext93 (900, 450);
+    StopCrossSection csext93 (0.00115301, 0.000135822);
+    MassPointParameters mppext93 (csext93, 10366);
+    StopNeutralinoMap.insert(std::make_pair(mpext93, mppext93));
+
+    MassPoint mpext94 (900, 475);
+    StopCrossSection csext94 (0.00115301, 0.000135822);
+    MassPointParameters mppext94 (csext94, 9846);
+    StopNeutralinoMap.insert(std::make_pair(mpext94, mppext94));
+
+    MassPoint mpext95 (900, 500);
+    StopCrossSection csext95 (0.00115301, 0.000135822);
+    MassPointParameters mppext95 (csext95, 8284);
+    StopNeutralinoMap.insert(std::make_pair(mpext95, mppext95));
+
+    MassPoint mpext96 (900, 525);
+    StopCrossSection csext96 (0.00115301, 0.000135822);
+    MassPointParameters mppext96 (csext96, 8463);
+    StopNeutralinoMap.insert(std::make_pair(mpext96, mppext96));
+
+    MassPoint mpext97 (900, 550);
+    StopCrossSection csext97 (0.00115301, 0.000135822);
+    MassPointParameters mppext97 (csext97, 9575);
+    StopNeutralinoMap.insert(std::make_pair(mpext97, mppext97));
+
+    MassPoint mpext98 (900, 575);
+    StopCrossSection csext98 (0.00115301, 0.000135822);
+    MassPointParameters mppext98 (csext98, 10610);
+    StopNeutralinoMap.insert(std::make_pair(mpext98, mppext98));
+
+    MassPoint mpext99 (900, 600);
+    StopCrossSection csext99 (0.00115301, 0.000135822);
+    MassPointParameters mppext99 (csext99, 11412);
+    StopNeutralinoMap.insert(std::make_pair(mpext99, mppext99));
+
+    MassPoint mpext100 (925, 1);
+    StopCrossSection csext100 (0.000981406, 0.000114539);
+    MassPointParameters mppext100 (csext100, 10398);
+    StopNeutralinoMap.insert(std::make_pair(mpext100, mppext100));
+
+    MassPoint mpext101 (925, 25);
+    StopCrossSection csext101 (0.000981406, 0.000114539);
+    MassPointParameters mppext101 (csext101, 7579);
+    StopNeutralinoMap.insert(std::make_pair(mpext101, mppext101));
+
+    MassPoint mpext102 (925, 50);
+    StopCrossSection csext102 (0.000981406, 0.000114539);
+    MassPointParameters mppext102 (csext102, 10408);
+    StopNeutralinoMap.insert(std::make_pair(mpext102, mppext102));
+
+    MassPoint mpext103 (925, 75);
+    StopCrossSection csext103 (0.000981406, 0.000114539);
+    MassPointParameters mppext103 (csext103, 9682);
+    StopNeutralinoMap.insert(std::make_pair(mpext103, mppext103));
+
+    MassPoint mpext104 (925, 100);
+    StopCrossSection csext104 (0.000981406, 0.000114539);
+    MassPointParameters mppext104 (csext104, 11661);
+    StopNeutralinoMap.insert(std::make_pair(mpext104, mppext104));
+
+    MassPoint mpext105 (925, 125);
+    StopCrossSection csext105 (0.000981406, 0.000114539);
+    MassPointParameters mppext105 (csext105, 12416);
+    StopNeutralinoMap.insert(std::make_pair(mpext105, mppext105));
+
+    MassPoint mpext106 (925, 150);
+    StopCrossSection csext106 (0.000981406, 0.000114539);
+    MassPointParameters mppext106 (csext106, 9033);
+    StopNeutralinoMap.insert(std::make_pair(mpext106, mppext106));
+
+    MassPoint mpext107 (925, 175);
+    StopCrossSection csext107 (0.000981406, 0.000114539);
+    MassPointParameters mppext107 (csext107, 10037);
+    StopNeutralinoMap.insert(std::make_pair(mpext107, mppext107));
+
+    MassPoint mpext108 (925, 200);
+    StopCrossSection csext108 (0.000981406, 0.000114539);
+    MassPointParameters mppext108 (csext108, 9191);
+    StopNeutralinoMap.insert(std::make_pair(mpext108, mppext108));
+
+    MassPoint mpext109 (925, 225);
+    StopCrossSection csext109 (0.000981406, 0.000114539);
+    MassPointParameters mppext109 (csext109, 9674);
+    StopNeutralinoMap.insert(std::make_pair(mpext109, mppext109));
+
+    MassPoint mpext110 (925, 250);
+    StopCrossSection csext110 (0.000981406, 0.000114539);
+    MassPointParameters mppext110 (csext110, 6284);
+    StopNeutralinoMap.insert(std::make_pair(mpext110, mppext110));
+
+    MassPoint mpext111 (925, 275);
+    StopCrossSection csext111 (0.000981406, 0.000114539);
+    MassPointParameters mppext111 (csext111, 10927);
+    StopNeutralinoMap.insert(std::make_pair(mpext111, mppext111));
+
+    MassPoint mpext112 (925, 300);
+    StopCrossSection csext112 (0.000981406, 0.000114539);
+    MassPointParameters mppext112 (csext112, 10023);
+    StopNeutralinoMap.insert(std::make_pair(mpext112, mppext112));
+
+    MassPoint mpext113 (925, 325);
+    StopCrossSection csext113 (0.000981406, 0.000114539);
+    MassPointParameters mppext113 (csext113, 7857);
+    StopNeutralinoMap.insert(std::make_pair(mpext113, mppext113));
+
+    MassPoint mpext114 (925, 350);
+    StopCrossSection csext114 (0.000981406, 0.000114539);
+    MassPointParameters mppext114 (csext114, 8275);
+    StopNeutralinoMap.insert(std::make_pair(mpext114, mppext114));
+
+    MassPoint mpext115 (925, 375);
+    StopCrossSection csext115 (0.000981406, 0.000114539);
+    MassPointParameters mppext115 (csext115, 9336);
+    StopNeutralinoMap.insert(std::make_pair(mpext115, mppext115));
+
+    MassPoint mpext116 (925, 400);
+    StopCrossSection csext116 (0.000981406, 0.000114539);
+    MassPointParameters mppext116 (csext116, 9101);
+    StopNeutralinoMap.insert(std::make_pair(mpext116, mppext116));
+
+    MassPoint mpext117 (925, 425);
+    StopCrossSection csext117 (0.000981406, 0.000114539);
+    MassPointParameters mppext117 (csext117, 9155);
+    StopNeutralinoMap.insert(std::make_pair(mpext117, mppext117));
+
+    MassPoint mpext118 (925, 450);
+    StopCrossSection csext118 (0.000981406, 0.000114539);
+    MassPointParameters mppext118 (csext118, 11149);
+    StopNeutralinoMap.insert(std::make_pair(mpext118, mppext118));
+
+    MassPoint mpext119 (925, 475);
+    StopCrossSection csext119 (0.000981406, 0.000114539);
+    MassPointParameters mppext119 (csext119, 9630);
+    StopNeutralinoMap.insert(std::make_pair(mpext119, mppext119));
+
+    MassPoint mpext120 (925, 500);
+    StopCrossSection csext120 (0.000981406, 0.000114539);
+    MassPointParameters mppext120 (csext120, 8055);
+    StopNeutralinoMap.insert(std::make_pair(mpext120, mppext120));
+
+    MassPoint mpext121 (925, 525);
+    StopCrossSection csext121 (0.000981406, 0.000114539);
+    MassPointParameters mppext121 (csext121, 9426);
+    StopNeutralinoMap.insert(std::make_pair(mpext121, mppext121));
+
+    MassPoint mpext122 (925, 550);
+    StopCrossSection csext122 (0.000981406, 0.000114539);
+    MassPointParameters mppext122 (csext122, 11088);
+    StopNeutralinoMap.insert(std::make_pair(mpext122, mppext122));
+
+    MassPoint mpext123 (925, 575);
+    StopCrossSection csext123 (0.000981406, 0.000114539);
+    MassPointParameters mppext123 (csext123, 11436);
+    StopNeutralinoMap.insert(std::make_pair(mpext123, mppext123));
+
+    MassPoint mpext124 (925, 600);
+    StopCrossSection csext124 (0.000981406, 0.000114539);
+    MassPointParameters mppext124 (csext124, 11362);
+    StopNeutralinoMap.insert(std::make_pair(mpext124, mppext124));
+
+    MassPoint mpext125 (950, 1);
+    StopCrossSection csext125 (0.000842779, 0.000102086);
+    MassPointParameters mppext125 (csext125, 9436);
+    StopNeutralinoMap.insert(std::make_pair(mpext125, mppext125));
+
+    MassPoint mpext126 (950, 25);
+    StopCrossSection csext126 (0.000842779, 0.000102086);
+    MassPointParameters mppext126 (csext126, 6634);
+    StopNeutralinoMap.insert(std::make_pair(mpext126, mppext126));
+
+    MassPoint mpext127 (950, 50);
+    StopCrossSection csext127 (0.000842779, 0.000102086);
+    MassPointParameters mppext127 (csext127, 10563);
+    StopNeutralinoMap.insert(std::make_pair(mpext127, mppext127));
+
+    MassPoint mpext128 (950, 75);
+    StopCrossSection csext128 (0.000842779, 0.000102086);
+    MassPointParameters mppext128 (csext128, 11722);
+    StopNeutralinoMap.insert(std::make_pair(mpext128, mppext128));
+
+    MassPoint mpext129 (950, 100);
+    StopCrossSection csext129 (0.000842779, 0.000102086);
+    MassPointParameters mppext129 (csext129, 12044);
+    StopNeutralinoMap.insert(std::make_pair(mpext129, mppext129));
+
+    MassPoint mpext130 (950, 125);
+    StopCrossSection csext130 (0.000842779, 0.000102086);
+    MassPointParameters mppext130 (csext130, 8644);
+    StopNeutralinoMap.insert(std::make_pair(mpext130, mppext130));
+
+    MassPoint mpext131 (950, 150);
+    StopCrossSection csext131 (0.000842779, 0.000102086);
+    MassPointParameters mppext131 (csext131, 11906);
+    StopNeutralinoMap.insert(std::make_pair(mpext131, mppext131));
+
+    MassPoint mpext132 (950, 175);
+    StopCrossSection csext132 (0.000842779, 0.000102086);
+    MassPointParameters mppext132 (csext132, 9332);
+    StopNeutralinoMap.insert(std::make_pair(mpext132, mppext132));
+
+    MassPoint mpext133 (950, 200);
+    StopCrossSection csext133 (0.000842779, 0.000102086);
+    MassPointParameters mppext133 (csext133, 8493);
+    StopNeutralinoMap.insert(std::make_pair(mpext133, mppext133));
+
+    MassPoint mpext134 (950, 225);
+    StopCrossSection csext134 (0.000842779, 0.000102086);
+    MassPointParameters mppext134 (csext134, 8154);
+    StopNeutralinoMap.insert(std::make_pair(mpext134, mppext134));
+
+    MassPoint mpext135 (950, 250);
+    StopCrossSection csext135 (0.000842779, 0.000102086);
+    MassPointParameters mppext135 (csext135, 8354);
+    StopNeutralinoMap.insert(std::make_pair(mpext135, mppext135));
+
+    MassPoint mpext136 (950, 275);
+    StopCrossSection csext136 (0.000842779, 0.000102086);
+    MassPointParameters mppext136 (csext136, 9339);
+    StopNeutralinoMap.insert(std::make_pair(mpext136, mppext136));
+
+    MassPoint mpext137 (950, 300);
+    StopCrossSection csext137 (0.000842779, 0.000102086);
+    MassPointParameters mppext137 (csext137, 9293);
+    StopNeutralinoMap.insert(std::make_pair(mpext137, mppext137));
+
+    MassPoint mpext138 (950, 325);
+    StopCrossSection csext138 (0.000842779, 0.000102086);
+    MassPointParameters mppext138 (csext138, 9403);
+    StopNeutralinoMap.insert(std::make_pair(mpext138, mppext138));
+
+    MassPoint mpext139 (950, 350);
+    StopCrossSection csext139 (0.000842779, 0.000102086);
+    MassPointParameters mppext139 (csext139, 12125);
+    StopNeutralinoMap.insert(std::make_pair(mpext139, mppext139));
+
+    MassPoint mpext140 (950, 375);
+    StopCrossSection csext140 (0.000842779, 0.000102086);
+    MassPointParameters mppext140 (csext140, 11423);
+    StopNeutralinoMap.insert(std::make_pair(mpext140, mppext140));
+
+    MassPoint mpext141 (950, 400);
+    StopCrossSection csext141 (0.000842779, 0.000102086);
+    MassPointParameters mppext141 (csext141, 11618);
+    StopNeutralinoMap.insert(std::make_pair(mpext141, mppext141));
+
+    MassPoint mpext142 (950, 425);
+    StopCrossSection csext142 (0.000842779, 0.000102086);
+    MassPointParameters mppext142 (csext142, 8794);
+    StopNeutralinoMap.insert(std::make_pair(mpext142, mppext142));
+
+    MassPoint mpext143 (950, 450);
+    StopCrossSection csext143 (0.000842779, 0.000102086);
+    MassPointParameters mppext143 (csext143, 8153);
+    StopNeutralinoMap.insert(std::make_pair(mpext143, mppext143));
+
+    MassPoint mpext144 (950, 475);
+    StopCrossSection csext144 (0.000842779, 0.000102086);
+    MassPointParameters mppext144 (csext144, 10589);
+    StopNeutralinoMap.insert(std::make_pair(mpext144, mppext144));
+
+    MassPoint mpext145 (950, 500);
+    StopCrossSection csext145 (0.000842779, 0.000102086);
+    MassPointParameters mppext145 (csext145, 9449);
+    StopNeutralinoMap.insert(std::make_pair(mpext145, mppext145));
+
+    MassPoint mpext146 (950, 525);
+    StopCrossSection csext146 (0.000842779, 0.000102086);
+    MassPointParameters mppext146 (csext146, 7878);
+    StopNeutralinoMap.insert(std::make_pair(mpext146, mppext146));
+
+    MassPoint mpext147 (950, 550);
+    StopCrossSection csext147 (0.000842779, 0.000102086);
+    MassPointParameters mppext147 (csext147, 9004);
+    StopNeutralinoMap.insert(std::make_pair(mpext147, mppext147));
+
+    MassPoint mpext148 (950, 575);
+    StopCrossSection csext148 (0.000842779, 0.000102086);
+    MassPointParameters mppext148 (csext148, 6614);
+    StopNeutralinoMap.insert(std::make_pair(mpext148, mppext148));
+
+    MassPoint mpext149 (950, 600);
+    StopCrossSection csext149 (0.000842779, 0.000102086);
+    MassPointParameters mppext149 (csext149, 8445);
+    StopNeutralinoMap.insert(std::make_pair(mpext149, mppext149));
+
+    MassPoint mpext150 (975, 1);
+    StopCrossSection csext150 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext150 (csext150, 10244);
+    StopNeutralinoMap.insert(std::make_pair(mpext150, mppext150));
+
+    MassPoint mpext151 (975, 25);
+    StopCrossSection csext151 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext151 (csext151, 12411);
+    StopNeutralinoMap.insert(std::make_pair(mpext151, mppext151));
+
+    MassPoint mpext152 (975, 50);
+    StopCrossSection csext152 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext152 (csext152, 10250);
+    StopNeutralinoMap.insert(std::make_pair(mpext152, mppext152));
+
+    MassPoint mpext153 (975, 75);
+    StopCrossSection csext153 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext153 (csext153, 8546);
+    StopNeutralinoMap.insert(std::make_pair(mpext153, mppext153));
+
+    MassPoint mpext154 (975, 100);
+    StopCrossSection csext154 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext154 (csext154, 7674);
+    StopNeutralinoMap.insert(std::make_pair(mpext154, mppext154));
+
+    MassPoint mpext155 (975, 125);
+    StopCrossSection csext155 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext155 (csext155, 10585);
+    StopNeutralinoMap.insert(std::make_pair(mpext155, mppext155));
+
+    MassPoint mpext156 (975, 150);
+    StopCrossSection csext156 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext156 (csext156, 9386);
+    StopNeutralinoMap.insert(std::make_pair(mpext156, mppext156));
+
+    MassPoint mpext157 (975, 175);
+    StopCrossSection csext157 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext157 (csext157, 9535);
+    StopNeutralinoMap.insert(std::make_pair(mpext157, mppext157));
+
+    MassPoint mpext158 (975, 200);
+    StopCrossSection csext158 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext158 (csext158, 8901);
+    StopNeutralinoMap.insert(std::make_pair(mpext158, mppext158));
+
+    MassPoint mpext159 (975, 225);
+    StopCrossSection csext159 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext159 (csext159, 10233);
+    StopNeutralinoMap.insert(std::make_pair(mpext159, mppext159));
+
+    MassPoint mpext160 (975, 250);
+    StopCrossSection csext160 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext160 (csext160, 9334);
+    StopNeutralinoMap.insert(std::make_pair(mpext160, mppext160));
+
+    MassPoint mpext161 (975, 275);
+    StopCrossSection csext161 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext161 (csext161, 10234);
+    StopNeutralinoMap.insert(std::make_pair(mpext161, mppext161));
+
+    MassPoint mpext162 (975, 300);
+    StopCrossSection csext162 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext162 (csext162, 10524);
+    StopNeutralinoMap.insert(std::make_pair(mpext162, mppext162));
+
+    MassPoint mpext163 (975, 325);
+    StopCrossSection csext163 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext163 (csext163, 8362);
+    StopNeutralinoMap.insert(std::make_pair(mpext163, mppext163));
+
+    MassPoint mpext164 (975, 350);
+    StopCrossSection csext164 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext164 (csext164, 10017);
+    StopNeutralinoMap.insert(std::make_pair(mpext164, mppext164));
+
+    MassPoint mpext165 (975, 375);
+    StopCrossSection csext165 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext165 (csext165, 10744);
+    StopNeutralinoMap.insert(std::make_pair(mpext165, mppext165));
+
+    MassPoint mpext166 (975, 400);
+    StopCrossSection csext166 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext166 (csext166, 9911);
+    StopNeutralinoMap.insert(std::make_pair(mpext166, mppext166));
+
+    MassPoint mpext167 (975, 425);
+    StopCrossSection csext167 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext167 (csext167, 9444);
+    StopNeutralinoMap.insert(std::make_pair(mpext167, mppext167));
+
+    MassPoint mpext168 (975, 450);
+    StopCrossSection csext168 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext168 (csext168, 10392);
+    StopNeutralinoMap.insert(std::make_pair(mpext168, mppext168));
+
+    MassPoint mpext169 (975, 475);
+    StopCrossSection csext169 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext169 (csext169, 10054);
+    StopNeutralinoMap.insert(std::make_pair(mpext169, mppext169));
+
+    MassPoint mpext170 (975, 500);
+    StopCrossSection csext170 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext170 (csext170, 8084);
+    StopNeutralinoMap.insert(std::make_pair(mpext170, mppext170));
+
+    MassPoint mpext171 (975, 525);
+    StopCrossSection csext171 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext171 (csext171, 7420);
+    StopNeutralinoMap.insert(std::make_pair(mpext171, mppext171));
+
+    MassPoint mpext172 (975, 550);
+    StopCrossSection csext172 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext172 (csext172, 9563);
+    StopNeutralinoMap.insert(std::make_pair(mpext172, mppext172));
+
+    MassPoint mpext173 (975, 575);
+    StopCrossSection csext173 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext173 (csext173, 8492);
+    StopNeutralinoMap.insert(std::make_pair(mpext173, mppext173));
+
+    MassPoint mpext174 (975, 600);
+    StopCrossSection csext174 (0.000713432, 7.79702e-05);
+    MassPointParameters mppext174 (csext174, 7691);
+    StopNeutralinoMap.insert(std::make_pair(mpext174, mppext174));
+
+    MassPoint mpext175 (1000, 1);
+    StopCrossSection csext175 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext175 (csext175, 10809);
+    StopNeutralinoMap.insert(std::make_pair(mpext175, mppext175));
+
+    MassPoint mpext176 (1000, 25);
+    StopCrossSection csext176 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext176 (csext176, 10115);
+    StopNeutralinoMap.insert(std::make_pair(mpext176, mppext176));
+
+    MassPoint mpext177 (1000, 50);
+    StopCrossSection csext177 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext177 (csext177, 10214);
+    StopNeutralinoMap.insert(std::make_pair(mpext177, mppext177));
+
+    MassPoint mpext178 (1000, 75);
+    StopCrossSection csext178 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext178 (csext178, 10123);
+    StopNeutralinoMap.insert(std::make_pair(mpext178, mppext178));
+
+    MassPoint mpext179 (1000, 100);
+    StopCrossSection csext179 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext179 (csext179, 10889);
+    StopNeutralinoMap.insert(std::make_pair(mpext179, mppext179));
+
+    MassPoint mpext180 (1000, 125);
+    StopCrossSection csext180 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext180 (csext180, 12454);
+    StopNeutralinoMap.insert(std::make_pair(mpext180, mppext180));
+
+    MassPoint mpext181 (1000, 150);
+    StopCrossSection csext181 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext181 (csext181, 8607);
+    StopNeutralinoMap.insert(std::make_pair(mpext181, mppext181));
+
+    MassPoint mpext182 (1000, 175);
+    StopCrossSection csext182 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext182 (csext182, 7451);
+    StopNeutralinoMap.insert(std::make_pair(mpext182, mppext182));
+
+    MassPoint mpext183 (1000, 200);
+    StopCrossSection csext183 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext183 (csext183, 10304);
+    StopNeutralinoMap.insert(std::make_pair(mpext183, mppext183));
+
+    MassPoint mpext184 (1000, 225);
+    StopCrossSection csext184 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext184 (csext184, 9579);
+    StopNeutralinoMap.insert(std::make_pair(mpext184, mppext184));
+
+    MassPoint mpext185 (1000, 250);
+    StopCrossSection csext185 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext185 (csext185, 10702);
+    StopNeutralinoMap.insert(std::make_pair(mpext185, mppext185));
+
+    MassPoint mpext186 (1000, 275);
+    StopCrossSection csext186 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext186 (csext186, 9615);
+    StopNeutralinoMap.insert(std::make_pair(mpext186, mppext186));
+
+    MassPoint mpext187 (1000, 300);
+    StopCrossSection csext187 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext187 (csext187, 10469);
+    StopNeutralinoMap.insert(std::make_pair(mpext187, mppext187));
+
+    MassPoint mpext188 (1000, 325);
+    StopCrossSection csext188 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext188 (csext188, 11374);
+    StopNeutralinoMap.insert(std::make_pair(mpext188, mppext188));
+
+    MassPoint mpext189 (1000, 350);
+    StopCrossSection csext189 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext189 (csext189, 9928);
+    StopNeutralinoMap.insert(std::make_pair(mpext189, mppext189));
+
+    MassPoint mpext190 (1000, 375);
+    StopCrossSection csext190 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext190 (csext190, 10025);
+    StopNeutralinoMap.insert(std::make_pair(mpext190, mppext190));
+
+    MassPoint mpext191 (1000, 400);
+    StopCrossSection csext191 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext191 (csext191, 11254);
+    StopNeutralinoMap.insert(std::make_pair(mpext191, mppext191));
+
+    MassPoint mpext192 (1000, 425);
+    StopCrossSection csext192 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext192 (csext192, 8227);
+    StopNeutralinoMap.insert(std::make_pair(mpext192, mppext192));
+
+    MassPoint mpext193 (1000, 450);
+    StopCrossSection csext193 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext193 (csext193, 8365);
+    StopNeutralinoMap.insert(std::make_pair(mpext193, mppext193));
+
+    MassPoint mpext194 (1000, 475);
+    StopCrossSection csext194 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext194 (csext194, 9310);
+    StopNeutralinoMap.insert(std::make_pair(mpext194, mppext194));
+
+    MassPoint mpext195 (1000, 500);
+    StopCrossSection csext195 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext195 (csext195, 7832);
+    StopNeutralinoMap.insert(std::make_pair(mpext195, mppext195));
+
+    MassPoint mpext196 (1000, 525);
+    StopCrossSection csext196 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext196 (csext196, 11109);
+    StopNeutralinoMap.insert(std::make_pair(mpext196, mppext196));
+
+    MassPoint mpext197 (1000, 550);
+    StopCrossSection csext197 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext197 (csext197, 9124);
+    StopNeutralinoMap.insert(std::make_pair(mpext197, mppext197));
+
+    MassPoint mpext198 (1000, 575);
+    StopCrossSection csext198 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext198 (csext198, 11023);
+    StopNeutralinoMap.insert(std::make_pair(mpext198, mppext198));
+
+    MassPoint mpext199 (1000, 600);
+    StopCrossSection csext199 (0.000621866, 7.71005e-05);
+    MassPointParameters mppext199 (csext199, 12278);
+    StopNeutralinoMap.insert(std::make_pair(mpext199, mppext199));
+
+    MassPoint mpext200 (1025, 1);
+    StopCrossSection csext200 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext200 (csext200, 8067);
+    StopNeutralinoMap.insert(std::make_pair(mpext200, mppext200));
+
+    MassPoint mpext201 (1025, 25);
+    StopCrossSection csext201 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext201 (csext201, 10949);
+    StopNeutralinoMap.insert(std::make_pair(mpext201, mppext201));
+
+    MassPoint mpext202 (1025, 50);
+    StopCrossSection csext202 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext202 (csext202, 8913);
+    StopNeutralinoMap.insert(std::make_pair(mpext202, mppext202));
+
+    MassPoint mpext203 (1025, 75);
+    StopCrossSection csext203 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext203 (csext203, 8209);
+    StopNeutralinoMap.insert(std::make_pair(mpext203, mppext203));
+
+    MassPoint mpext204 (1025, 100);
+    StopCrossSection csext204 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext204 (csext204, 9162);
+    StopNeutralinoMap.insert(std::make_pair(mpext204, mppext204));
+
+    MassPoint mpext205 (1025, 125);
+    StopCrossSection csext205 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext205 (csext205, 10853);
+    StopNeutralinoMap.insert(std::make_pair(mpext205, mppext205));
+
+    MassPoint mpext206 (1025, 150);
+    StopCrossSection csext206 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext206 (csext206, 8173);
+    StopNeutralinoMap.insert(std::make_pair(mpext206, mppext206));
+
+    MassPoint mpext207 (1025, 175);
+    StopCrossSection csext207 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext207 (csext207, 10316);
+    StopNeutralinoMap.insert(std::make_pair(mpext207, mppext207));
+
+    MassPoint mpext208 (1025, 200);
+    StopCrossSection csext208 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext208 (csext208, 8712);
+    StopNeutralinoMap.insert(std::make_pair(mpext208, mppext208));
+
+    MassPoint mpext209 (1025, 225);
+    StopCrossSection csext209 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext209 (csext209, 8602);
+    StopNeutralinoMap.insert(std::make_pair(mpext209, mppext209));
+
+    MassPoint mpext210 (1025, 250);
+    StopCrossSection csext210 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext210 (csext210, 11096);
+    StopNeutralinoMap.insert(std::make_pair(mpext210, mppext210));
+
+    MassPoint mpext211 (1025, 275);
+    StopCrossSection csext211 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext211 (csext211, 9534);
+    StopNeutralinoMap.insert(std::make_pair(mpext211, mppext211));
+
+    MassPoint mpext212 (1025, 300);
+    StopCrossSection csext212 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext212 (csext212, 11208);
+    StopNeutralinoMap.insert(std::make_pair(mpext212, mppext212));
+
+    MassPoint mpext213 (1025, 325);
+    StopCrossSection csext213 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext213 (csext213, 9077);
+    StopNeutralinoMap.insert(std::make_pair(mpext213, mppext213));
+
+    MassPoint mpext214 (1025, 350);
+    StopCrossSection csext214 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext214 (csext214, 9430);
+    StopNeutralinoMap.insert(std::make_pair(mpext214, mppext214));
+
+    MassPoint mpext215 (1025, 375);
+    StopCrossSection csext215 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext215 (csext215, 9427);
+    StopNeutralinoMap.insert(std::make_pair(mpext215, mppext215));
+
+    MassPoint mpext216 (1025, 400);
+    StopCrossSection csext216 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext216 (csext216, 12597);
+    StopNeutralinoMap.insert(std::make_pair(mpext216, mppext216));
+
+    MassPoint mpext217 (1025, 425);
+    StopCrossSection csext217 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext217 (csext217, 8672);
+    StopNeutralinoMap.insert(std::make_pair(mpext217, mppext217));
+
+    MassPoint mpext218 (1025, 450);
+    StopCrossSection csext218 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext218 (csext218, 7805);
+    StopNeutralinoMap.insert(std::make_pair(mpext218, mppext218));
+
+    MassPoint mpext219 (1025, 475);
+    StopCrossSection csext219 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext219 (csext219, 7463);
+    StopNeutralinoMap.insert(std::make_pair(mpext219, mppext219));
+
+    MassPoint mpext220 (1025, 500);
+    StopCrossSection csext220 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext220 (csext220, 10623);
+    StopNeutralinoMap.insert(std::make_pair(mpext220, mppext220));
+
+    MassPoint mpext221 (1025, 525);
+    StopCrossSection csext221 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext221 (csext221, 9074);
+    StopNeutralinoMap.insert(std::make_pair(mpext221, mppext221));
+
+    MassPoint mpext222 (1025, 550);
+    StopCrossSection csext222 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext222 (csext222, 7078);
+    StopNeutralinoMap.insert(std::make_pair(mpext222, mppext222));
+
+    MassPoint mpext223 (1025, 575);
+    StopCrossSection csext223 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext223 (csext223, 12158);
+    StopNeutralinoMap.insert(std::make_pair(mpext223, mppext223));
+
+    MassPoint mpext224 (1025, 600);
+    StopCrossSection csext224 (0.000535563, 6.67594e-05);
+    MassPointParameters mppext224 (csext224, 9815);
+    StopNeutralinoMap.insert(std::make_pair(mpext224, mppext224));
+
+    MassPoint mpext225 (1050, 1);
+    StopCrossSection csext225 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext225 (csext225, 10414);
+    StopNeutralinoMap.insert(std::make_pair(mpext225, mppext225));
+
+    MassPoint mpext226 (1050, 25);
+    StopCrossSection csext226 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext226 (csext226, 8768);
+    StopNeutralinoMap.insert(std::make_pair(mpext226, mppext226));
+
+    MassPoint mpext227 (1050, 50);
+    StopCrossSection csext227 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext227 (csext227, 10676);
+    StopNeutralinoMap.insert(std::make_pair(mpext227, mppext227));
+
+    MassPoint mpext228 (1050, 75);
+    StopCrossSection csext228 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext228 (csext228, 7387);
+    StopNeutralinoMap.insert(std::make_pair(mpext228, mppext228));
+
+    MassPoint mpext229 (1050, 100);
+    StopCrossSection csext229 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext229 (csext229, 10135);
+    StopNeutralinoMap.insert(std::make_pair(mpext229, mppext229));
+
+    MassPoint mpext230 (1050, 125);
+    StopCrossSection csext230 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext230 (csext230, 8982);
+    StopNeutralinoMap.insert(std::make_pair(mpext230, mppext230));
+
+    MassPoint mpext231 (1050, 150);
+    StopCrossSection csext231 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext231 (csext231, 8050);
+    StopNeutralinoMap.insert(std::make_pair(mpext231, mppext231));
+
+    MassPoint mpext232 (1050, 175);
+    StopCrossSection csext232 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext232 (csext232, 11223);
+    StopNeutralinoMap.insert(std::make_pair(mpext232, mppext232));
+
+    MassPoint mpext233 (1050, 200);
+    StopCrossSection csext233 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext233 (csext233, 9934);
+    StopNeutralinoMap.insert(std::make_pair(mpext233, mppext233));
+
+    MassPoint mpext234 (1050, 225);
+    StopCrossSection csext234 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext234 (csext234, 9892);
+    StopNeutralinoMap.insert(std::make_pair(mpext234, mppext234));
+
+    MassPoint mpext235 (1050, 250);
+    StopCrossSection csext235 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext235 (csext235, 8524);
+    StopNeutralinoMap.insert(std::make_pair(mpext235, mppext235));
+
+    MassPoint mpext236 (1050, 275);
+    StopCrossSection csext236 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext236 (csext236, 9754);
+    StopNeutralinoMap.insert(std::make_pair(mpext236, mppext236));
+
+    MassPoint mpext237 (1050, 300);
+    StopCrossSection csext237 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext237 (csext237, 10192);
+    StopNeutralinoMap.insert(std::make_pair(mpext237, mppext237));
+
+    MassPoint mpext238 (1050, 325);
+    StopCrossSection csext238 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext238 (csext238, 11288);
+    StopNeutralinoMap.insert(std::make_pair(mpext238, mppext238));
+
+    MassPoint mpext239 (1050, 350);
+    StopCrossSection csext239 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext239 (csext239, 9901);
+    StopNeutralinoMap.insert(std::make_pair(mpext239, mppext239));
+
+    MassPoint mpext240 (1050, 375);
+    StopCrossSection csext240 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext240 (csext240, 9937);
+    StopNeutralinoMap.insert(std::make_pair(mpext240, mppext240));
+
+    MassPoint mpext241 (1050, 400);
+    StopCrossSection csext241 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext241 (csext241, 9876);
+    StopNeutralinoMap.insert(std::make_pair(mpext241, mppext241));
+
+    MassPoint mpext242 (1050, 425);
+    StopCrossSection csext242 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext242 (csext242, 10499);
+    StopNeutralinoMap.insert(std::make_pair(mpext242, mppext242));
+
+    MassPoint mpext243 (1050, 450);
+    StopCrossSection csext243 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext243 (csext243, 10409);
+    StopNeutralinoMap.insert(std::make_pair(mpext243, mppext243));
+
+    MassPoint mpext244 (1050, 475);
+    StopCrossSection csext244 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext244 (csext244, 9524);
+    StopNeutralinoMap.insert(std::make_pair(mpext244, mppext244));
+
+    MassPoint mpext245 (1050, 500);
+    StopCrossSection csext245 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext245 (csext245, 8551);
+    StopNeutralinoMap.insert(std::make_pair(mpext245, mppext245));
+
+    MassPoint mpext246 (1050, 525);
+    StopCrossSection csext246 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext246 (csext246, 10065);
+    StopNeutralinoMap.insert(std::make_pair(mpext246, mppext246));
+
+    MassPoint mpext247 (1050, 550);
+    StopCrossSection csext247 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext247 (csext247, 9879);
+    StopNeutralinoMap.insert(std::make_pair(mpext247, mppext247));
+
+    MassPoint mpext248 (1050, 575);
+    StopCrossSection csext248 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext248 (csext248, 9497);
+    StopNeutralinoMap.insert(std::make_pair(mpext248, mppext248));
+
+    MassPoint mpext249 (1050, 600);
+    StopCrossSection csext249 (0.000458716, 5.69349e-05);
+    MassPointParameters mppext249 (csext249, 11842);
+    StopNeutralinoMap.insert(std::make_pair(mpext249, mppext249));
+
+    MassPoint mpext250 (1075, 1);
+    StopCrossSection csext250 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext250 (csext250, 7072);
+    StopNeutralinoMap.insert(std::make_pair(mpext250, mppext250));
+
+    MassPoint mpext251 (1075, 25);
+    StopCrossSection csext251 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext251 (csext251, 8566);
+    StopNeutralinoMap.insert(std::make_pair(mpext251, mppext251));
+
+    MassPoint mpext252 (1075, 50);
+    StopCrossSection csext252 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext252 (csext252, 9073);
+    StopNeutralinoMap.insert(std::make_pair(mpext252, mppext252));
+
+    MassPoint mpext253 (1075, 75);
+    StopCrossSection csext253 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext253 (csext253, 10104);
+    StopNeutralinoMap.insert(std::make_pair(mpext253, mppext253));
+
+    MassPoint mpext254 (1075, 100);
+    StopCrossSection csext254 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext254 (csext254, 10261);
+    StopNeutralinoMap.insert(std::make_pair(mpext254, mppext254));
+
+    MassPoint mpext255 (1075, 125);
+    StopCrossSection csext255 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext255 (csext255, 8456);
+    StopNeutralinoMap.insert(std::make_pair(mpext255, mppext255));
+
+    MassPoint mpext256 (1075, 150);
+    StopCrossSection csext256 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext256 (csext256, 11801);
+    StopNeutralinoMap.insert(std::make_pair(mpext256, mppext256));
+
+    MassPoint mpext257 (1075, 175);
+    StopCrossSection csext257 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext257 (csext257, 7624);
+    StopNeutralinoMap.insert(std::make_pair(mpext257, mppext257));
+
+    MassPoint mpext258 (1075, 200);
+    StopCrossSection csext258 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext258 (csext258, 8976);
+    StopNeutralinoMap.insert(std::make_pair(mpext258, mppext258));
+
+    MassPoint mpext259 (1075, 225);
+    StopCrossSection csext259 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext259 (csext259, 9402);
+    StopNeutralinoMap.insert(std::make_pair(mpext259, mppext259));
+
+    MassPoint mpext260 (1075, 250);
+    StopCrossSection csext260 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext260 (csext260, 9299);
+    StopNeutralinoMap.insert(std::make_pair(mpext260, mppext260));
+
+    MassPoint mpext261 (1075, 275);
+    StopCrossSection csext261 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext261 (csext261, 7919);
+    StopNeutralinoMap.insert(std::make_pair(mpext261, mppext261));
+
+    MassPoint mpext262 (1075, 300);
+    StopCrossSection csext262 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext262 (csext262, 8605);
+    StopNeutralinoMap.insert(std::make_pair(mpext262, mppext262));
+
+    MassPoint mpext263 (1075, 325);
+    StopCrossSection csext263 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext263 (csext263, 7110);
+    StopNeutralinoMap.insert(std::make_pair(mpext263, mppext263));
+
+    MassPoint mpext264 (1075, 350);
+    StopCrossSection csext264 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext264 (csext264, 8429);
+    StopNeutralinoMap.insert(std::make_pair(mpext264, mppext264));
+
+    MassPoint mpext265 (1075, 375);
+    StopCrossSection csext265 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext265 (csext265, 7753);
+    StopNeutralinoMap.insert(std::make_pair(mpext265, mppext265));
+
+    MassPoint mpext266 (1075, 400);
+    StopCrossSection csext266 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext266 (csext266, 11266);
+    StopNeutralinoMap.insert(std::make_pair(mpext266, mppext266));
+
+    MassPoint mpext267 (1075, 425);
+    StopCrossSection csext267 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext267 (csext267, 10700);
+    StopNeutralinoMap.insert(std::make_pair(mpext267, mppext267));
+
+    MassPoint mpext268 (1075, 450);
+    StopCrossSection csext268 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext268 (csext268, 8702);
+    StopNeutralinoMap.insert(std::make_pair(mpext268, mppext268));
+
+    MassPoint mpext269 (1075, 475);
+    StopCrossSection csext269 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext269 (csext269, 11726);
+    StopNeutralinoMap.insert(std::make_pair(mpext269, mppext269));
+
+    MassPoint mpext270 (1075, 500);
+    StopCrossSection csext270 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext270 (csext270, 8726);
+    StopNeutralinoMap.insert(std::make_pair(mpext270, mppext270));
+
+    MassPoint mpext271 (1075, 525);
+    StopCrossSection csext271 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext271 (csext271, 10126);
+    StopNeutralinoMap.insert(std::make_pair(mpext271, mppext271));
+
+    MassPoint mpext272 (1075, 550);
+    StopCrossSection csext272 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext272 (csext272, 9370);
+    StopNeutralinoMap.insert(std::make_pair(mpext272, mppext272));
+
+    MassPoint mpext273 (1075, 575);
+    StopCrossSection csext273 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext273 (csext273, 8625);
+    StopNeutralinoMap.insert(std::make_pair(mpext273, mppext273));
+
+    MassPoint mpext274 (1075, 600);
+    StopCrossSection csext274 (0.000398794, 5.06191e-05);
+    MassPointParameters mppext274 (csext274, 9305);
+    StopNeutralinoMap.insert(std::make_pair(mpext274, mppext274));
+
+    MassPoint mpext275 (1100, 1);
+    StopCrossSection csext275 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext275 (csext275, 7984);
+    StopNeutralinoMap.insert(std::make_pair(mpext275, mppext275));
+
+    MassPoint mpext276 (1100, 25);
+    StopCrossSection csext276 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext276 (csext276, 7954);
+    StopNeutralinoMap.insert(std::make_pair(mpext276, mppext276));
+
+    MassPoint mpext277 (1100, 50);
+    StopCrossSection csext277 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext277 (csext277, 7909);
+    StopNeutralinoMap.insert(std::make_pair(mpext277, mppext277));
+
+    MassPoint mpext278 (1100, 75);
+    StopCrossSection csext278 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext278 (csext278, 10380);
+    StopNeutralinoMap.insert(std::make_pair(mpext278, mppext278));
+
+    MassPoint mpext279 (1100, 100);
+    StopCrossSection csext279 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext279 (csext279, 11421);
+    StopNeutralinoMap.insert(std::make_pair(mpext279, mppext279));
+
+    MassPoint mpext280 (1100, 125);
+    StopCrossSection csext280 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext280 (csext280, 8404);
+    StopNeutralinoMap.insert(std::make_pair(mpext280, mppext280));
+
+    MassPoint mpext281 (1100, 150);
+    StopCrossSection csext281 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext281 (csext281, 9276);
+    StopNeutralinoMap.insert(std::make_pair(mpext281, mppext281));
+
+    MassPoint mpext282 (1100, 175);
+    StopCrossSection csext282 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext282 (csext282, 9855);
+    StopNeutralinoMap.insert(std::make_pair(mpext282, mppext282));
+
+    MassPoint mpext283 (1100, 200);
+    StopCrossSection csext283 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext283 (csext283, 8638);
+    StopNeutralinoMap.insert(std::make_pair(mpext283, mppext283));
+
+    MassPoint mpext284 (1100, 225);
+    StopCrossSection csext284 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext284 (csext284, 9938);
+    StopNeutralinoMap.insert(std::make_pair(mpext284, mppext284));
+
+    MassPoint mpext285 (1100, 250);
+    StopCrossSection csext285 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext285 (csext285, 8982);
+    StopNeutralinoMap.insert(std::make_pair(mpext285, mppext285));
+
+    MassPoint mpext286 (1100, 275);
+    StopCrossSection csext286 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext286 (csext286, 10128);
+    StopNeutralinoMap.insert(std::make_pair(mpext286, mppext286));
+
+    MassPoint mpext287 (1100, 300);
+    StopCrossSection csext287 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext287 (csext287, 8983);
+    StopNeutralinoMap.insert(std::make_pair(mpext287, mppext287));
+
+    MassPoint mpext288 (1100, 325);
+    StopCrossSection csext288 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext288 (csext288, 9525);
+    StopNeutralinoMap.insert(std::make_pair(mpext288, mppext288));
+
+    MassPoint mpext289 (1100, 350);
+    StopCrossSection csext289 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext289 (csext289, 10102);
+    StopNeutralinoMap.insert(std::make_pair(mpext289, mppext289));
+
+    MassPoint mpext290 (1100, 375);
+    StopCrossSection csext290 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext290 (csext290, 10754);
+    StopNeutralinoMap.insert(std::make_pair(mpext290, mppext290));
+
+    MassPoint mpext291 (1100, 400);
+    StopCrossSection csext291 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext291 (csext291, 11141);
+    StopNeutralinoMap.insert(std::make_pair(mpext291, mppext291));
+
+    MassPoint mpext292 (1100, 425);
+    StopCrossSection csext292 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext292 (csext292, 8779);
+    StopNeutralinoMap.insert(std::make_pair(mpext292, mppext292));
+
+    MassPoint mpext293 (1100, 450);
+    StopCrossSection csext293 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext293 (csext293, 8701);
+    StopNeutralinoMap.insert(std::make_pair(mpext293, mppext293));
+
+    MassPoint mpext294 (1100, 475);
+    StopCrossSection csext294 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext294 (csext294, 6195);
+    StopNeutralinoMap.insert(std::make_pair(mpext294, mppext294));
+
+    MassPoint mpext295 (1100, 500);
+    StopCrossSection csext295 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext295 (csext295, 7495);
+    StopNeutralinoMap.insert(std::make_pair(mpext295, mppext295));
+
+    MassPoint mpext296 (1100, 525);
+    StopCrossSection csext296 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext296 (csext296, 9848);
+    StopNeutralinoMap.insert(std::make_pair(mpext296, mppext296));
+
+    MassPoint mpext297 (1100, 550);
+    StopCrossSection csext297 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext297 (csext297, 11707);
+    StopNeutralinoMap.insert(std::make_pair(mpext297, mppext297));
+
+    MassPoint mpext298 (1100, 575);
+    StopCrossSection csext298 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext298 (csext298, 10740);
+    StopNeutralinoMap.insert(std::make_pair(mpext298, mppext298));
+
+    MassPoint mpext299 (1100, 600);
+    StopCrossSection csext299 (0.000342626, 4.27672e-05);
+    MassPointParameters mppext299 (csext299, 9088);
+    StopNeutralinoMap.insert(std::make_pair(mpext299, mppext299));
+
+    MassPoint mpext300 (1125, 1);
+    StopCrossSection csext300 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext300 (csext300, 10980);
+    StopNeutralinoMap.insert(std::make_pair(mpext300, mppext300));
+
+    MassPoint mpext301 (1125, 25);
+    StopCrossSection csext301 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext301 (csext301, 8888);
+    StopNeutralinoMap.insert(std::make_pair(mpext301, mppext301));
+
+    MassPoint mpext302 (1125, 50);
+    StopCrossSection csext302 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext302 (csext302, 10348);
+    StopNeutralinoMap.insert(std::make_pair(mpext302, mppext302));
+
+    MassPoint mpext303 (1125, 75);
+    StopCrossSection csext303 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext303 (csext303, 10740);
+    StopNeutralinoMap.insert(std::make_pair(mpext303, mppext303));
+
+    MassPoint mpext304 (1125, 100);
+    StopCrossSection csext304 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext304 (csext304, 9565);
+    StopNeutralinoMap.insert(std::make_pair(mpext304, mppext304));
+
+    MassPoint mpext305 (1125, 125);
+    StopCrossSection csext305 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext305 (csext305, 7600);
+    StopNeutralinoMap.insert(std::make_pair(mpext305, mppext305));
+
+    MassPoint mpext306 (1125, 150);
+    StopCrossSection csext306 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext306 (csext306, 9610);
+    StopNeutralinoMap.insert(std::make_pair(mpext306, mppext306));
+
+    MassPoint mpext307 (1125, 175);
+    StopCrossSection csext307 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext307 (csext307, 9636);
+    StopNeutralinoMap.insert(std::make_pair(mpext307, mppext307));
+
+    MassPoint mpext308 (1125, 200);
+    StopCrossSection csext308 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext308 (csext308, 9063);
+    StopNeutralinoMap.insert(std::make_pair(mpext308, mppext308));
+
+    MassPoint mpext309 (1125, 225);
+    StopCrossSection csext309 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext309 (csext309, 9929);
+    StopNeutralinoMap.insert(std::make_pair(mpext309, mppext309));
+
+    MassPoint mpext310 (1125, 250);
+    StopCrossSection csext310 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext310 (csext310, 11759);
+    StopNeutralinoMap.insert(std::make_pair(mpext310, mppext310));
+
+    MassPoint mpext311 (1125, 275);
+    StopCrossSection csext311 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext311 (csext311, 10582);
+    StopNeutralinoMap.insert(std::make_pair(mpext311, mppext311));
+
+    MassPoint mpext312 (1125, 300);
+    StopCrossSection csext312 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext312 (csext312, 9749);
+    StopNeutralinoMap.insert(std::make_pair(mpext312, mppext312));
+
+    MassPoint mpext313 (1125, 325);
+    StopCrossSection csext313 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext313 (csext313, 9386);
+    StopNeutralinoMap.insert(std::make_pair(mpext313, mppext313));
+
+    MassPoint mpext314 (1125, 350);
+    StopCrossSection csext314 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext314 (csext314, 9001);
+    StopNeutralinoMap.insert(std::make_pair(mpext314, mppext314));
+
+    MassPoint mpext315 (1125, 375);
+    StopCrossSection csext315 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext315 (csext315, 11250);
+    StopNeutralinoMap.insert(std::make_pair(mpext315, mppext315));
+
+    MassPoint mpext316 (1125, 400);
+    StopCrossSection csext316 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext316 (csext316, 9693);
+    StopNeutralinoMap.insert(std::make_pair(mpext316, mppext316));
+
+    MassPoint mpext317 (1125, 425);
+    StopCrossSection csext317 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext317 (csext317, 8573);
+    StopNeutralinoMap.insert(std::make_pair(mpext317, mppext317));
+
+    MassPoint mpext318 (1125, 450);
+    StopCrossSection csext318 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext318 (csext318, 10164);
+    StopNeutralinoMap.insert(std::make_pair(mpext318, mppext318));
+
+    MassPoint mpext319 (1125, 475);
+    StopCrossSection csext319 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext319 (csext319, 8891);
+    StopNeutralinoMap.insert(std::make_pair(mpext319, mppext319));
+
+    MassPoint mpext320 (1125, 500);
+    StopCrossSection csext320 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext320 (csext320, 9660);
+    StopNeutralinoMap.insert(std::make_pair(mpext320, mppext320));
+
+    MassPoint mpext321 (1125, 525);
+    StopCrossSection csext321 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext321 (csext321, 9195);
+    StopNeutralinoMap.insert(std::make_pair(mpext321, mppext321));
+
+    MassPoint mpext322 (1125, 550);
+    StopCrossSection csext322 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext322 (csext322, 10301);
+    StopNeutralinoMap.insert(std::make_pair(mpext322, mppext322));
+
+    MassPoint mpext323 (1125, 575);
+    StopCrossSection csext323 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext323 (csext323, 8300);
+    StopNeutralinoMap.insert(std::make_pair(mpext323, mppext323));
+
+    MassPoint mpext324 (1125, 600);
+    StopCrossSection csext324 (0.000301119, 4.14674e-05);
+    MassPointParameters mppext324 (csext324, 8860);
+    StopNeutralinoMap.insert(std::make_pair(mpext324, mppext324));
+
+    MassPoint mpext325 (1150, 1);
+    StopCrossSection csext325 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext325 (csext325, 9244);
+    StopNeutralinoMap.insert(std::make_pair(mpext325, mppext325));
+
+    MassPoint mpext326 (1150, 25);
+    StopCrossSection csext326 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext326 (csext326, 10277);
+    StopNeutralinoMap.insert(std::make_pair(mpext326, mppext326));
+
+    MassPoint mpext327 (1150, 50);
+    StopCrossSection csext327 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext327 (csext327, 5603);
+    StopNeutralinoMap.insert(std::make_pair(mpext327, mppext327));
+
+    MassPoint mpext328 (1150, 75);
+    StopCrossSection csext328 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext328 (csext328, 8460);
+    StopNeutralinoMap.insert(std::make_pair(mpext328, mppext328));
+
+    MassPoint mpext329 (1150, 100);
+    StopCrossSection csext329 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext329 (csext329, 9455);
+    StopNeutralinoMap.insert(std::make_pair(mpext329, mppext329));
+
+    MassPoint mpext330 (1150, 125);
+    StopCrossSection csext330 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext330 (csext330, 9331);
+    StopNeutralinoMap.insert(std::make_pair(mpext330, mppext330));
+
+    MassPoint mpext331 (1150, 150);
+    StopCrossSection csext331 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext331 (csext331, 9056);
+    StopNeutralinoMap.insert(std::make_pair(mpext331, mppext331));
+
+    MassPoint mpext332 (1150, 175);
+    StopCrossSection csext332 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext332 (csext332, 7805);
+    StopNeutralinoMap.insert(std::make_pair(mpext332, mppext332));
+
+    MassPoint mpext333 (1150, 200);
+    StopCrossSection csext333 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext333 (csext333, 8412);
+    StopNeutralinoMap.insert(std::make_pair(mpext333, mppext333));
+
+    MassPoint mpext334 (1150, 225);
+    StopCrossSection csext334 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext334 (csext334, 8902);
+    StopNeutralinoMap.insert(std::make_pair(mpext334, mppext334));
+
+    MassPoint mpext335 (1150, 250);
+    StopCrossSection csext335 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext335 (csext335, 9656);
+    StopNeutralinoMap.insert(std::make_pair(mpext335, mppext335));
+
+    MassPoint mpext336 (1150, 275);
+    StopCrossSection csext336 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext336 (csext336, 9682);
+    StopNeutralinoMap.insert(std::make_pair(mpext336, mppext336));
+
+    MassPoint mpext337 (1150, 300);
+    StopCrossSection csext337 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext337 (csext337, 10662);
+    StopNeutralinoMap.insert(std::make_pair(mpext337, mppext337));
+
+    MassPoint mpext338 (1150, 325);
+    StopCrossSection csext338 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext338 (csext338, 8308);
+    StopNeutralinoMap.insert(std::make_pair(mpext338, mppext338));
+
+    MassPoint mpext339 (1150, 350);
+    StopCrossSection csext339 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext339 (csext339, 9554);
+    StopNeutralinoMap.insert(std::make_pair(mpext339, mppext339));
+
+    MassPoint mpext340 (1150, 375);
+    StopCrossSection csext340 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext340 (csext340, 8600);
+    StopNeutralinoMap.insert(std::make_pair(mpext340, mppext340));
+
+    MassPoint mpext341 (1150, 400);
+    StopCrossSection csext341 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext341 (csext341, 10462);
+    StopNeutralinoMap.insert(std::make_pair(mpext341, mppext341));
+
+    MassPoint mpext342 (1150, 425);
+    StopCrossSection csext342 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext342 (csext342, 9871);
+    StopNeutralinoMap.insert(std::make_pair(mpext342, mppext342));
+
+    MassPoint mpext343 (1150, 450);
+    StopCrossSection csext343 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext343 (csext343, 9131);
+    StopNeutralinoMap.insert(std::make_pair(mpext343, mppext343));
+
+    MassPoint mpext344 (1150, 475);
+    StopCrossSection csext344 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext344 (csext344, 11746);
+    StopNeutralinoMap.insert(std::make_pair(mpext344, mppext344));
+
+    MassPoint mpext345 (1150, 500);
+    StopCrossSection csext345 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext345 (csext345, 7617);
+    StopNeutralinoMap.insert(std::make_pair(mpext345, mppext345));
+
+    MassPoint mpext346 (1150, 525);
+    StopCrossSection csext346 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext346 (csext346, 11239);
+    StopNeutralinoMap.insert(std::make_pair(mpext346, mppext346));
+
+    MassPoint mpext347 (1150, 550);
+    StopCrossSection csext347 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext347 (csext347, 6853);
+    StopNeutralinoMap.insert(std::make_pair(mpext347, mppext347));
+
+    MassPoint mpext348 (1150, 575);
+    StopCrossSection csext348 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext348 (csext348, 10230);
+    StopNeutralinoMap.insert(std::make_pair(mpext348, mppext348));
+
+    MassPoint mpext349 (1150, 600);
+    StopCrossSection csext349 (0.000262408, 3.73521e-05);
+    MassPointParameters mppext349 (csext349, 7760);
+    StopNeutralinoMap.insert(std::make_pair(mpext349, mppext349));
+
+    MassPoint mpext350 (1175, 1);
+    StopCrossSection csext350 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext350 (csext350, 6954);
+    StopNeutralinoMap.insert(std::make_pair(mpext350, mppext350));
+
+    MassPoint mpext351 (1175, 25);
+    StopCrossSection csext351 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext351 (csext351, 10079);
+    StopNeutralinoMap.insert(std::make_pair(mpext351, mppext351));
+
+    MassPoint mpext352 (1175, 50);
+    StopCrossSection csext352 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext352 (csext352, 9567);
+    StopNeutralinoMap.insert(std::make_pair(mpext352, mppext352));
+
+    MassPoint mpext353 (1175, 75);
+    StopCrossSection csext353 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext353 (csext353, 6447);
+    StopNeutralinoMap.insert(std::make_pair(mpext353, mppext353));
+
+    MassPoint mpext354 (1175, 100);
+    StopCrossSection csext354 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext354 (csext354, 9620);
+    StopNeutralinoMap.insert(std::make_pair(mpext354, mppext354));
+
+    MassPoint mpext355 (1175, 125);
+    StopCrossSection csext355 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext355 (csext355, 11746);
+    StopNeutralinoMap.insert(std::make_pair(mpext355, mppext355));
+
+    MassPoint mpext356 (1175, 150);
+    StopCrossSection csext356 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext356 (csext356, 8553);
+    StopNeutralinoMap.insert(std::make_pair(mpext356, mppext356));
+
+    MassPoint mpext357 (1175, 175);
+    StopCrossSection csext357 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext357 (csext357, 8201);
+    StopNeutralinoMap.insert(std::make_pair(mpext357, mppext357));
+
+    MassPoint mpext358 (1175, 200);
+    StopCrossSection csext358 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext358 (csext358, 11981);
+    StopNeutralinoMap.insert(std::make_pair(mpext358, mppext358));
+
+    MassPoint mpext359 (1175, 225);
+    StopCrossSection csext359 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext359 (csext359, 9636);
+    StopNeutralinoMap.insert(std::make_pair(mpext359, mppext359));
+
+    MassPoint mpext360 (1175, 250);
+    StopCrossSection csext360 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext360 (csext360, 9831);
+    StopNeutralinoMap.insert(std::make_pair(mpext360, mppext360));
+
+    MassPoint mpext361 (1175, 275);
+    StopCrossSection csext361 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext361 (csext361, 9052);
+    StopNeutralinoMap.insert(std::make_pair(mpext361, mppext361));
+
+    MassPoint mpext362 (1175, 300);
+    StopCrossSection csext362 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext362 (csext362, 8645);
+    StopNeutralinoMap.insert(std::make_pair(mpext362, mppext362));
+
+    MassPoint mpext363 (1175, 325);
+    StopCrossSection csext363 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext363 (csext363, 8300);
+    StopNeutralinoMap.insert(std::make_pair(mpext363, mppext363));
+
+    MassPoint mpext364 (1175, 350);
+    StopCrossSection csext364 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext364 (csext364, 7917);
+    StopNeutralinoMap.insert(std::make_pair(mpext364, mppext364));
+
+    MassPoint mpext365 (1175, 375);
+    StopCrossSection csext365 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext365 (csext365, 14331);
+    StopNeutralinoMap.insert(std::make_pair(mpext365, mppext365));
+
+    MassPoint mpext366 (1175, 400);
+    StopCrossSection csext366 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext366 (csext366, 9212);
+    StopNeutralinoMap.insert(std::make_pair(mpext366, mppext366));
+
+    MassPoint mpext367 (1175, 425);
+    StopCrossSection csext367 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext367 (csext367, 9760);
+    StopNeutralinoMap.insert(std::make_pair(mpext367, mppext367));
+
+    MassPoint mpext368 (1175, 450);
+    StopCrossSection csext368 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext368 (csext368, 9937);
+    StopNeutralinoMap.insert(std::make_pair(mpext368, mppext368));
+
+    MassPoint mpext369 (1175, 475);
+    StopCrossSection csext369 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext369 (csext369, 12153);
+    StopNeutralinoMap.insert(std::make_pair(mpext369, mppext369));
+
+    MassPoint mpext370 (1175, 500);
+    StopCrossSection csext370 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext370 (csext370, 8611);
+    StopNeutralinoMap.insert(std::make_pair(mpext370, mppext370));
+
+    MassPoint mpext371 (1175, 525);
+    StopCrossSection csext371 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext371 (csext371, 11344);
+    StopNeutralinoMap.insert(std::make_pair(mpext371, mppext371));
+
+    MassPoint mpext372 (1175, 550);
+    StopCrossSection csext372 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext372 (csext372, 8382);
+    StopNeutralinoMap.insert(std::make_pair(mpext372, mppext372));
+
+    MassPoint mpext373 (1175, 575);
+    StopCrossSection csext373 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext373 (csext373, 8075);
+    StopNeutralinoMap.insert(std::make_pair(mpext373, mppext373));
+
+    MassPoint mpext374 (1175, 600);
+    StopCrossSection csext374 (0.000224723, 3.01438e-05);
+    MassPointParameters mppext374 (csext374, 9580);
+    StopNeutralinoMap.insert(std::make_pair(mpext374, mppext374));
+
+    MassPoint mpext375 (1200, 1);
+    StopCrossSection csext375 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext375 (csext375, 7451);
+    StopNeutralinoMap.insert(std::make_pair(mpext375, mppext375));
+
+    MassPoint mpext376 (1200, 25);
+    StopCrossSection csext376 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext376 (csext376, 7846);
+    StopNeutralinoMap.insert(std::make_pair(mpext376, mppext376));
+
+    MassPoint mpext377 (1200, 50);
+    StopCrossSection csext377 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext377 (csext377, 10689);
+    StopNeutralinoMap.insert(std::make_pair(mpext377, mppext377));
+
+    MassPoint mpext378 (1200, 75);
+    StopCrossSection csext378 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext378 (csext378, 8714);
+    StopNeutralinoMap.insert(std::make_pair(mpext378, mppext378));
+
+    MassPoint mpext379 (1200, 100);
+    StopCrossSection csext379 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext379 (csext379, 7788);
+    StopNeutralinoMap.insert(std::make_pair(mpext379, mppext379));
+
+    MassPoint mpext380 (1200, 125);
+    StopCrossSection csext380 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext380 (csext380, 9477);
+    StopNeutralinoMap.insert(std::make_pair(mpext380, mppext380));
+
+    MassPoint mpext381 (1200, 150);
+    StopCrossSection csext381 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext381 (csext381, 8370);
+    StopNeutralinoMap.insert(std::make_pair(mpext381, mppext381));
+
+    MassPoint mpext382 (1200, 175);
+    StopCrossSection csext382 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext382 (csext382, 8930);
+    StopNeutralinoMap.insert(std::make_pair(mpext382, mppext382));
+
+    MassPoint mpext383 (1200, 200);
+    StopCrossSection csext383 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext383 (csext383, 9465);
+    StopNeutralinoMap.insert(std::make_pair(mpext383, mppext383));
+
+    MassPoint mpext384 (1200, 225);
+    StopCrossSection csext384 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext384 (csext384, 8879);
+    StopNeutralinoMap.insert(std::make_pair(mpext384, mppext384));
+
+    MassPoint mpext385 (1200, 250);
+    StopCrossSection csext385 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext385 (csext385, 10140);
+    StopNeutralinoMap.insert(std::make_pair(mpext385, mppext385));
+
+    MassPoint mpext386 (1200, 275);
+    StopCrossSection csext386 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext386 (csext386, 8521);
+    StopNeutralinoMap.insert(std::make_pair(mpext386, mppext386));
+
+    MassPoint mpext387 (1200, 300);
+    StopCrossSection csext387 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext387 (csext387, 10449);
+    StopNeutralinoMap.insert(std::make_pair(mpext387, mppext387));
+
+    MassPoint mpext388 (1200, 325);
+    StopCrossSection csext388 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext388 (csext388, 13930);
+    StopNeutralinoMap.insert(std::make_pair(mpext388, mppext388));
+
+    MassPoint mpext389 (1200, 350);
+    StopCrossSection csext389 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext389 (csext389, 9972);
+    StopNeutralinoMap.insert(std::make_pair(mpext389, mppext389));
+
+    MassPoint mpext390 (1200, 375);
+    StopCrossSection csext390 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext390 (csext390, 9681);
+    StopNeutralinoMap.insert(std::make_pair(mpext390, mppext390));
+
+    MassPoint mpext391 (1200, 400);
+    StopCrossSection csext391 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext391 (csext391, 10861);
+    StopNeutralinoMap.insert(std::make_pair(mpext391, mppext391));
+
+    MassPoint mpext392 (1200, 425);
+    StopCrossSection csext392 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext392 (csext392, 9773);
+    StopNeutralinoMap.insert(std::make_pair(mpext392, mppext392));
+
+    MassPoint mpext393 (1200, 450);
+    StopCrossSection csext393 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext393 (csext393, 13042);
+    StopNeutralinoMap.insert(std::make_pair(mpext393, mppext393));
+
+    MassPoint mpext394 (1200, 475);
+    StopCrossSection csext394 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext394 (csext394, 8334);
+    StopNeutralinoMap.insert(std::make_pair(mpext394, mppext394));
+
+    MassPoint mpext395 (1200, 500);
+    StopCrossSection csext395 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext395 (csext395, 11570);
+    StopNeutralinoMap.insert(std::make_pair(mpext395, mppext395));
+
+    MassPoint mpext396 (1200, 525);
+    StopCrossSection csext396 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext396 (csext396, 9849);
+    StopNeutralinoMap.insert(std::make_pair(mpext396, mppext396));
+
+    MassPoint mpext397 (1200, 550);
+    StopCrossSection csext397 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext397 (csext397, 10377);
+    StopNeutralinoMap.insert(std::make_pair(mpext397, mppext397));
+
+    MassPoint mpext398 (1200, 575);
+    StopCrossSection csext398 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext398 (csext398, 8202);
+    StopNeutralinoMap.insert(std::make_pair(mpext398, mppext398));
+
+    MassPoint mpext399 (1200, 600);
+    StopCrossSection csext399 (0.000196044, 2.64135e-05);
+    MassPointParameters mppext399 (csext399, 9880);
+    StopNeutralinoMap.insert(std::make_pair(mpext399, mppext399));
+
+    MassPoint mpisr0 (100, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979732));
+
+    MassPoint mpisr1 (100, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr1, 0.97921));
+
+    MassPoint mpisr2 (100, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr2, 0.979101));
+
+    MassPoint mpisr3 (125, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr3, 0.976387));
+
+    MassPoint mpisr4 (125, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr4, 0.976411));
+
+    MassPoint mpisr5 (125, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr5, 0.976059));
+
+    MassPoint mpisr6 (125, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr6, 0.976566));
+
+    MassPoint mpisr7 (150, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr7, 0.97391));
+
+    MassPoint mpisr8 (150, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr8, 0.974946));
+
+    MassPoint mpisr9 (150, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr9, 0.973733));
+
+    MassPoint mpisr10 (150, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr10, 0.973955));
+
+    MassPoint mpisr11 (150, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr11, 0.973552));
+
+    MassPoint mpisr12 (175, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr12, 0.97202));
+
+    MassPoint mpisr13 (175, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr13, 0.971457));
+
+    MassPoint mpisr14 (175, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr14, 0.972362));
+
+    MassPoint mpisr15 (175, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr15, 0.972942));
+
+    MassPoint mpisr16 (175, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr16, 0.97182));
+
+    MassPoint mpisr17 (175, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr17, 0.97172));
+
+    MassPoint mpisr18 (200, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr18, 0.969949));
+
+    MassPoint mpisr19 (200, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr19, 0.970696));
+
+    MassPoint mpisr20 (200, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr20, 0.970238));
+
+    MassPoint mpisr21 (200, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr21, 0.970672));
+
+    MassPoint mpisr22 (200, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr22, 0.971308));
+
+    MassPoint mpisr23 (200, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr23, 0.971257));
+
+    MassPoint mpisr24 (200, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr24, 0.970811));
+
+    MassPoint mpisr25 (225, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr25, 0.969733));
+
+    MassPoint mpisr26 (225, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr26, 0.969674));
+
+    MassPoint mpisr27 (225, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr27, 0.970271));
+
+    MassPoint mpisr28 (225, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr28, 0.96999));
+
+    MassPoint mpisr29 (225, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr29, 0.969394));
+
+    MassPoint mpisr30 (225, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr30, 0.969561));
+
+    MassPoint mpisr31 (225, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr31, 0.970424));
+
+    MassPoint mpisr32 (225, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr32, 0.968637));
+
+    MassPoint mpisr33 (250, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr33, 0.968804));
+
+    MassPoint mpisr34 (250, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr34, 0.969455));
+
+    MassPoint mpisr35 (250, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr35, 0.968801));
+
+    MassPoint mpisr36 (250, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr36, 0.969198));
+
+    MassPoint mpisr37 (250, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr37, 0.969145));
+
+    MassPoint mpisr38 (250, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr38, 0.968993));
+
+    MassPoint mpisr39 (250, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr39, 0.969479));
+
+    MassPoint mpisr40 (250, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr40, 0.969686));
+
+    MassPoint mpisr41 (250, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr41, 0.967571));
+
+    MassPoint mpisr42 (275, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr42, 0.967557));
+
+    MassPoint mpisr43 (275, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr43, 0.968142));
+
+    MassPoint mpisr44 (275, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr44, 0.967866));
+
+    MassPoint mpisr45 (275, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr45, 0.96758));
+
+    MassPoint mpisr46 (275, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr46, 0.969261));
+
+    MassPoint mpisr47 (275, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr47, 0.967689));
+
+    MassPoint mpisr48 (275, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr48, 0.967814));
+
+    MassPoint mpisr49 (275, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr49, 0.969103));
+
+    MassPoint mpisr50 (275, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr50, 0.967858));
+
+    MassPoint mpisr51 (275, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr51, 0.968218));
+
+    MassPoint mpisr52 (300, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr52, 0.966528));
+
+    MassPoint mpisr53 (300, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr53, 0.968347));
+
+    MassPoint mpisr54 (300, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr54, 0.96711));
+
+    MassPoint mpisr55 (300, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr55, 0.968174));
+
+    MassPoint mpisr56 (300, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr56, 0.967687));
+
+    MassPoint mpisr57 (300, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr57, 0.966821));
+
+    MassPoint mpisr58 (300, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr58, 0.96721));
+
+    MassPoint mpisr59 (300, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr59, 0.967399));
+
+    MassPoint mpisr60 (300, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr60, 0.967778));
+
+    MassPoint mpisr61 (300, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr61, 0.967579));
+
+    MassPoint mpisr62 (300, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr62, 0.968116));
+
+    MassPoint mpisr63 (325, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr63, 0.967408));
+
+    MassPoint mpisr64 (325, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr64, 0.966851));
+
+    MassPoint mpisr65 (325, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr65, 0.96686));
+
+    MassPoint mpisr66 (325, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr66, 0.965345));
+
+    MassPoint mpisr67 (325, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr67, 0.96592));
+
+    MassPoint mpisr68 (325, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr68, 0.967107));
+
+    MassPoint mpisr69 (325, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr69, 0.965912));
+
+    MassPoint mpisr70 (325, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr70, 0.967432));
+
+    MassPoint mpisr71 (325, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr71, 0.967501));
+
+    MassPoint mpisr72 (325, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr72, 0.966884));
+
+    MassPoint mpisr73 (325, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr73, 0.966691));
+
+    MassPoint mpisr74 (325, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr74, 0.96622));
+
+    MassPoint mpisr75 (350, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr75, 0.966781));
+
+    MassPoint mpisr76 (350, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr76, 0.965287));
+
+    MassPoint mpisr77 (350, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr77, 0.965859));
+
+    MassPoint mpisr78 (350, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr78, 0.966167));
+
+    MassPoint mpisr79 (350, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr79, 0.966384));
+
+    MassPoint mpisr80 (350, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr80, 0.966453));
+
+    MassPoint mpisr81 (350, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr81, 0.966409));
+
+    MassPoint mpisr82 (350, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr82, 0.966291));
+
+    MassPoint mpisr83 (350, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr83, 0.966055));
+
+    MassPoint mpisr84 (350, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr84, 0.966712));
+
+    MassPoint mpisr85 (350, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr85, 0.965993));
+
+    MassPoint mpisr86 (350, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr86, 0.967239));
+
+    MassPoint mpisr87 (350, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr87, 0.967529));
+
+    MassPoint mpisr88 (375, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr88, 0.967166));
+
+    MassPoint mpisr89 (375, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr89, 0.966793));
+
+    MassPoint mpisr90 (375, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr90, 0.966273));
+
+    MassPoint mpisr91 (375, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr91, 0.96529));
+
+    MassPoint mpisr92 (375, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr92, 0.967105));
+
+    MassPoint mpisr93 (375, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr93, 0.965839));
+
+    MassPoint mpisr94 (375, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr94, 0.966126));
+
+    MassPoint mpisr95 (375, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr95, 0.966589));
+
+    MassPoint mpisr96 (375, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr96, 0.966867));
+
+    MassPoint mpisr97 (375, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr97, 0.966283));
+
+    MassPoint mpisr98 (375, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr98, 0.966474));
+
+    MassPoint mpisr99 (375, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr99, 0.967416));
+
+    MassPoint mpisr100 (375, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr100, 0.965906));
+
+    MassPoint mpisr101 (375, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr101, 0.966608));
+
+    MassPoint mpisr102 (400, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr102, 0.966193));
+
+    MassPoint mpisr103 (400, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr103, 0.965954));
+
+    MassPoint mpisr104 (400, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr104, 0.965839));
+
+    MassPoint mpisr105 (400, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr105, 0.966196));
+
+    MassPoint mpisr106 (400, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr106, 0.967759));
+
+    MassPoint mpisr107 (400, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr107, 0.96628));
+
+    MassPoint mpisr108 (400, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr108, 0.965925));
+
+    MassPoint mpisr109 (400, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr109, 0.966051));
+
+    MassPoint mpisr110 (400, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr110, 0.966713));
+
+    MassPoint mpisr111 (400, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr111, 0.966134));
+
+    MassPoint mpisr112 (400, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr112, 0.965272));
+
+    MassPoint mpisr113 (400, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr113, 0.966239));
+
+    MassPoint mpisr114 (400, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr114, 0.966955));
+
+    MassPoint mpisr115 (400, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr115, 0.965555));
+
+    MassPoint mpisr116 (400, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr116, 0.966019));
+
+    MassPoint mpisr117 (425, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr117, 0.966237));
+
+    MassPoint mpisr118 (425, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr118, 0.966054));
+
+    MassPoint mpisr119 (425, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr119, 0.966259));
+
+    MassPoint mpisr120 (425, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr120, 0.966657));
+
+    MassPoint mpisr121 (425, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr121, 0.966159));
+
+    MassPoint mpisr122 (425, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr122, 0.965823));
+
+    MassPoint mpisr123 (425, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr123, 0.967183));
+
+    MassPoint mpisr124 (425, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr124, 0.965881));
+
+    MassPoint mpisr125 (425, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr125, 0.966936));
+
+    MassPoint mpisr126 (425, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr126, 0.966533));
+
+    MassPoint mpisr127 (425, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr127, 0.966635));
+
+    MassPoint mpisr128 (425, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr128, 0.966952));
+
+    MassPoint mpisr129 (425, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr129, 0.966437));
+
+    MassPoint mpisr130 (425, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr130, 0.966806));
+
+    MassPoint mpisr131 (425, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr131, 0.965518));
+
+    MassPoint mpisr132 (425, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr132, 0.965477));
+
+    MassPoint mpisr133 (450, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr133, 0.964805));
+
+    MassPoint mpisr134 (450, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr134, 0.965336));
+
+    MassPoint mpisr135 (450, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr135, 0.96563));
+
+    MassPoint mpisr136 (450, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr136, 0.965009));
+
+    MassPoint mpisr137 (450, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr137, 0.965429));
+
+    MassPoint mpisr138 (450, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr138, 0.965552));
+
+    MassPoint mpisr139 (450, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr139, 0.96698));
+
+    MassPoint mpisr140 (450, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr140, 0.964996));
+
+    MassPoint mpisr141 (450, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr141, 0.965742));
+
+    MassPoint mpisr142 (450, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr142, 0.965999));
+
+    MassPoint mpisr143 (450, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr143, 0.966345));
+
+    MassPoint mpisr144 (450, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr144, 0.965505));
+
+    MassPoint mpisr145 (450, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr145, 0.964646));
+
+    MassPoint mpisr146 (450, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr146, 0.966635));
+
+    MassPoint mpisr147 (450, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr147, 0.96495));
+
+    MassPoint mpisr148 (450, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr148, 0.964396));
+
+    MassPoint mpisr149 (450, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr149, 0.966074));
+
+    MassPoint mpisr150 (475, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr150, 0.966773));
+
+    MassPoint mpisr151 (475, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr151, 0.965204));
+
+    MassPoint mpisr152 (475, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr152, 0.965927));
+
+    MassPoint mpisr153 (475, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr153, 0.965118));
+
+    MassPoint mpisr154 (475, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr154, 0.966781));
+
+    MassPoint mpisr155 (475, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr155, 0.96603));
+
+    MassPoint mpisr156 (475, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr156, 0.965002));
+
+    MassPoint mpisr157 (475, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr157, 0.964981));
+
+    MassPoint mpisr158 (475, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr158, 0.966478));
+
+    MassPoint mpisr159 (475, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr159, 0.96568));
+
+    MassPoint mpisr160 (475, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr160, 0.965834));
+
+    MassPoint mpisr161 (475, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr161, 0.965609));
+
+    MassPoint mpisr162 (475, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr162, 0.965802));
+
+    MassPoint mpisr163 (475, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr163, 0.964246));
+
+    MassPoint mpisr164 (475, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr164, 0.964456));
+
+    MassPoint mpisr165 (475, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr165, 0.965196));
+
+    MassPoint mpisr166 (475, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr166, 0.965315));
+
+    MassPoint mpisr167 (475, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr167, 0.965428));
+
+    MassPoint mpisr168 (500, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr168, 0.965528));
+
+    MassPoint mpisr169 (500, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr169, 0.964423));
+
+    MassPoint mpisr170 (500, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr170, 0.965282));
+
+    MassPoint mpisr171 (500, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr171, 0.96558));
+
+    MassPoint mpisr172 (500, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr172, 0.964916));
+
+    MassPoint mpisr173 (500, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr173, 0.965632));
+
+    MassPoint mpisr174 (500, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr174, 0.965097));
+
+    MassPoint mpisr175 (500, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr175, 0.96597));
+
+    MassPoint mpisr176 (500, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr176, 0.96541));
+
+    MassPoint mpisr177 (500, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr177, 0.964333));
+
+    MassPoint mpisr178 (500, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr178, 0.964799));
+
+    MassPoint mpisr179 (500, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr179, 0.965111));
+
+    MassPoint mpisr180 (500, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr180, 0.965471));
+
+    MassPoint mpisr181 (500, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr181, 0.965379));
+
+    MassPoint mpisr182 (500, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr182, 0.965677));
+
+    MassPoint mpisr183 (500, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr183, 0.964702));
+
+    MassPoint mpisr184 (500, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr184, 0.963814));
+
+    MassPoint mpisr185 (500, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr185, 0.965242));
+
+    MassPoint mpisr186 (500, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr186, 0.965224));
+
+    MassPoint mpisr187 (525, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr187, 0.965658));
+
+    MassPoint mpisr188 (525, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr188, 0.964847));
+
+    MassPoint mpisr189 (525, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr189, 0.964594));
+
+    MassPoint mpisr190 (525, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr190, 0.964079));
+
+    MassPoint mpisr191 (525, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr191, 0.964582));
+
+    MassPoint mpisr192 (525, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr192, 0.963982));
+
+    MassPoint mpisr193 (525, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr193, 0.965234));
+
+    MassPoint mpisr194 (525, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr194, 0.965107));
+
+    MassPoint mpisr195 (525, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr195, 0.965036));
+
+    MassPoint mpisr196 (525, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr196, 0.964602));
+
+    MassPoint mpisr197 (525, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr197, 0.964998));
+
+    MassPoint mpisr198 (525, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr198, 0.964931));
+
+    MassPoint mpisr199 (525, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr199, 0.965836));
+
+    MassPoint mpisr200 (525, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr200, 0.966103));
+
+    MassPoint mpisr201 (525, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr201, 0.966047));
+
+    MassPoint mpisr202 (525, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr202, 0.964918));
+
+    MassPoint mpisr203 (525, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr203, 0.964905));
+
+    MassPoint mpisr204 (525, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr204, 0.964714));
+
+    MassPoint mpisr205 (525, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr205, 0.964311));
+
+    MassPoint mpisr206 (525, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr206, 0.964525));
+
+    MassPoint mpisr207 (550, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr207, 0.965304));
+
+    MassPoint mpisr208 (550, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr208, 0.96547));
+
+    MassPoint mpisr209 (550, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr209, 0.965482));
+
+    MassPoint mpisr210 (550, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr210, 0.964175));
+
+    MassPoint mpisr211 (550, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr211, 0.96447));
+
+    MassPoint mpisr212 (550, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr212, 0.964959));
+
+    MassPoint mpisr213 (550, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr213, 0.965553));
+
+    MassPoint mpisr214 (550, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr214, 0.964602));
+
+    MassPoint mpisr215 (550, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr215, 0.966012));
+
+    MassPoint mpisr216 (550, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr216, 0.96442));
+
+    MassPoint mpisr217 (550, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr217, 0.966314));
+
+    MassPoint mpisr218 (550, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr218, 0.964981));
+
+    MassPoint mpisr219 (550, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr219, 0.965322));
+
+    MassPoint mpisr220 (550, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr220, 0.9648));
+
+    MassPoint mpisr221 (550, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr221, 0.964723));
+
+    MassPoint mpisr222 (550, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr222, 0.965866));
+
+    MassPoint mpisr223 (550, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr223, 0.966124));
+
+    MassPoint mpisr224 (550, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr224, 0.965412));
+
+    MassPoint mpisr225 (550, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr225, 0.965462));
+
+    MassPoint mpisr226 (550, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr226, 0.965387));
+
+    MassPoint mpisr227 (550, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr227, 0.964753));
+
+    MassPoint mpisr228 (575, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr228, 0.964589));
+
+    MassPoint mpisr229 (575, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr229, 0.964727));
+
+    MassPoint mpisr230 (575, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr230, 0.9646));
+
+    MassPoint mpisr231 (575, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr231, 0.965327));
+
+    MassPoint mpisr232 (575, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr232, 0.963837));
+
+    MassPoint mpisr233 (575, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr233, 0.96445));
+
+    MassPoint mpisr234 (575, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr234, 0.964279));
+
+    MassPoint mpisr235 (575, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr235, 0.964135));
+
+    MassPoint mpisr236 (575, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr236, 0.964975));
+
+    MassPoint mpisr237 (575, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr237, 0.965448));
+
+    MassPoint mpisr238 (575, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr238, 0.965566));
+
+    MassPoint mpisr239 (575, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr239, 0.964998));
+
+    MassPoint mpisr240 (575, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr240, 0.964165));
+
+    MassPoint mpisr241 (575, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr241, 0.966023));
+
+    MassPoint mpisr242 (575, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr242, 0.964217));
+
+    MassPoint mpisr243 (575, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr243, 0.965834));
+
+    MassPoint mpisr244 (575, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr244, 0.964327));
+
+    MassPoint mpisr245 (575, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr245, 0.965379));
+
+    MassPoint mpisr246 (575, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr246, 0.965718));
+
+    MassPoint mpisr247 (575, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr247, 0.963941));
+
+    MassPoint mpisr248 (575, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr248, 0.96424));
+
+    MassPoint mpisr249 (575, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr249, 0.965031));
+
+    MassPoint mpisr250 (600, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr250, 0.965973));
+
+    MassPoint mpisr251 (600, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr251, 0.964899));
+
+    MassPoint mpisr252 (600, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr252, 0.964849));
+
+    MassPoint mpisr253 (600, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr253, 0.965403));
+
+    MassPoint mpisr254 (600, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr254, 0.964317));
+
+    MassPoint mpisr255 (600, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr255, 0.96425));
+
+    MassPoint mpisr256 (600, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr256, 0.963264));
+
+    MassPoint mpisr257 (600, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr257, 0.964851));
+
+    MassPoint mpisr258 (600, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr258, 0.964569));
+
+    MassPoint mpisr259 (600, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr259, 0.964335));
+
+    MassPoint mpisr260 (600, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr260, 0.965488));
+
+    MassPoint mpisr261 (600, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr261, 0.964353));
+
+    MassPoint mpisr262 (600, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr262, 0.965092));
+
+    MassPoint mpisr263 (600, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr263, 0.963705));
+
+    MassPoint mpisr264 (600, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr264, 0.964286));
+
+    MassPoint mpisr265 (600, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr265, 0.965379));
+
+    MassPoint mpisr266 (600, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr266, 0.965161));
+
+    MassPoint mpisr267 (600, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr267, 0.965468));
+
+    MassPoint mpisr268 (600, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr268, 0.965461));
+
+    MassPoint mpisr269 (600, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr269, 0.964256));
+
+    MassPoint mpisr270 (600, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr270, 0.966117));
+
+    MassPoint mpisr271 (600, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr271, 0.966057));
+
+    MassPoint mpisr272 (600, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr272, 0.965285));
+
+    MassPoint mpisr273 (625, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr273, 0.964682));
+
+    MassPoint mpisr274 (625, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr274, 0.963868));
+
+    MassPoint mpisr275 (625, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr275, 0.963891));
+
+    MassPoint mpisr276 (625, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr276, 0.964541));
+
+    MassPoint mpisr277 (625, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr277, 0.964405));
+
+    MassPoint mpisr278 (625, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr278, 0.963451));
+
+    MassPoint mpisr279 (625, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr279, 0.964692));
+
+    MassPoint mpisr280 (625, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr280, 0.964816));
+
+    MassPoint mpisr281 (625, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr281, 0.965387));
+
+    MassPoint mpisr282 (625, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr282, 0.965231));
+
+    MassPoint mpisr283 (625, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr283, 0.964616));
+
+    MassPoint mpisr284 (625, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr284, 0.964905));
+
+    MassPoint mpisr285 (625, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr285, 0.963795));
+
+    MassPoint mpisr286 (625, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr286, 0.965371));
+
+    MassPoint mpisr287 (625, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr287, 0.965002));
+
+    MassPoint mpisr288 (625, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr288, 0.963777));
+
+    MassPoint mpisr289 (625, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr289, 0.964263));
+
+    MassPoint mpisr290 (625, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr290, 0.964736));
+
+    MassPoint mpisr291 (625, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr291, 0.963971));
+
+    MassPoint mpisr292 (625, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr292, 0.9647));
+
+    MassPoint mpisr293 (625, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr293, 0.964714));
+
+    MassPoint mpisr294 (625, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr294, 0.965305));
+
+    MassPoint mpisr295 (625, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr295, 0.964294));
+
+    MassPoint mpisr296 (625, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr296, 0.9659));
+
+    MassPoint mpisr297 (650, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr297, 0.964863));
+
+    MassPoint mpisr298 (650, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr298, 0.963717));
+
+    MassPoint mpisr299 (650, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr299, 0.965867));
+
+    MassPoint mpisr300 (650, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr300, 0.964259));
+
+    MassPoint mpisr301 (650, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr301, 0.96464));
+
+    MassPoint mpisr302 (650, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr302, 0.965354));
+
+    MassPoint mpisr303 (650, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr303, 0.963721));
+
+    MassPoint mpisr304 (650, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr304, 0.964559));
+
+    MassPoint mpisr305 (650, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr305, 0.9642));
+
+    MassPoint mpisr306 (650, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr306, 0.964928));
+
+    MassPoint mpisr307 (650, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr307, 0.964733));
+
+    MassPoint mpisr308 (650, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr308, 0.965162));
+
+    MassPoint mpisr309 (650, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr309, 0.965172));
+
+    MassPoint mpisr310 (650, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr310, 0.965384));
+
+    MassPoint mpisr311 (650, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr311, 0.964651));
+
+    MassPoint mpisr312 (650, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr312, 0.963763));
+
+    MassPoint mpisr313 (650, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr313, 0.964397));
+
+    MassPoint mpisr314 (650, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr314, 0.96398));
+
+    MassPoint mpisr315 (650, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr315, 0.965005));
+
+    MassPoint mpisr316 (650, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr316, 0.965902));
+
+    MassPoint mpisr317 (650, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr317, 0.964135));
+
+    MassPoint mpisr318 (650, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr318, 0.96495));
+
+    MassPoint mpisr319 (650, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr319, 0.964656));
+
+    MassPoint mpisr320 (650, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr320, 0.965395));
+
+    MassPoint mpisr321 (650, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr321, 0.964852));
+
+    MassPoint mpisr322 (675, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr322, 0.965053));
+
+    MassPoint mpisr323 (675, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr323, 0.965734));
+
+    MassPoint mpisr324 (675, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr324, 0.964276));
+
+    MassPoint mpisr325 (675, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr325, 0.96523));
+
+    MassPoint mpisr326 (675, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr326, 0.964416));
+
+    MassPoint mpisr327 (675, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr327, 0.96427));
+
+    MassPoint mpisr328 (675, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr328, 0.96426));
+
+    MassPoint mpisr329 (675, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr329, 0.965052));
+
+    MassPoint mpisr330 (675, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr330, 0.964744));
+
+    MassPoint mpisr331 (675, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr331, 0.964125));
+
+    MassPoint mpisr332 (675, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr332, 0.965063));
+
+    MassPoint mpisr333 (675, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr333, 0.964679));
+
+    MassPoint mpisr334 (675, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr334, 0.965037));
+
+    MassPoint mpisr335 (675, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr335, 0.965044));
+
+    MassPoint mpisr336 (675, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr336, 0.965845));
+
+    MassPoint mpisr337 (675, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr337, 0.965246));
+
+    MassPoint mpisr338 (675, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr338, 0.963807));
+
+    MassPoint mpisr339 (675, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr339, 0.963543));
+
+    MassPoint mpisr340 (675, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr340, 0.964851));
+
+    MassPoint mpisr341 (675, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr341, 0.964732));
+
+    MassPoint mpisr342 (675, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr342, 0.965368));
+
+    MassPoint mpisr343 (675, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr343, 0.964949));
+
+    MassPoint mpisr344 (675, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr344, 0.964799));
+
+    MassPoint mpisr345 (675, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr345, 0.964668));
+
+    MassPoint mpisr346 (675, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr346, 0.964112));
+
+    MassPoint mpisr347 (700, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr347, 0.964256));
+
+    MassPoint mpisr348 (700, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr348, 0.96337));
+
+    MassPoint mpisr349 (700, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr349, 0.964184));
+
+    MassPoint mpisr350 (700, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr350, 0.963889));
+
+    MassPoint mpisr351 (700, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr351, 0.963455));
+
+    MassPoint mpisr352 (700, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr352, 0.965058));
+
+    MassPoint mpisr353 (700, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr353, 0.96386));
+
+    MassPoint mpisr354 (700, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr354, 0.963363));
+
+    MassPoint mpisr355 (700, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr355, 0.963489));
+
+    MassPoint mpisr356 (700, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr356, 0.963532));
+
+    MassPoint mpisr357 (700, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr357, 0.96516));
+
+    MassPoint mpisr358 (700, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr358, 0.964621));
+
+    MassPoint mpisr359 (700, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr359, 0.963506));
+
+    MassPoint mpisr360 (700, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr360, 0.964154));
+
+    MassPoint mpisr361 (700, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr361, 0.964722));
+
+    MassPoint mpisr362 (700, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr362, 0.964501));
+
+    MassPoint mpisr363 (700, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr363, 0.964669));
+
+    MassPoint mpisr364 (700, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr364, 0.965406));
+
+    MassPoint mpisr365 (700, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr365, 0.965751));
+
+    MassPoint mpisr366 (700, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr366, 0.964589));
+
+    MassPoint mpisr367 (700, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr367, 0.96558));
+
+    MassPoint mpisr368 (700, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr368, 0.964656));
+
+    MassPoint mpisr369 (700, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr369, 0.965084));
+
+    MassPoint mpisr370 (700, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr370, 0.964111));
+
+    MassPoint mpisr371 (700, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr371, 0.964144));
+
+    MassPoint mpisr372 (725, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr372, 0.96392));
+
+    MassPoint mpisr373 (725, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr373, 0.965065));
+
+    MassPoint mpisr374 (725, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr374, 0.963211));
+
+    MassPoint mpisr375 (725, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr375, 0.96525));
+
+    MassPoint mpisr376 (725, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr376, 0.964491));
+
+    MassPoint mpisr377 (725, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr377, 0.965423));
+
+    MassPoint mpisr378 (725, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr378, 0.964134));
+
+    MassPoint mpisr379 (725, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr379, 0.964583));
+
+    MassPoint mpisr380 (725, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr380, 0.966032));
+
+    MassPoint mpisr381 (725, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr381, 0.964724));
+
+    MassPoint mpisr382 (725, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr382, 0.96427));
+
+    MassPoint mpisr383 (725, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr383, 0.96479));
+
+    MassPoint mpisr384 (725, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr384, 0.96471));
+
+    MassPoint mpisr385 (725, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr385, 0.964257));
+
+    MassPoint mpisr386 (725, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr386, 0.964179));
+
+    MassPoint mpisr387 (725, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr387, 0.964435));
+
+    MassPoint mpisr388 (725, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr388, 0.963777));
+
+    MassPoint mpisr389 (725, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr389, 0.964327));
+
+    MassPoint mpisr390 (725, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr390, 0.964843));
+
+    MassPoint mpisr391 (725, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr391, 0.963589));
+
+    MassPoint mpisr392 (725, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr392, 0.963764));
+
+    MassPoint mpisr393 (725, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr393, 0.963805));
+
+    MassPoint mpisr394 (725, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr394, 0.965569));
+
+    MassPoint mpisr395 (725, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr395, 0.964297));
+
+    MassPoint mpisr396 (725, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr396, 0.96529));
+
+    MassPoint mpisr397 (750, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr397, 0.964335));
+
+    MassPoint mpisr398 (750, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr398, 0.964247));
+
+    MassPoint mpisr399 (750, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr399, 0.965418));
+
+    MassPoint mpisr400 (750, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr400, 0.964599));
+
+    MassPoint mpisr401 (750, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr401, 0.964218));
+
+    MassPoint mpisr402 (750, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr402, 0.964468));
+
+    MassPoint mpisr403 (750, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr403, 0.965339));
+
+    MassPoint mpisr404 (750, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr404, 0.964441));
+
+    MassPoint mpisr405 (750, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr405, 0.965635));
+
+    MassPoint mpisr406 (750, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr406, 0.96544));
+
+    MassPoint mpisr407 (750, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr407, 0.965042));
+
+    MassPoint mpisr408 (750, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr408, 0.965064));
+
+    MassPoint mpisr409 (750, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr409, 0.964116));
+
+    MassPoint mpisr410 (750, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr410, 0.965208));
+
+    MassPoint mpisr411 (750, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr411, 0.966104));
+
+    MassPoint mpisr412 (750, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr412, 0.964517));
+
+    MassPoint mpisr413 (750, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr413, 0.964727));
+
+    MassPoint mpisr414 (750, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr414, 0.964686));
+
+    MassPoint mpisr415 (750, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr415, 0.964907));
+
+    MassPoint mpisr416 (750, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr416, 0.964319));
+
+    MassPoint mpisr417 (750, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr417, 0.963546));
+
+    MassPoint mpisr418 (750, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr418, 0.964431));
+
+    MassPoint mpisr419 (750, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr419, 0.964545));
+
+    MassPoint mpisr420 (750, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr420, 0.96457));
+
+    MassPoint mpisr421 (750, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr421, 0.964626));
+
+    MassPoint mpisr422 (775, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr422, 0.964514));
+
+    MassPoint mpisr423 (775, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr423, 0.964508));
+
+    MassPoint mpisr424 (775, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr424, 0.963382));
+
+    MassPoint mpisr425 (775, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr425, 0.965897));
+
+    MassPoint mpisr426 (775, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr426, 0.964148));
+
+    MassPoint mpisr427 (775, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr427, 0.964421));
+
+    MassPoint mpisr428 (775, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr428, 0.964335));
+
+    MassPoint mpisr429 (775, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr429, 0.964518));
+
+    MassPoint mpisr430 (775, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr430, 0.965529));
+
+    MassPoint mpisr431 (775, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr431, 0.963445));
+
+    MassPoint mpisr432 (775, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr432, 0.962777));
+
+    MassPoint mpisr433 (775, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr433, 0.964451));
+
+    MassPoint mpisr434 (775, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr434, 0.963749));
+
+    MassPoint mpisr435 (775, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr435, 0.965206));
+
+    MassPoint mpisr436 (775, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr436, 0.965412));
+
+    MassPoint mpisr437 (775, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr437, 0.963266));
+
+    MassPoint mpisr438 (775, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr438, 0.964387));
+
+    MassPoint mpisr439 (775, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr439, 0.965813));
+
+    MassPoint mpisr440 (775, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr440, 0.965764));
+
+    MassPoint mpisr441 (775, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr441, 0.963184));
+
+    MassPoint mpisr442 (775, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr442, 0.964012));
+
+    MassPoint mpisr443 (775, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr443, 0.964581));
+
+    MassPoint mpisr444 (775, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr444, 0.965146));
+
+    MassPoint mpisr445 (775, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr445, 0.965241));
+
+    MassPoint mpisr446 (775, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr446, 0.963854));
+
+    MassPoint mpisr447 (800, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr447, 0.966485));
+
+    MassPoint mpisr448 (800, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr448, 0.96528));
+
+    MassPoint mpisr449 (800, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr449, 0.963259));
+
+    MassPoint mpisr450 (800, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr450, 0.964174));
+
+    MassPoint mpisr451 (800, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr451, 0.964285));
+
+    MassPoint mpisr452 (800, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr452, 0.963058));
+
+    MassPoint mpisr453 (800, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr453, 0.962901));
+
+    MassPoint mpisr454 (800, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr454, 0.963848));
+
+    MassPoint mpisr455 (800, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr455, 0.965455));
+
+    MassPoint mpisr456 (800, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr456, 0.964928));
+
+    MassPoint mpisr457 (800, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr457, 0.964659));
+
+    MassPoint mpisr458 (800, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr458, 0.965219));
+
+    MassPoint mpisr459 (800, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr459, 0.963307));
+
+    MassPoint mpisr460 (800, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr460, 0.965143));
+
+    MassPoint mpisr461 (800, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr461, 0.965241));
+
+    MassPoint mpisr462 (800, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr462, 0.962841));
+
+    MassPoint mpisr463 (800, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr463, 0.963737));
+
+    MassPoint mpisr464 (800, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr464, 0.965522));
+
+    MassPoint mpisr465 (800, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr465, 0.964903));
+
+    MassPoint mpisr466 (800, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr466, 0.963894));
+
+    MassPoint mpisr467 (800, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr467, 0.963667));
+
+    MassPoint mpisr468 (800, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr468, 0.965456));
+
+    MassPoint mpisr469 (800, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr469, 0.964662));
+
+    MassPoint mpisr470 (800, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr470, 0.964571));
+
+    MassPoint mpisr471 (800, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr471, 0.96363)); 
+
+    MassPoint mpextisr0 (825, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr0, 0.964168));
+
+    MassPoint mpextisr1 (825, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr1, 0.964375));
+
+    MassPoint mpextisr2 (825, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr2, 0.964693));
+
+    MassPoint mpextisr3 (825, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr3, 0.963942));
+
+    MassPoint mpextisr4 (825, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr4, 0.964529));
+
+    MassPoint mpextisr5 (825, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr5, 0.96382));
+
+    MassPoint mpextisr6 (825, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr6, 0.966221));
+
+    MassPoint mpextisr7 (825, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr7, 0.965196));
+
+    MassPoint mpextisr8 (825, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr8, 0.964467));
+
+    MassPoint mpextisr9 (825, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr9, 0.965099));
+
+    MassPoint mpextisr10 (825, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr10, 0.963552));
+
+    MassPoint mpextisr11 (825, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr11, 0.965578));
+
+    MassPoint mpextisr12 (825, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr12, 0.964495));
+
+    MassPoint mpextisr13 (825, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr13, 0.964287));
+
+    MassPoint mpextisr14 (825, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr14, 0.964752));
+
+    MassPoint mpextisr15 (825, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr15, 0.964429));
+
+    MassPoint mpextisr16 (825, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr16, 0.964602));
+
+    MassPoint mpextisr17 (825, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr17, 0.965935));
+
+    MassPoint mpextisr18 (825, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr18, 0.963812));
+
+    MassPoint mpextisr19 (825, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr19, 0.963736));
+
+    MassPoint mpextisr20 (825, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr20, 0.964048));
+
+    MassPoint mpextisr21 (825, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr21, 0.963788));
+
+    MassPoint mpextisr22 (825, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr22, 0.965663));
+
+    MassPoint mpextisr23 (825, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr23, 0.964258));
+
+    MassPoint mpextisr24 (825, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr24, 0.964277));
+
+    MassPoint mpextisr25 (850, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr25, 0.965386));
+
+    MassPoint mpextisr26 (850, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr26, 0.964786));
+
+    MassPoint mpextisr27 (850, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr27, 0.96509));
+
+    MassPoint mpextisr28 (850, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr28, 0.96487));
+
+    MassPoint mpextisr29 (850, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr29, 0.965091));
+
+    MassPoint mpextisr30 (850, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr30, 0.965118));
+
+    MassPoint mpextisr31 (850, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr31, 0.96461));
+
+    MassPoint mpextisr32 (850, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr32, 0.96533));
+
+    MassPoint mpextisr33 (850, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr33, 0.965606));
+
+    MassPoint mpextisr34 (850, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr34, 0.964426));
+
+    MassPoint mpextisr35 (850, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr35, 0.964979));
+
+    MassPoint mpextisr36 (850, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr36, 0.965498));
+
+    MassPoint mpextisr37 (850, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr37, 0.963403));
+
+    MassPoint mpextisr38 (850, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr38, 0.964459));
+
+    MassPoint mpextisr39 (850, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr39, 0.964266));
+
+    MassPoint mpextisr40 (850, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr40, 0.964628));
+
+    MassPoint mpextisr41 (850, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr41, 0.96503));
+
+    MassPoint mpextisr42 (850, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr42, 0.96481));
+
+    MassPoint mpextisr43 (850, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr43, 0.964638));
+
+    MassPoint mpextisr44 (850, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr44, 0.965222));
+
+    MassPoint mpextisr45 (850, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr45, 0.963785));
+
+    MassPoint mpextisr46 (850, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr46, 0.965439));
+
+    MassPoint mpextisr47 (850, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr47, 0.965027));
+
+    MassPoint mpextisr48 (850, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr48, 0.965048));
+
+    MassPoint mpextisr49 (850, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr49, 0.964748));
+
+    MassPoint mpextisr50 (875, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr50, 0.964753));
+
+    MassPoint mpextisr51 (875, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr51, 0.963698));
+
+    MassPoint mpextisr52 (875, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr52, 0.964047));
+
+    MassPoint mpextisr53 (875, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr53, 0.964696));
+
+    MassPoint mpextisr54 (875, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr54, 0.963867));
+
+    MassPoint mpextisr55 (875, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr55, 0.964609));
+
+    MassPoint mpextisr56 (875, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr56, 0.963602));
+
+    MassPoint mpextisr57 (875, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr57, 0.964591));
+
+    MassPoint mpextisr58 (875, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr58, 0.963809));
+
+    MassPoint mpextisr59 (875, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr59, 0.963869));
+
+    MassPoint mpextisr60 (875, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr60, 0.964988));
+
+    MassPoint mpextisr61 (875, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr61, 0.964485));
+
+    MassPoint mpextisr62 (875, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr62, 0.963995));
+
+    MassPoint mpextisr63 (875, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr63, 0.964228));
+
+    MassPoint mpextisr64 (875, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr64, 0.964354));
+
+    MassPoint mpextisr65 (875, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr65, 0.964835));
+
+    MassPoint mpextisr66 (875, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr66, 0.964206));
+
+    MassPoint mpextisr67 (875, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr67, 0.9648));
+
+    MassPoint mpextisr68 (875, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr68, 0.963796));
+
+    MassPoint mpextisr69 (875, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr69, 0.963288));
+
+    MassPoint mpextisr70 (875, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr70, 0.966201));
+
+    MassPoint mpextisr71 (875, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr71, 0.964499));
+
+    MassPoint mpextisr72 (875, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr72, 0.965403));
+
+    MassPoint mpextisr73 (875, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr73, 0.964439));
+
+    MassPoint mpextisr74 (875, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr74, 0.964408));
+
+    MassPoint mpextisr75 (900, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr75, 0.964264));
+
+    MassPoint mpextisr76 (900, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr76, 0.96345));
+
+    MassPoint mpextisr77 (900, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr77, 0.962879));
+
+    MassPoint mpextisr78 (900, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr78, 0.964744));
+
+    MassPoint mpextisr79 (900, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr79, 0.965806));
+
+    MassPoint mpextisr80 (900, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr80, 0.964038));
+
+    MassPoint mpextisr81 (900, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr81, 0.963684));
+
+    MassPoint mpextisr82 (900, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr82, 0.963218));
+
+    MassPoint mpextisr83 (900, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr83, 0.964231));
+
+    MassPoint mpextisr84 (900, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr84, 0.964518));
+
+    MassPoint mpextisr85 (900, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr85, 0.96486));
+
+    MassPoint mpextisr86 (900, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr86, 0.96543));
+
+    MassPoint mpextisr87 (900, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr87, 0.963393));
+
+    MassPoint mpextisr88 (900, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr88, 0.964422));
+
+    MassPoint mpextisr89 (900, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr89, 0.965396));
+
+    MassPoint mpextisr90 (900, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr90, 0.965121));
+
+    MassPoint mpextisr91 (900, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr91, 0.964839));
+
+    MassPoint mpextisr92 (900, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr92, 0.9648));
+
+    MassPoint mpextisr93 (900, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr93, 0.964212));
+
+    MassPoint mpextisr94 (900, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr94, 0.964037));
+
+    MassPoint mpextisr95 (900, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr95, 0.963044));
+
+    MassPoint mpextisr96 (900, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr96, 0.964376));
+
+    MassPoint mpextisr97 (900, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr97, 0.963744));
+
+    MassPoint mpextisr98 (900, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr98, 0.96496));
+
+    MassPoint mpextisr99 (900, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr99, 0.964466));
+
+    MassPoint mpextisr100 (925, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr100, 0.963484));
+
+    MassPoint mpextisr101 (925, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr101, 0.965017));
+
+    MassPoint mpextisr102 (925, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr102, 0.964795));
+
+    MassPoint mpextisr103 (925, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr103, 0.964608));
+
+    MassPoint mpextisr104 (925, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr104, 0.964735));
+
+    MassPoint mpextisr105 (925, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr105, 0.964382));
+
+    MassPoint mpextisr106 (925, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr106, 0.963825));
+
+    MassPoint mpextisr107 (925, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr107, 0.965663));
+
+    MassPoint mpextisr108 (925, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr108, 0.964633));
+
+    MassPoint mpextisr109 (925, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr109, 0.965421));
+
+    MassPoint mpextisr110 (925, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr110, 0.964619));
+
+    MassPoint mpextisr111 (925, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr111, 0.965748));
+
+    MassPoint mpextisr112 (925, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr112, 0.965657));
+
+    MassPoint mpextisr113 (925, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr113, 0.964675));
+
+    MassPoint mpextisr114 (925, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr114, 0.964532));
+
+    MassPoint mpextisr115 (925, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr115, 0.965251));
+
+    MassPoint mpextisr116 (925, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr116, 0.96413));
+
+    MassPoint mpextisr117 (925, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr117, 0.96454));
+
+    MassPoint mpextisr118 (925, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr118, 0.963473));
+
+    MassPoint mpextisr119 (925, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr119, 0.964165));
+
+    MassPoint mpextisr120 (925, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr120, 0.964769));
+
+    MassPoint mpextisr121 (925, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr121, 0.966214));
+
+    MassPoint mpextisr122 (925, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr122, 0.96424));
+
+    MassPoint mpextisr123 (925, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr123, 0.964019));
+
+    MassPoint mpextisr124 (925, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr124, 0.965463));
+
+    MassPoint mpextisr125 (950, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr125, 0.963966));
+
+    MassPoint mpextisr126 (950, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr126, 0.964226));
+
+    MassPoint mpextisr127 (950, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr127, 0.964163));
+
+    MassPoint mpextisr128 (950, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr128, 0.96472));
+
+    MassPoint mpextisr129 (950, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr129, 0.965079));
+
+    MassPoint mpextisr130 (950, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr130, 0.965125));
+
+    MassPoint mpextisr131 (950, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr131, 0.96457));
+
+    MassPoint mpextisr132 (950, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr132, 0.963848));
+
+    MassPoint mpextisr133 (950, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr133, 0.964464));
+
+    MassPoint mpextisr134 (950, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr134, 0.964944));
+
+    MassPoint mpextisr135 (950, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr135, 0.9635));
+
+    MassPoint mpextisr136 (950, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr136, 0.965847));
+
+    MassPoint mpextisr137 (950, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr137, 0.965024));
+
+    MassPoint mpextisr138 (950, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr138, 0.964954));
+
+    MassPoint mpextisr139 (950, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr139, 0.963754));
+
+    MassPoint mpextisr140 (950, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr140, 0.963899));
+
+    MassPoint mpextisr141 (950, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr141, 0.965074));
+
+    MassPoint mpextisr142 (950, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr142, 0.964824));
+
+    MassPoint mpextisr143 (950, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr143, 0.964296));
+
+    MassPoint mpextisr144 (950, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr144, 0.964113));
+
+    MassPoint mpextisr145 (950, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr145, 0.963537));
+
+    MassPoint mpextisr146 (950, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr146, 0.964353));
+
+    MassPoint mpextisr147 (950, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr147, 0.963207));
+
+    MassPoint mpextisr148 (950, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr148, 0.964251));
+
+    MassPoint mpextisr149 (950, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr149, 0.964214));
+
+    MassPoint mpextisr150 (975, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr150, 0.965225));
+
+    MassPoint mpextisr151 (975, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr151, 0.964572));
+
+    MassPoint mpextisr152 (975, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr152, 0.963685));
+
+    MassPoint mpextisr153 (975, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr153, 0.964508));
+
+    MassPoint mpextisr154 (975, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr154, 0.964693));
+
+    MassPoint mpextisr155 (975, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr155, 0.964541));
+
+    MassPoint mpextisr156 (975, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr156, 0.965355));
+
+    MassPoint mpextisr157 (975, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr157, 0.963401));
+
+    MassPoint mpextisr158 (975, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr158, 0.964996));
+
+    MassPoint mpextisr159 (975, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr159, 0.964159));
+
+    MassPoint mpextisr160 (975, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr160, 0.965023));
+
+    MassPoint mpextisr161 (975, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr161, 0.965313));
+
+    MassPoint mpextisr162 (975, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr162, 0.964879));
+
+    MassPoint mpextisr163 (975, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr163, 0.963688));
+
+    MassPoint mpextisr164 (975, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr164, 0.964481));
+
+    MassPoint mpextisr165 (975, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr165, 0.965136));
+
+    MassPoint mpextisr166 (975, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr166, 0.96436));
+
+    MassPoint mpextisr167 (975, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr167, 0.964517));
+
+    MassPoint mpextisr168 (975, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr168, 0.965676));
+
+    MassPoint mpextisr169 (975, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr169, 0.963897));
+
+    MassPoint mpextisr170 (975, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr170, 0.963542));
+
+    MassPoint mpextisr171 (975, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr171, 0.963664));
+
+    MassPoint mpextisr172 (975, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr172, 0.963173));
+
+    MassPoint mpextisr173 (975, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr173, 0.964327));
+
+    MassPoint mpextisr174 (975, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr174, 0.964977));
+
+    MassPoint mpextisr175 (1000, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr175, 0.965279));
+
+    MassPoint mpextisr176 (1000, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr176, 0.964222));
+
+    MassPoint mpextisr177 (1000, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr177, 0.963601));
+
+    MassPoint mpextisr178 (1000, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr178, 0.96407));
+
+    MassPoint mpextisr179 (1000, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr179, 0.965639));
+
+    MassPoint mpextisr180 (1000, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr180, 0.9656));
+
+    MassPoint mpextisr181 (1000, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr181, 0.964916));
+
+    MassPoint mpextisr182 (1000, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr182, 0.963958));
+
+    MassPoint mpextisr183 (1000, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr183, 0.96453));
+
+    MassPoint mpextisr184 (1000, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr184, 0.963703));
+
+    MassPoint mpextisr185 (1000, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr185, 0.964405));
+
+    MassPoint mpextisr186 (1000, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr186, 0.964236));
+
+    MassPoint mpextisr187 (1000, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr187, 0.965098));
+
+    MassPoint mpextisr188 (1000, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr188, 0.965008));
+
+    MassPoint mpextisr189 (1000, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr189, 0.963953));
+
+    MassPoint mpextisr190 (1000, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr190, 0.963697));
+
+    MassPoint mpextisr191 (1000, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr191, 0.965479));
+
+    MassPoint mpextisr192 (1000, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr192, 0.963312));
+
+    MassPoint mpextisr193 (1000, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr193, 0.964043));
+
+    MassPoint mpextisr194 (1000, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr194, 0.96481));
+
+    MassPoint mpextisr195 (1000, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr195, 0.964194));
+
+    MassPoint mpextisr196 (1000, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr196, 0.963148));
+
+    MassPoint mpextisr197 (1000, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr197, 0.962871));
+
+    MassPoint mpextisr198 (1000, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr198, 0.963774));
+
+    MassPoint mpextisr199 (1000, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr199, 0.963659));
+
+    MassPoint mpextisr200 (1025, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr200, 0.96427));
+
+    MassPoint mpextisr201 (1025, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr201, 0.963859));
+
+    MassPoint mpextisr202 (1025, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr202, 0.963663));
+
+    MassPoint mpextisr203 (1025, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr203, 0.964333));
+
+    MassPoint mpextisr204 (1025, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr204, 0.96437));
+
+    MassPoint mpextisr205 (1025, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr205, 0.965647));
+
+    MassPoint mpextisr206 (1025, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr206, 0.964651));
+
+    MassPoint mpextisr207 (1025, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr207, 0.963193));
+
+    MassPoint mpextisr208 (1025, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr208, 0.964108));
+
+    MassPoint mpextisr209 (1025, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr209, 0.963751));
+
+    MassPoint mpextisr210 (1025, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr210, 0.96388));
+
+    MassPoint mpextisr211 (1025, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr211, 0.963601));
+
+    MassPoint mpextisr212 (1025, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr212, 0.962937));
+
+    MassPoint mpextisr213 (1025, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr213, 0.96446));
+
+    MassPoint mpextisr214 (1025, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr214, 0.96485));
+
+    MassPoint mpextisr215 (1025, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr215, 0.964568));
+
+    MassPoint mpextisr216 (1025, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr216, 0.964644));
+
+    MassPoint mpextisr217 (1025, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr217, 0.963905));
+
+    MassPoint mpextisr218 (1025, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr218, 0.964044));
+
+    MassPoint mpextisr219 (1025, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr219, 0.966088));
+
+    MassPoint mpextisr220 (1025, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr220, 0.964519));
+
+    MassPoint mpextisr221 (1025, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr221, 0.964048));
+
+    MassPoint mpextisr222 (1025, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr222, 0.964554));
+
+    MassPoint mpextisr223 (1025, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr223, 0.96488));
+
+    MassPoint mpextisr224 (1025, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr224, 0.96368));
+
+    MassPoint mpextisr225 (1050, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr225, 0.964514));
+
+    MassPoint mpextisr226 (1050, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr226, 0.965266));
+
+    MassPoint mpextisr227 (1050, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr227, 0.964959));
+
+    MassPoint mpextisr228 (1050, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr228, 0.963248));
+
+    MassPoint mpextisr229 (1050, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr229, 0.965007));
+
+    MassPoint mpextisr230 (1050, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr230, 0.964789));
+
+    MassPoint mpextisr231 (1050, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr231, 0.964296));
+
+    MassPoint mpextisr232 (1050, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr232, 0.964469));
+
+    MassPoint mpextisr233 (1050, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr233, 0.96427));
+
+    MassPoint mpextisr234 (1050, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr234, 0.965736));
+
+    MassPoint mpextisr235 (1050, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr235, 0.964649));
+
+    MassPoint mpextisr236 (1050, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr236, 0.964358));
+
+    MassPoint mpextisr237 (1050, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr237, 0.965295));
+
+    MassPoint mpextisr238 (1050, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr238, 0.964147));
+
+    MassPoint mpextisr239 (1050, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr239, 0.965328));
+
+    MassPoint mpextisr240 (1050, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr240, 0.965256));
+
+    MassPoint mpextisr241 (1050, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr241, 0.964209));
+
+    MassPoint mpextisr242 (1050, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr242, 0.964832));
+
+    MassPoint mpextisr243 (1050, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr243, 0.965513));
+
+    MassPoint mpextisr244 (1050, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr244, 0.964415));
+
+    MassPoint mpextisr245 (1050, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr245, 0.963679));
+
+    MassPoint mpextisr246 (1050, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr246, 0.964788));
+
+    MassPoint mpextisr247 (1050, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr247, 0.964387));
+
+    MassPoint mpextisr248 (1050, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr248, 0.963018));
+
+    MassPoint mpextisr249 (1050, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr249, 0.964544));
+
+    MassPoint mpextisr250 (1075, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr250, 0.964737));
+
+    MassPoint mpextisr251 (1075, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr251, 0.964239));
+
+    MassPoint mpextisr252 (1075, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr252, 0.964085));
+
+    MassPoint mpextisr253 (1075, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr253, 0.96429));
+
+    MassPoint mpextisr254 (1075, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr254, 0.964733));
+
+    MassPoint mpextisr255 (1075, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr255, 0.964248));
+
+    MassPoint mpextisr256 (1075, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr256, 0.964097));
+
+    MassPoint mpextisr257 (1075, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr257, 0.961808));
+
+    MassPoint mpextisr258 (1075, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr258, 0.963918));
+
+    MassPoint mpextisr259 (1075, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr259, 0.964635));
+
+    MassPoint mpextisr260 (1075, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr260, 0.965103));
+
+    MassPoint mpextisr261 (1075, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr261, 0.965696));
+
+    MassPoint mpextisr262 (1075, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr262, 0.965386));
+
+    MassPoint mpextisr263 (1075, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr263, 0.962371));
+
+    MassPoint mpextisr264 (1075, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr264, 0.964616));
+
+    MassPoint mpextisr265 (1075, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr265, 0.966295));
+
+    MassPoint mpextisr266 (1075, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr266, 0.964244));
+
+    MassPoint mpextisr267 (1075, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr267, 0.964093));
+
+    MassPoint mpextisr268 (1075, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr268, 0.965159));
+
+    MassPoint mpextisr269 (1075, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr269, 0.963935));
+
+    MassPoint mpextisr270 (1075, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr270, 0.963582));
+
+    MassPoint mpextisr271 (1075, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr271, 0.964106));
+
+    MassPoint mpextisr272 (1075, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr272, 0.965512));
+
+    MassPoint mpextisr273 (1075, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr273, 0.964106));
+
+    MassPoint mpextisr274 (1075, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr274, 0.963995));
+
+    MassPoint mpextisr275 (1100, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr275, 0.964632));
+
+    MassPoint mpextisr276 (1100, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr276, 0.965384));
+
+    MassPoint mpextisr277 (1100, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr277, 0.964604));
+
+    MassPoint mpextisr278 (1100, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr278, 0.964683));
+
+    MassPoint mpextisr279 (1100, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr279, 0.964693));
+
+    MassPoint mpextisr280 (1100, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr280, 0.964429));
+
+    MassPoint mpextisr281 (1100, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr281, 0.965072));
+
+    MassPoint mpextisr282 (1100, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr282, 0.965259));
+
+    MassPoint mpextisr283 (1100, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr283, 0.964215));
+
+    MassPoint mpextisr284 (1100, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr284, 0.964857));
+
+    MassPoint mpextisr285 (1100, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr285, 0.964181));
+
+    MassPoint mpextisr286 (1100, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr286, 0.96524));
+
+    MassPoint mpextisr287 (1100, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr287, 0.964121));
+
+    MassPoint mpextisr288 (1100, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr288, 0.963973));
+
+    MassPoint mpextisr289 (1100, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr289, 0.963619));
+
+    MassPoint mpextisr290 (1100, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr290, 0.964593));
+
+    MassPoint mpextisr291 (1100, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr291, 0.96542));
+
+    MassPoint mpextisr292 (1100, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr292, 0.965503));
+
+    MassPoint mpextisr293 (1100, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr293, 0.964285));
+
+    MassPoint mpextisr294 (1100, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr294, 0.964792));
+
+    MassPoint mpextisr295 (1100, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr295, 0.96374));
+
+    MassPoint mpextisr296 (1100, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr296, 0.964634));
+
+    MassPoint mpextisr297 (1100, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr297, 0.96405));
+
+    MassPoint mpextisr298 (1100, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr298, 0.96453));
+
+    MassPoint mpextisr299 (1100, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr299, 0.965175));
+
+    MassPoint mpextisr300 (1125, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr300, 0.96395));
+
+    MassPoint mpextisr301 (1125, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr301, 0.965144));
+
+    MassPoint mpextisr302 (1125, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr302, 0.965006));
+
+    MassPoint mpextisr303 (1125, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr303, 0.964331));
+
+    MassPoint mpextisr304 (1125, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr304, 0.965099));
+
+    MassPoint mpextisr305 (1125, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr305, 0.963981));
+
+    MassPoint mpextisr306 (1125, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr306, 0.965062));
+
+    MassPoint mpextisr307 (1125, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr307, 0.964552));
+
+    MassPoint mpextisr308 (1125, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr308, 0.964622));
+
+    MassPoint mpextisr309 (1125, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr309, 0.965512));
+
+    MassPoint mpextisr310 (1125, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr310, 0.965363));
+
+    MassPoint mpextisr311 (1125, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr311, 0.964386));
+
+    MassPoint mpextisr312 (1125, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr312, 0.964565));
+
+    MassPoint mpextisr313 (1125, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr313, 0.96415));
+
+    MassPoint mpextisr314 (1125, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr314, 0.965767));
+
+    MassPoint mpextisr315 (1125, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr315, 0.965632));
+
+    MassPoint mpextisr316 (1125, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr316, 0.965235));
+
+    MassPoint mpextisr317 (1125, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr317, 0.963272));
+
+    MassPoint mpextisr318 (1125, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr318, 0.963881));
+
+    MassPoint mpextisr319 (1125, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr319, 0.964627));
+
+    MassPoint mpextisr320 (1125, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr320, 0.964677));
+
+    MassPoint mpextisr321 (1125, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr321, 0.965414));
+
+    MassPoint mpextisr322 (1125, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr322, 0.96427));
+
+    MassPoint mpextisr323 (1125, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr323, 0.964424));
+
+    MassPoint mpextisr324 (1125, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr324, 0.967451));
+
+    MassPoint mpextisr325 (1150, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr325, 0.965409));
+
+    MassPoint mpextisr326 (1150, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr326, 0.964054));
+
+    MassPoint mpextisr327 (1150, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr327, 0.964983));
+
+    MassPoint mpextisr328 (1150, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr328, 0.963982));
+
+    MassPoint mpextisr329 (1150, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr329, 0.964854));
+
+    MassPoint mpextisr330 (1150, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr330, 0.965132));
+
+    MassPoint mpextisr331 (1150, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr331, 0.964967));
+
+    MassPoint mpextisr332 (1150, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr332, 0.964456));
+
+    MassPoint mpextisr333 (1150, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr333, 0.965696));
+
+    MassPoint mpextisr334 (1150, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr334, 0.963807));
+
+    MassPoint mpextisr335 (1150, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr335, 0.964777));
+
+    MassPoint mpextisr336 (1150, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr336, 0.964993));
+
+    MassPoint mpextisr337 (1150, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr337, 0.964896));
+
+    MassPoint mpextisr338 (1150, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr338, 0.963944));
+
+    MassPoint mpextisr339 (1150, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr339, 0.964558));
+
+    MassPoint mpextisr340 (1150, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr340, 0.96474));
+
+    MassPoint mpextisr341 (1150, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr341, 0.964808));
+
+    MassPoint mpextisr342 (1150, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr342, 0.964078));
+
+    MassPoint mpextisr343 (1150, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr343, 0.96475));
+
+    MassPoint mpextisr344 (1150, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr344, 0.964286));
+
+    MassPoint mpextisr345 (1150, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr345, 0.964531));
+
+    MassPoint mpextisr346 (1150, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr346, 0.964286));
+
+    MassPoint mpextisr347 (1150, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr347, 0.964641));
+
+    MassPoint mpextisr348 (1150, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr348, 0.964541));
+
+    MassPoint mpextisr349 (1150, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr349, 0.963941));
+
+    MassPoint mpextisr350 (1175, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr350, 0.965145));
+
+    MassPoint mpextisr351 (1175, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr351, 0.964782));
+
+    MassPoint mpextisr352 (1175, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr352, 0.963424));
+
+    MassPoint mpextisr353 (1175, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr353, 0.966404));
+
+    MassPoint mpextisr354 (1175, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr354, 0.965211));
+
+    MassPoint mpextisr355 (1175, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr355, 0.964945));
+
+    MassPoint mpextisr356 (1175, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr356, 0.964921));
+
+    MassPoint mpextisr357 (1175, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr357, 0.966636));
+
+    MassPoint mpextisr358 (1175, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr358, 0.964998));
+
+    MassPoint mpextisr359 (1175, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr359, 0.963744));
+
+    MassPoint mpextisr360 (1175, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr360, 0.963793));
+
+    MassPoint mpextisr361 (1175, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr361, 0.964429));
+
+    MassPoint mpextisr362 (1175, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr362, 0.964271));
+
+    MassPoint mpextisr363 (1175, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr363, 0.964494));
+
+    MassPoint mpextisr364 (1175, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr364, 0.964572));
+
+    MassPoint mpextisr365 (1175, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr365, 0.963985));
+
+    MassPoint mpextisr366 (1175, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr366, 0.965101));
+
+    MassPoint mpextisr367 (1175, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr367, 0.964557));
+
+    MassPoint mpextisr368 (1175, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr368, 0.963826));
+
+    MassPoint mpextisr369 (1175, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr369, 0.963818));
+
+    MassPoint mpextisr370 (1175, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr370, 0.966207));
+
+    MassPoint mpextisr371 (1175, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr371, 0.964882));
+
+    MassPoint mpextisr372 (1175, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr372, 0.963717));
+
+    MassPoint mpextisr373 (1175, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr373, 0.964517));
+
+    MassPoint mpextisr374 (1175, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr374, 0.964668));
+
+    MassPoint mpextisr375 (1200, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr375, 0.964554));
+
+    MassPoint mpextisr376 (1200, 25);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr376, 0.964235));
+
+    MassPoint mpextisr377 (1200, 50);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr377, 0.964606));
+
+    MassPoint mpextisr378 (1200, 75);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr378, 0.964498));
+
+    MassPoint mpextisr379 (1200, 100);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr379, 0.963981));
+
+    MassPoint mpextisr380 (1200, 125);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr380, 0.965309));
+
+    MassPoint mpextisr381 (1200, 150);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr381, 0.964492));
+
+    MassPoint mpextisr382 (1200, 175);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr382, 0.965112));
+
+    MassPoint mpextisr383 (1200, 200);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr383, 0.966659));
+
+    MassPoint mpextisr384 (1200, 225);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr384, 0.965315));
+
+    MassPoint mpextisr385 (1200, 250);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr385, 0.964079));
+
+    MassPoint mpextisr386 (1200, 275);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr386, 0.964282));
+
+    MassPoint mpextisr387 (1200, 300);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr387, 0.964171));
+
+    MassPoint mpextisr388 (1200, 325);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr388, 0.964664));
+
+    MassPoint mpextisr389 (1200, 350);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr389, 0.96569));
+
+    MassPoint mpextisr390 (1200, 375);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr390, 0.964475));
+
+    MassPoint mpextisr391 (1200, 400);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr391, 0.965146));
+
+    MassPoint mpextisr392 (1200, 425);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr392, 0.964558));
+
+    MassPoint mpextisr393 (1200, 450);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr393, 0.964727));
+
+    MassPoint mpextisr394 (1200, 475);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr394, 0.964368));
+
+    MassPoint mpextisr395 (1200, 500);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr395, 0.965201));
+
+    MassPoint mpextisr396 (1200, 525);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr396, 0.964522));
+
+    MassPoint mpextisr397 (1200, 550);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr397, 0.964042));
+
+    MassPoint mpextisr398 (1200, 575);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr398, 0.965902));
+
+    MassPoint mpextisr399 (1200, 600);
+    StopNeutralinoISRMap.insert(std::make_pair(mpextisr399, 0.964453));
+
   }
 
 }
@@ -13910,7 +24713,10 @@ void AnalysisStop::ApplyISRReweighting() {
 
   int NeutralinoMass = susyMLSP;
   MassPoint ThisMassPoint (XMass, NeutralinoMass);
-  _isr_weight *= StopNeutralinoISRMap.at(ThisMassPoint);
+  if (SUSYProductionProcess=="T2tt" && XMass <=250.) 
+    _isr_weight *= 1.1;
+  else
+    _isr_weight *= StopNeutralinoISRMap.at(ThisMassPoint);
 
   float _isr_weight_up = (1. + _isr_weight)/2.;
   float _isr_weight_do = _isr_weight - (_isr_weight_up - _isr_weight);
@@ -14126,6 +24932,7 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
   fChain->SetBranchAddress("dphimetjet", &_dphimetjet);//, &b_dphimetjet);
 
   fChain->SetBranchAddress("LHEweight", &std_vector_LHE_weight);
+  //fChain->SetBranchAddress("jet_pt", &_jet_pt);
 
 }
     

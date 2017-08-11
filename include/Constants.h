@@ -1,13 +1,13 @@
 #if !defined(MYLIB_CONSTANTS_H)
 #define MYLIB_CONSTANTS_H 1
 
-#include "CutsControl.h"
+//#include "CutsControl.h"
 //#include "CutsDY.h"
 //#include "CutsFR.h"
 //#include "CutsMonoH.h"
 //#include "CutsPR.h"
 //#include "CutsShape.h"
-//#include "CutsStop.h"
+#include "CutsStop.h"
 //#include "CutsTop.h"
 //#include "CutsTTDM.h"
 //#include "CutsWW.h"
@@ -24,7 +24,7 @@ const double lumi_fb_Run2016B   =  5.788;  // From run 272007 to run 275376
 const double lumi_fb_2016_susy  =  9.983;  // run<276502
 const double lumi_fb_2015       =  2.318;  // 2015C + 2015D35867.060
 const double lumi_fb_Full2016   = 35.867;  // 2016B to 2016H
-const double lumi_error_percent =  2.6;    // Preliminary
+const double lumi_error_percent =  2.5;    // Preliminary
 
 const int ELECTRON_FLAVOUR = 11;
 const int MUON_FLAVOUR     = 13;
@@ -68,6 +68,8 @@ enum {
   Topptdo,
   Isrnjetup,
   Isrnjetdo,
+  Fakeup,
+  Fakedo,
   nsystematic  // This line should be always last
 };
 
@@ -96,7 +98,9 @@ const TString ssystematic[nsystematic] = {
   "Topptup",
   "Topptdo",
   "Isrnjetup",
-  "Isrnjetdo"
+  "Isrnjetdo",
+  "Fakeup",
+  "Fakedo"
 };
 
 const bool systematicfromweight[nsystematic] = {
@@ -109,6 +113,8 @@ const bool systematicfromweight[nsystematic] = {
   false,
   false,
   false,
+  true,
+  true,
   true,
   true,
   true,

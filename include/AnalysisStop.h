@@ -79,9 +79,12 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_mlb2true         [nchannel][ncut][njetbin+1];
   TH2D*                  h_mt2lblbvsmlbtrue [nchannel][ncut][njetbin+1];
   TH1D*                  h_nisrjet          [nchannel][ncut][njetbin+1];
-  TH1D*                  h_jetpt            [nchannel][ncut][njetbin+1];
+  TH1D*                  h_maxjetpt         [nchannel][ncut][njetbin+1];
+  TH1D*                  h_njet20           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_njet30           [nchannel][ncut][njetbin+1];
   TH1D*                  h_MET              [nchannel][ncut][njetbin+1];
   TH1D*                  h_Counter          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiminlepmet    [nchannel][ncut][njetbin+1];
 
   int _SaveHistograms, _DoTheoreticalVariations;
 
@@ -106,7 +109,9 @@ class AnalysisStop : public AnalysisCMS
 
   bool  _hasisrjet;
 
-  int   _nLeptonsMatched;
+  float _dphiminlmet;
+
+  int   _nLeptonsMatched, _njet30;
 
   float _MT2_Met; int NbinsMT2 = 7; int NbinsMet = 5;
   float vMinMT2 = 0., vMinMet = 0., vMaxMT2 = 140., vMaxMet = 500.;

@@ -694,7 +694,7 @@ void AnalysisCMS::ShapeWZ()
   
   if (_nlepton<3) { _event_weight = 0.; return; } 
   if (MET.Et()<100.) { _event_weight = 0.; return; }
-  if (_ntightlepton<2) { _event_weight = 0.; return; }
+  if (_ntightlepton<3) { _event_weight = 0.; return; }
 
   float DMZ = 999.; int Wlep1 = -1, Wlep2 = -1, Lostlep = -1;
   for (int l1 = 0; l1<3; l1++) {

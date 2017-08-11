@@ -14,7 +14,7 @@ pushd $FOLDER
 
 ##hadd -f -k 00_Fakes.root     fakeW*.root
 hadd -f -k 01_Data.root       *03Feb2017*
-#hadd -f -k 01_DataBlind.root   *Run2016B-03Feb2017* *Run2016C-03Feb2017* *Run2016D-03Feb2017* 
+##hadd -f -k 01_DataBlind.root   *Run2016B-03Feb2017* *Run2016C-03Feb2017* *Run2016D-03Feb2017* 
 hadd -f -k 02_WZTo3LNu.root  WZTo3LNu.root
 hadd -f -k 03_VZ.root        ZZTo2L2Q__part*.root ZZTo2L2Nu__part*.root WZTo2L2Q__part*.root
 hadd -f -k 04_TTTo2L2Nu.root TTTo2L2Nu__part*.root

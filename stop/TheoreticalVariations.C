@@ -23,7 +23,7 @@
 
 void TheoreticalVariations() {
 
-  TString RootFilesDirectory = "../minitrees/rootfiles/";
+  TString RootFilesDirectory = "../minitrees/rootfiles3R/";
 
  int const nUncertainties = 2;
  TString UncertaintyName[nUncertainties] = {"Q2", "PDF"};
@@ -125,8 +125,8 @@ void TheoreticalVariations() {
 
 void CheckShapes(TString ProcessName, TString UncertaintyName, TString ShapeName) {
 
-  //TString HistoDirectory = "../minitrees/rootfiles/";
-  TString HistoDirectory = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/";
+  TString HistoDirectory = "../minitrees/rootfiles2R/";
+  //TString HistoDirectory = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/";
 
   TFile *_fileu = TFile::Open(HistoDirectory + UncertaintyName + "up/Stop/" + ProcessName + ".root");
   TFile *_filec = TFile::Open(HistoDirectory + "nominal/Stop/"              + ProcessName + ".root");
@@ -145,7 +145,7 @@ void CheckShapes(TString ProcessName, TString UncertaintyName, TString ShapeName
   HCN->SetMaximum(1.2*max);
 
   HCN->Draw();
-  HDO->Draw("same");
   HUP->Draw("same");
+  HDO->Draw("same");
 
 }

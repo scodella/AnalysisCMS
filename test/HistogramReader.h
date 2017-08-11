@@ -51,7 +51,9 @@ class HistogramReader
 			       Int_t          kind  = roc_none,
 			       Float_t        scale = -1);
 
-  void     AddSystematic      (TString        systematic); 
+  //void     AddSystematic      (TString        systematic); 
+  void     AddSystematic      (TString        analysis,
+			       TString        systematic);
   
   void     Draw               (TString        hname,
 			       TString        xtitle       = "",
@@ -189,6 +191,10 @@ class HistogramReader
   Bool_t                _savepng;
   Bool_t                _writelabels;
   Bool_t                _writeyields;
+ 
+  Bool_t 		_minitreebased;
+  Bool_t 		_AsymBinErr;
+  Bool_t 		_SymBinErr; 
 
   Float_t               _luminosity_fb;
   TString               _inputdir;
@@ -227,6 +233,11 @@ class HistogramReader
   std::vector<TFile*>   _roc_backgroundfile;
   std::vector<Float_t>  _roc_signalscale;
   std::vector<Float_t>  _roc_backgroundscale;
+  
+  // Variables for applying systematic errors on plots
+  TString                _analysis;
+  //TString                _mycut;
+  TGraphAsymmErrors*     _ErrorGr;
 };
 
 #endif

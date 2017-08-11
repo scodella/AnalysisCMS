@@ -22,8 +22,8 @@
 
 #include "../include/CutsStop.h"
 
-TString RootFilesDirectory = "../minitrees/rootfiles/";
-TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList.txt";
+TString RootFilesDirectory = "../minitrees/rootfiles3R/";
+TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList_TChiSlepExt.txt";
 
 float FractionNvtxUp = 0.293, FractionNvtxDo = 0.707;
 float AverageNvtxUp  = 23.52, AverageNvtxDo  = 13.41;
@@ -355,7 +355,7 @@ void GetPileUpHistograms(int Strategy, TString TestRegion, TString MetType = "")
 
 void BuildMassPointSystematic(int Strategy, TString MassPoint) {
 
-  TString InputRootFileName = RootFilesDirectory + "/nominal/Stop/T2" + MassPoint + ".root";  
+  TString InputRootFileName = RootFilesDirectory + "/nominal/Stop/T" + MassPoint + ".root";  
   InputRootFile = TFile::Open(InputRootFileName);
 
   TString OutputDirectoryUp = RootFilesDirectory + "/Pileupup/Stop";
@@ -364,15 +364,17 @@ void BuildMassPointSystematic(int Strategy, TString MassPoint) {
   gSystem->mkdir(OutputDirectoryUp, true);
   gSystem->mkdir(OutputDirectoryDo, true);
   
-  TFile *Pileupup = new TFile(OutputDirectoryUp + "/T2" + MassPoint + ".root", "recreate");
-  TFile *Pileupdo = new TFile(OutputDirectoryDo + "/T2" + MassPoint + ".root", "recreate");
+  TFile *Pileupup = new TFile(OutputDirectoryUp + "/T" + MassPoint + ".root", "recreate");
+  TFile *Pileupdo = new TFile(OutputDirectoryDo + "/T" + MassPoint + ".root", "recreate");
 
   TString MetTypeName[4] = {"", "gen", "isr", "isrgen"};
 
   for (int rg = 0; rg<ncut; rg++) {
 
     if (!scut[rg].Contains("VR") && !scut[rg].Contains("SR")) continue;
-    
+
+    if (RootFilesDirectory.Contains("2R") && scut[rg].Contains("NoJet")) continue;
+
     Pileupup->cd();
     
     gDirectory->mkdir(scut[rg]);

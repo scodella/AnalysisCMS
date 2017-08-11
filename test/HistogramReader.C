@@ -17,6 +17,7 @@ HistogramReader::HistogramReader(const TString& inputdir,
   _drawratio       (false),
   _drawsignificance(false),
   _drawyield       (false),
+  _minitreebased   (false),
   _publicstyle     (false),
   _savepdf         (false),
   _savepng         (true)
@@ -139,15 +140,15 @@ void HistogramReader::AddSignal(const TString& filename,
     }
 }
 
-
 //------------------------------------------------------------------------------
 // AddSystematic
 //------------------------------------------------------------------------------
-void HistogramReader::AddSystematic(TString systematic)
+void HistogramReader::AddSystematic(TString analysis, TString systematic)
 {
+  //_mycut    = mycut;
+  _analysis = analysis;
   _systematics.push_back(systematic);
 }
-
 
 //------------------------------------------------------------------------------
 // Draw
@@ -187,10 +188,10 @@ void HistogramReader::Draw(TString hname,
 
 
   // Set drawsignificance to false if drawratio is true
-  if (_drawratio && _datafile) _drawsignificance = false;
+  if (_drawratio /*&& _datafile*/) _drawsignificance = false;
 
 
-  if ((_drawratio && _datafile) || _drawsignificance)
+  if ((_drawratio /*&& _datafile*/) || _drawsignificance)
     {
       canvas = new TCanvas(cname, cname, 550, 720);
 
@@ -258,6 +259,24 @@ void HistogramReader::Draw(TString hname,
     _signalfile[i]->cd();
 
     TH1D* dummy = (TH1D*)_signalfile[i]->Get(hname);
+    
+    if (hname.Contains("_SR") && (hname.Contains("h_MT2ll_") || hname.Contains("h_MT2llisr_"))) {
+      for (int isyst=0; isyst<_systematics.size(); isyst++) {
+	if (_systematics.at(isyst)=="Metfastsim")  {
+      
+	  TString hnamegen = hname;
+	  hnamegen.ReplaceAll("_SR1", "_SR1gen");
+	  hnamegen.ReplaceAll("_SR2", "_SR2gen");
+	  hnamegen.ReplaceAll("_SR3", "_SR3gen");
+	  hnamegen.ReplaceAll("h_MT2ll_", "h_MT2llgen_");
+	  hnamegen.ReplaceAll("h_MT2llisr_", "h_MT2llisrgen_");
+	  TH1D* dummygen = (TH1D*)_signalfile[i]->Get(hnamegen);
+	  dummy->Add(dummygen); // that's not good if errors are needed
+	  dummy->Scale(0.5);
+	  
+	}
+      }
+    }
 
     _signalhist.push_back((TH1D*)dummy->Clone());
 
@@ -322,7 +341,7 @@ void HistogramReader::Draw(TString hname,
 
   // Include systematics
   //----------------------------------------------------------------------------
-  if (_mchist_syst.size() > 0) IncludeSystematics(hname);
+  //if (_mchist_syst.size() > 0) IncludeSystematics(hname);
 
 
   for (Int_t ibin=0; ibin<=_allmchist->GetNbinsX(); ibin++) {
@@ -357,8 +376,10 @@ void HistogramReader::Draw(TString hname,
   _allmchist->SetMarkerSize (      0);
 
 
-
-
+  // Include systematics with TGraphAsymmErrors
+  //----------------------------------------------------------------------------
+  if (_systematics.size() > 0)  IncludeSystematics(hname);
+  
 
   // Draw
   //----------------------------------------------------------------------------
@@ -366,7 +387,11 @@ void HistogramReader::Draw(TString hname,
 
   mcstack->Draw(_stackoption + ",same");
 
-  if (!_stackoption.Contains("nostack")) _allmchist->Draw("e2,same");
+  if (_systematics.size() > 0 ) { 
+    _ErrorGr->Draw("e2,same");  
+  } else { 
+    if (!_stackoption.Contains("nostack")) _allmchist->Draw("e2,same");
+  }
 
   if (_signalfile.size() > 0) signalstack->Draw("nostack,hist,same");
 
@@ -423,8 +448,8 @@ void HistogramReader::Draw(TString hname,
 
   if (pad1->GetLogy())
     {
-      theMin = 1e-5;
-      theMax = TMath::Power(10, TMath::Log10(theMax) + 6);
+      theMin = 1e-2; // 1e-5
+      theMax = TMath::Power(10, TMath::Log10(theMax) + 4); // 6);
     }
   else if (!_stackoption.Contains("nostack"))
     {
@@ -487,16 +512,22 @@ void HistogramReader::Draw(TString hname,
 
   // Search signals legend
   //----------------------------------------------------------------------------
+  nx = 0; ny = nrow;
   for (int i=0; i<_signalhist.size(); i++)
     {
-      DrawLegend(x0 + nx*xdelta, y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
+      if (ny == nrow+3)
+	{
+	  ny =  nrow;
+	  nx++;
+	}
+      DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       ny++;
     }
 
 
   // Titles
   //----------------------------------------------------------------------------
-  Float_t xprelim = ((_drawratio && _datafile) || _drawsignificance) ? 0.288 : 0.300;
+  Float_t xprelim = ((_drawratio /*&& _datafile*/) || _drawsignificance) ? 0.288 : 0.300;
 
   if (_title.EqualTo("inclusive"))
     {
@@ -519,27 +550,27 @@ void HistogramReader::Draw(TString hname,
   //----------------------------------------------------------------------------
   // pad2
   //----------------------------------------------------------------------------
-  if (_drawratio && _datafile)
+  if (_drawratio /*&& _datafile*/)
     {
       pad2->cd();
-
+     
       // This approach isn't yet working
       //      TGraphAsymmErrors* g = new TGraphAsymmErrors();
       //      g->Divide(_datahist, _allmchist, "cl=0.683 b(1,1) mode");
       //      g->SetMarkerStyle(kFullCircle);
       //      g->Draw("ap");
 
-      TH1D* ratio       = (TH1D*)_datahist ->Clone("ratio");
+      TH1D* ratio = _datahist ? (TH1D*)_datahist->Clone("ratio") : (TH1D*)_allmchist->Clone("ratio");
       TH1D* uncertainty = (TH1D*)_allmchist->Clone("uncertainty");
-
+       
       for (Int_t ibin=1; ibin<=ratio->GetNbinsX(); ibin++) {
-
-	Float_t dtValue = _datahist->GetBinContent(ibin);
-	Float_t dtError = _datahist->GetBinError(ibin);
-
+	
+	Float_t dtValue = _datahist ? _datahist->GetBinContent(ibin) : -999.;
+	Float_t dtError = _datahist ? _datahist->GetBinError(ibin)   :    0.;
+	
 	Float_t mcValue = _allmchist->GetBinContent(ibin);
-	Float_t mcError = sqrt(_allmchist->GetSumw2()->At(ibin));
-
+	Float_t mcError = (_systematics.size()<=0) ? sqrt(_allmchist->GetSumw2()->At(ibin)) : _ErrorGr->GetErrorY(ibin);
+	
 	Float_t ratioVal         = 999;
 	Float_t ratioErr         = 999;
 	Float_t uncertaintyError = 999;
@@ -548,7 +579,7 @@ void HistogramReader::Draw(TString hname,
 	  {
 	    ratioVal         = dtValue / mcValue;
 	    ratioErr         = dtError / mcValue;
-	    uncertaintyError = ratioVal * mcError / mcValue;
+	    uncertaintyError = _datahist ? ratioVal * mcError / mcValue : mcError / mcValue;
 	  }
 
 	ratio->SetBinContent(ibin, ratioVal);
@@ -563,10 +594,10 @@ void HistogramReader::Draw(TString hname,
       ratio->Draw("ep");
 
       ratio->GetXaxis()->SetRangeUser(xmin, xmax);
-      ratio->GetYaxis()->SetRangeUser(0.7, 1.3);
+      ratio->GetYaxis()->SetRangeUser(0., 2.);
 
       uncertainty->Draw("e2,same");
-
+      
       ratio->Draw("ep,same");
 
       SetAxis(ratio, xtitle, "data / MC", 1.4, 0.75);
@@ -1560,7 +1591,7 @@ void HistogramReader::Roc(TString hname,
 //------------------------------------------------------------------------------
 // IncludeSystematics
 //------------------------------------------------------------------------------
-void HistogramReader::IncludeSystematics(TString hname)
+/*void HistogramReader::IncludeSystematics(TString hname)
 {
   int nbins = _mchist[0]->GetNbinsX();
 
@@ -1613,4 +1644,604 @@ void HistogramReader::IncludeSystematics(TString hname)
       _mchist_syst.push_back(myhisto);
     }
   }
+}*/ 
+
+void FormatTableYields(float *YY, float *EY) {
+
+  if (*EY>=10.) {
+    *EY = round(*EY);
+    *YY = round(*YY);
+  } else if (*EY>=1.) {
+    *EY = round((*EY)*10)/10.;
+    *YY = round((*YY)*10)/10.;
+  } else {
+    *EY = round((*EY)*100)/100.;
+    *YY = round((*YY)*100)/100.;
+  } 
+
+  if (*YY<0.) *YY = *EY;
+
+}
+
+void HistogramReader::IncludeSystematics(TString hname)
+{
+  bool _verbose = false, _dotable = true;
+
+  int nsystematics = _systematics.size(); 
+  int nbins        = _mchist[0]->GetNbinsX();
+  int nprocess     = _mchist.size();
+  int nsignals     = _signalfilename.size();
+   
+  // Table variables
+  float yieldTab      [nprocess][nbins+1];
+  float errBackTab_do [nprocess][nbins+1]; 
+  float errBackTab_up [nprocess][nbins+1];  
+  bool FirstSystematic[nprocess];
+  for (int k=0; k <nprocess; k++){
+    FirstSystematic[k] = true;
+    for (int j=1; j<=nbins; j++){ 
+      yieldTab[k][j] = 0;
+      errBackTab_do[k][j] = 0; 
+      errBackTab_up[k][j] = 0;
+    }
+  }
+  // TGraphAssymetriErrors variables
+  float errSystDo     [nsystematics][nbins+1];
+  float errSystUp     [nsystematics][nbins+1]; 
+  for (int i=0; i < nsystematics; i++) {
+    for (int j=1; j<=nbins; j++) {
+      errSystDo [i][j] = 0;      
+      errSystUp [i][j] = 0;      
+     }
+   }
+  // Signal uncertainties
+  float yieldSign [nsignals][nbins+1];
+  float errSignUp [nsignals][nbins+1];
+  float errSignDo [nsignals][nbins+1];
+  for (int j=1; j<=nbins; j++) {
+    for (int s=0; s<nsignals; s++) {
+      errSignUp[s][j] = 0.;
+      errSignDo[s][j] = 0.;
+    }
+  }
+
+   // Loop over all systematics and processes
+   //----------------------------------------------------------------------------
+   for (int isyst=0; isyst<nsystematics; isyst++) 
+    {
+
+      if (_verbose) {
+	// Print systematic name 
+	printf( "                                                         \n");  
+	printf( "                                                         \n");  
+	printf( "systematic name %s \n", _systematics.at(isyst).Data() );
+	printf( "----------------------------------\n"); 
+      }
+
+     for (int kproce=0; kproce<nprocess; kproce++) 
+       {
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"    && _mcfilename.at(kproce)=="05_ST") continue;
+       if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
+				   _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim")) continue;
+       if (_systematics.at(isyst).Contains("MT2ll") && !hname.Contains("h_MT2ll")) continue;
+       if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
+       if (_systematics.at(isyst)=="MT2llWW" && _mcfilename.at(kproce)!="06_WW") continue;
+       if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
+       if (_systematics.at(isyst)=="ZMetSF" && _mcfilename.at(kproce)!="03_VZ" &&
+	   _mcfilename.at(kproce).Data()!="07_ZJets" && _mcfilename.at(kproce)!="07_ZJetsHT") continue;
+       
+       TFile* myfile0 = myfile0 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + ".root", "read");;
+       
+       TH1D* dummy0 = (TH1D*)myfile0->Get( hname );//nominal
+       if (_luminosity_fb > 0 && _mcscale[kproce] > -999) dummy0->Scale(_luminosity_fb);		
+       if (_mcscale[kproce] > 0) dummy0->Scale(_mcscale[kproce]);
+
+       if (FirstSystematic[kproce]) {
+	 for (int ibin = 1; ibin<=nbins; ibin++) {
+	   yieldTab     [kproce][ibin] = dummy0->GetBinContent(ibin); 
+	   errBackTab_up[kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+	   errBackTab_do[kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+	 }
+	 FirstSystematic[kproce] = false;
+       }
+
+       if ( _systematics.at(isyst) == "Luminosity") {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float LumiBinError = yieldTab[kproce][ibin]*lumi_error_percent/1e2;
+	   errBackTab_up [kproce][ibin] += LumiBinError*LumiBinError;
+	   errBackTab_do [kproce][ibin] += LumiBinError*LumiBinError;
+	   errSystUp [isyst][ibin] += LumiBinError;
+	   errSystDo [isyst][ibin] += -LumiBinError;
+	 }
+	 myfile0->Close();
+	 continue;
+       }
+       
+       if ( _systematics.at(isyst) == "Trigger") {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float TrigBinError = yieldTab[kproce][ibin]*2./1e2;
+	   errBackTab_up [kproce][ibin] += TrigBinError*TrigBinError;
+	   errBackTab_do [kproce][ibin] += TrigBinError*TrigBinError;
+	   errSystUp [isyst][ibin] += TrigBinError;
+	   errSystDo [isyst][ibin] += -TrigBinError;
+	 }
+	 myfile0->Close();
+	 continue;
+       }
+       
+       if (_systematics.at(isyst).Contains("MT2ll")) {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float relError = 0.;
+	   if (ibin==4) relError = 0.05;
+	   else if (ibin==5) relError = 0.10;
+	   else if (ibin==6) relError = 0.20;
+	   else if (ibin==7) relError = 0.30;
+	   float absError = relError*yieldTab[kproce][ibin]; 
+	   errBackTab_up [kproce][ibin] += absError*absError;
+	   errBackTab_do [kproce][ibin] += absError*absError;
+	   errSystUp [isyst][ibin] += absError;
+	   errSystDo [isyst][ibin] += -absError;
+	 }
+	 myfile0->Close();
+	 continue;
+       }
+
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZMetSF") { 
+	 if (_mcscale[kproce] > 0) {
+	   float errSF;
+	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.37;
+	   else if (_systematics.at(isyst)=="ZMetSF") errSF = 0.14;
+	   for (int ibin=1; ibin<=nbins; ibin++) {
+	     float errNorm = dummy0->GetBinContent(ibin)/_mcscale[kproce]*errSF; 
+	     errBackTab_up [kproce][ibin] += errNorm*errNorm;
+	     errBackTab_do [kproce][ibin] += errNorm*errNorm;
+	     errSystUp [isyst][ibin] += errNorm;
+	     errSystDo [isyst][ibin] += -errNorm;
+	   }
+	 }
+	 myfile0->Close();
+	 continue;
+       }
+       
+       TFile* myfile1;
+       TFile* myfile2;
+       
+       if (_minitreebased) // This is for ttdm
+	{
+         if (isyst%2 != 0) continue; //Only takes the first one systematic_up(down).root as reference
+	 myfile1 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + _systematics.at(isyst)   + ".root", "read");
+	 myfile2 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + _systematics.at(isyst+1) + ".root", "read");
+	}
+       else
+	 {
+	   myfile1 = new TFile(_inputdir + "/../../" + _systematics.at(isyst) + "up/" + _analysis + "/" + _mcfilename.at(kproce)   + ".root", "read");//up
+	   myfile2 = new TFile(_inputdir + "/../../" + _systematics.at(isyst) + "do/" + _analysis + "/" + _mcfilename.at(kproce)   + ".root", "read");//down
+        }
+
+       TH1D* dummy1 = (TH1D*)myfile1->Get( hname );//up
+       TH1D* dummy2 = (TH1D*)myfile2->Get( hname );//down      
+
+       if (_luminosity_fb > 0 && _mcscale[kproce] > -999)
+        {
+          dummy1->Scale(_luminosity_fb);
+          dummy2->Scale(_luminosity_fb);
+        }
+		
+       if (_mcscale[kproce] > 0)
+	{
+          dummy1->Scale(_mcscale[kproce]);
+          dummy2->Scale(_mcscale[kproce]);
+        }
+       
+       if (_verbose) {
+	 // Print Process name       
+	 printf( "                                                         \n");  
+	 printf("process name %s\n", _mcfilename.at(kproce).Data()); 
+	 printf( "                                                         \n");  
+       }
+
+       // Loop over all bins (Underflow is not included)
+       //--------------------------------------------------------------------  
+       for (int ibin=1; ibin<=nbins; ibin++) 
+        {
+	 if (dummy0->GetBinContent(ibin)<0.) dummy0->SetBinContent(ibin, 0.001);
+	 if (dummy1->GetBinContent(ibin)<0.) dummy1->SetBinContent(ibin, 0.001);
+	 if (dummy2->GetBinContent(ibin)<0.) dummy2->SetBinContent(ibin, 0.001);
+         errSystUp [isyst][ibin] += (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
+         errSystDo [isyst][ibin] += (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)); 
+
+	 float ErrUp = 0., ErrDo = 0.; 
+	 float VarUp = (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
+	 float VarDo = (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)); 
+	 if (VarDo<=0. && VarUp>=0.) {
+	   ErrUp = VarUp;
+	   ErrDo = VarDo;
+	 } else if (VarDo>=0. && VarUp<=0.) {
+	   ErrUp = VarDo;
+	   ErrDo = VarUp;
+	 } else if (VarDo>0.) {
+	   ErrUp = (VarUp>VarDo) ? VarUp : VarDo;
+	 } else if (VarDo<0.) {
+	   ErrDo = (VarUp<VarDo) ? VarUp : VarDo;
+	 }
+         errBackTab_up[kproce][ibin] += ErrUp*ErrUp;
+         errBackTab_do[kproce][ibin] += ErrDo*ErrDo;
+
+	 if (_verbose) { 
+	   // Print Bin Information per process       
+	   printf( "Print Bin Information per process \n");
+	   printf( "                                                         \n");  
+	   printf( " bin number  = %i\n", ibin );  
+	   printf( "                                                         \n");  
+	   printf( " nominal     = %f\n", dummy0->GetBinContent(ibin));             
+	   printf( " SF+ errUp   = %f\n", dummy1->GetBinContent(ibin));             
+	   printf( " SF+ errDo   = %f\n", dummy2->GetBinContent(ibin));             
+	   // Print Systematic Error per process
+	   printf( "Print Systematic Error per process \n");
+	   printf( "                                                         \n");  
+	   printf( " ErrsystUp  = %.5f\n", (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) );
+	   printf( " ErrsystDo  = %.5f\n", (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) );       
+	   printf( " rel_ErrsystUp  = %.5f  %\n", (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) / dummy0->GetBinContent(ibin) );
+	   printf( " rel_ErrsystDo  = %.5f  %\n", (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) / dummy0->GetBinContent(ibin) );       
+	 }
+         // 
+
+        } 
+
+       myfile0->Close();
+       myfile1->Close();
+       myfile2->Close();
+     
+      }
+    }
+
+   // Loop over signals
+   //----------------------------------------------------------------------------
+   bool _doMetFastSim = false;
+   TString hnamegen = hname;
+   if (hname.Contains("_SR") && (hname.Contains("h_MT2ll_") || hname.Contains("h_MT2llisr_"))) {
+     for (int isyst=0; isyst<nsystematics; isyst++) {
+       if (_systematics.at(isyst)=="Metfastsim")  {
+	 
+	 hnamegen.ReplaceAll("_SR1", "_SR1gen");
+	 hnamegen.ReplaceAll("_SR2", "_SR2gen");
+	 hnamegen.ReplaceAll("_SR3", "_SR3gen");
+	 hnamegen.ReplaceAll("h_MT2ll_", "h_MT2llgen_");
+	 hnamegen.ReplaceAll("h_MT2llisr_", "h_MT2llisrgen_");
+	 _doMetFastSim = true;
+	 
+       }
+     }
+   }
+
+   for (int kproce=0; kproce<nsignals; kproce++) {
+
+     TFile* myfile0 = TFile::Open(_inputdir + "/" + _signalfilename.at(kproce) + ".root");
+
+     TH1D* dummy0 = (TH1D*)myfile0->Get( hname );
+     TH1D* dummy3 = (TH1D*)myfile0->Get( hnamegen );
+     if (_luminosity_fb > 0) {
+       dummy0->Scale(_luminosity_fb); 
+       if (_doMetFastSim) dummy3->Scale(_luminosity_fb); 
+     }
+
+     for (int ibin = 1; ibin<=nbins; ibin++) {
+       if (dummy0->GetBinContent(ibin)<0.) dummy0->SetBinContent(ibin, 0.001);
+       if (dummy3->GetBinContent(ibin)<0.) dummy3->SetBinContent(ibin, 0.001);
+       if (!_doMetFastSim) {
+	 yieldSign [kproce][ibin] = dummy0->GetBinContent(ibin);
+	 errSignUp [kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+	 errSignDo [kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+       } else {
+	 yieldSign [kproce][ibin] = (dummy0->GetBinContent(ibin) + dummy3->GetBinContent(ibin))/2.;
+	 errSignUp [kproce][ibin] = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
+	 errSignDo [kproce][ibin] = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
+       }
+     }
+
+     for (int isyst=0; isyst<nsystematics; isyst++) {
+
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "PDF") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Q2") continue;
+       if ( _systematics.at(isyst).Contains("MT2ll")) continue;
+       if ( _systematics.at(isyst)=="ttZSF") continue;
+       if ( _systematics.at(isyst)=="ZMetSF") continue;
+      
+       if ( _systematics.at(isyst) == "Luminosity") {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float LumiBinError2 = TMath::Power(yieldSign[kproce][ibin]*lumi_error_percent/1e2, 2);
+	   errSignUp [kproce][ibin] += LumiBinError2;
+	   errSignDo [kproce][ibin] += LumiBinError2;
+	 }
+	 continue;
+       }
+      
+       if ( _systematics.at(isyst) == "Trigger") {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float TrigBinError2 = TMath::Power(yieldSign[kproce][ibin]*2./1e2, 2);
+	   errSignUp [kproce][ibin] += TrigBinError2;
+	   errSignDo [kproce][ibin] += TrigBinError2;
+	 }
+	 continue;
+       }
+
+       if (_systematics.at(isyst)=="Metfastsim")  {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   errSignUp [kproce][ibin] += TMath::Power(dummy0->GetBinContent(ibin)-yieldSign[kproce][ibin], 2);
+	   errSignDo [kproce][ibin] += TMath::Power(dummy0->GetBinContent(ibin)-yieldSign[kproce][ibin], 2);
+	 }
+	 continue;
+       }
+
+       TString FileUpName, FileDoName;
+       if (_minitreebased) { // This is for ttdm
+	 if (isyst%2 != 0) continue; //Only takes the first one systematic_up(down).root as reference
+	 FileUpName = _inputdir + "/" + _signalfilename.at(kproce) + _systematics.at(isyst)   + ".root";
+	 FileDoName = _inputdir + "/" + _signalfilename.at(kproce) + _systematics.at(isyst+1) + ".root";
+       } else {
+	 FileUpName = _inputdir + "/../../" + _systematics.at(isyst) + "up/" + _analysis + "/" + _signalfilename.at(kproce) + ".root";
+	 FileDoName = _inputdir + "/../../" + _systematics.at(isyst) + "do/" + _analysis + "/" + _signalfilename.at(kproce) + ".root";
+	 }
+       TFile* myfile1 = TFile::Open(FileUpName);
+       TFile* myfile2 = TFile::Open(FileDoName);
+       
+       TH1D* dummy1 = (TH1D*)myfile1->Get( hname );//up
+       TH1D* dummy4 = (TH1D*)myfile1->Get( hnamegen );//up
+       TH1D* dummy2 = (TH1D*)myfile2->Get( hname );//down 
+       TH1D* dummy5 = (TH1D*)myfile2->Get( hnamegen );//down      
+       
+       if (_luminosity_fb > 0) {
+	 dummy1->Scale(_luminosity_fb);
+	 if (_doMetFastSim) dummy4->Scale(_luminosity_fb);
+	 dummy2->Scale(_luminosity_fb);
+	 if (_doMetFastSim) dummy5->Scale(_luminosity_fb);
+       }
+		       
+       // Loop over all bins (Underflow is not included)
+       //--------------------------------------------------------------------  
+       for (int ibin=1; ibin<=nbins; ibin++) {
+       
+	 if (dummy1->GetBinContent(ibin)<0.) dummy1->SetBinContent(ibin, 0.001);
+	 if (dummy2->GetBinContent(ibin)<0.) dummy2->SetBinContent(ibin, 0.001);
+	 if (dummy4->GetBinContent(ibin)<0.) dummy4->SetBinContent(ibin, 0.001);
+	 if (dummy5->GetBinContent(ibin)<0.) dummy5->SetBinContent(ibin, 0.001);
+	 float ErrUp = 0., ErrDo = 0.;
+	 float VarUp, VarDo;
+	 if (!_doMetFastSim) {
+	   VarUp = dummy1->GetBinContent(ibin) - yieldSign[kproce][ibin];
+	   VarDo = dummy2->GetBinContent(ibin) - yieldSign[kproce][ibin]; 
+	 } else {
+	   VarUp = (dummy1->GetBinContent(ibin)+dummy4->GetBinContent(ibin))/2. - yieldSign[kproce][ibin];
+	   VarDo = (dummy2->GetBinContent(ibin)+dummy5->GetBinContent(ibin))/2. - yieldSign[kproce][ibin]; 
+	 }
+	 if (VarDo<=0. && VarUp>=0.) {
+	   ErrUp = VarUp;
+	   ErrDo = VarDo;
+	 } else if (VarDo>=0. && VarUp<=0.) {
+	   ErrUp = VarDo;
+	   ErrDo = VarUp;
+	 } else if (VarDo>0.) {
+	   ErrUp = (VarUp>VarDo) ? VarUp : VarDo;
+	 } else if (VarDo<0.) {
+	   ErrDo = (VarUp<VarDo) ? VarUp : VarDo;
+	 }
+         errSignUp [kproce][ibin] += TMath::Power(ErrUp, 2);
+         errSignDo [kproce][ibin] += TMath::Power(ErrDo, 2);
+	 
+       }
+     
+       myfile1->Close();
+       myfile2->Close();
+     
+     }
+     
+     myfile0->Close();
+
+   }
+
+   // Create the TGraphAsymmErrors
+   // ------------------------------
+   float x       [nbins+1];
+   float y       [nbins+1];
+   float exl     [nbins+1];
+   float eyl     [nbins+1];
+   float exh     [nbins+1];
+   float eyh     [nbins+1];
+   float errStat [nbins+1];
+   float errLumi [nbins+1];
+   float errTrig [nbins+1];
+
+   if (_verbose) printf( "--------------------- Printing Errors ----------------------------\n" ); 
+   
+   for (int  ibin=1; ibin<=nbins; ibin++)
+     {
+       errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
+       x       [ibin] = _allmchist ->GetXaxis()->GetBinCenter(ibin);
+       y       [ibin] = _allmchist ->GetBinContent(ibin);
+       errLumi [ibin] =  y[ibin] * lumi_error_percent/1e2;
+       errTrig [ibin] =  y[ibin] * 2./1e2;
+       exl     [ibin] = (_allmchist -> GetXaxis() -> GetBinWidth(ibin))/2;
+       exh     [ibin] = exl[ibin];
+   
+       if (_verbose) {
+	 //Print Stat and flat errors per bin
+	 printf( "bin number = %i\n", ibin );  
+	 printf( "                                                              \n");  
+	 printf( "--------------------- Flat errors ----------------------------\n" ); 
+	 printf( "---------------------------------------------------------\n");  
+	 printf( "                                                              \n");  
+	 printf( "errStat = %f\n", errStat [ibin] ); 
+	 printf( "errLumi = %f\n", errLumi [ibin] );
+	 printf( "errTrig = %f\n", errTrig [ibin] );
+	 printf( "rel_errStat = %f %\n", errStat [ibin] / y [ibin] ); 
+	 printf( "rel_errLumi = %f %\n", errLumi [ibin] / y [ibin]);
+	 printf( "rel_errTrig = %f %\n", errTrig [ibin] / y [ibin]);
+	 printf( "                                                              \n");  
+	 printf( "--------------------------------------------------------\n" ); 
+       }
+ 
+       float systUp2  = 0;
+       float systDo2  = 0;
+       float systSym2 = 0;
+
+       bool AddLuminosity = false, AddTrigger = false;
+
+       for (int isyst =0; isyst< nsystematics; isyst++)
+         {
+         
+	   if (_systematics.at(isyst).Data()=="Luminosity") {
+	     AddLuminosity = true;
+	     continue;
+	   } else if (_systematics.at(isyst).Data()=="Trigger") {
+	     AddTrigger = true;
+	     continue;
+	   }
+	   
+	   if (_verbose)
+	     if ( errSystUp [isyst][ibin] * errSystDo [isyst][ibin] > 0 ) 
+	       {
+		 printf( "WARNING! errSystUp and errSystDo have the same sign!\n") ; 
+		 printf( "The systematic is %s, the bin is %i \n\n", _systematics.at(isyst).Data(), ibin);         
+		 printf( "errSystUp = %f\n errSystDo = %f\n", errSystUp [isyst][ibin], errSystDo [isyst][ibin]); 
+	       }
+	   
+	   // Assymetric errors
+	   if ( errSystUp [isyst][ibin] < 0 && errSystDo [isyst][ibin] > 0 )
+	     {
+	       float midErrUp = errSystUp[isyst][ibin]; 
+	       float midErrDo = errSystDo[isyst][ibin]; 
+	       errSystUp [isyst][ibin] = midErrDo; 
+	       errSystDo [isyst][ibin] = midErrUp;
+	     }
+	   
+	   systUp2  += errSystUp [isyst][ibin] * errSystUp [isyst][ibin];    
+	   systDo2  += errSystDo [isyst][ibin] * errSystDo [isyst][ibin];
+	   // Symmetric errors
+	   //systSym2 += sqrt( (errSystUp [isyst][ibin] + errSystDo [isyst][ibin]) * (errSystUp [isyst][ibin] + errSystDo [isyst][ibin]) )  / 2 ;   
+          
+	   if (_verbose) {
+	     // Print Systematic Total Errors (sum over all processe---s)          
+	     printf( "                                                        \n");  
+	     printf( "----  %s  Systematic Total Error\n", _systematics.at(isyst).Data());  
+	     //          printf( "systematic name %s \n", _systematics.at(isyst).Data() ); 
+	     printf( "                                                        \n");  
+	     printf( "ErrsystUp  = %.5f\n", errSystUp [isyst][ibin] );           
+	     printf( "ErrsystDo  = %.5f\n", errSystDo [isyst][ibin] );
+	     printf( "rel_ErrsystUp  = %.5f  %\n", errSystUp [isyst][ibin] / y [ibin] );
+	     printf( "rel_ErrsystDo  = %.5f  %\n", errSystDo [isyst][ibin] / y [ibin] );       
+	     printf( "ErrsystSym = %.5f\n", fabs(errSystUp [isyst][ibin])/2 + fabs(errSystDo [isyst][ibin])/2 );
+	     printf( "----------------------------------------------------------\n");  
+	     printf( "                                                        \n");  
+	   }
+	   
+         }
+       
+       if (!AddLuminosity) errLumi[ibin] = 0.;
+       if (!AddTrigger) errTrig[ibin] = 0.;
+       eyl [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
+       eyh [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
+        
+       if (_verbose) {
+	 //Print Total Error per bin    
+	 printf( "----------------------- Total Error -------------------\n"); 
+	 printf( "err_up   = %.5f\n", eyh [ibin] );   
+	 printf( "err_down = %.5f\n", eyl [ibin] );   
+	 printf( "rel_err_down = %.5f %\n", eyl [ibin] / y [ibin] );   
+	 printf( "rel_err_up   = %.5f %\n", eyh [ibin] / y [ibin]);   
+	 printf( "----------------------------------------------------------\n");  
+	  printf( "                                                        \n");  
+       }
+       
+     }
+
+   x[0] = -999.;
+   _ErrorGr = new TGraphAsymmErrors(nbins+1,x,y,exl,exh,eyl,eyh);
+   
+   _ErrorGr->SetMarkerColor(kGray+1);
+   _ErrorGr->SetMarkerSize (      0);
+   _ErrorGr->SetLineColor  (kGray+1);
+   _ErrorGr->SetFillColor  (kGray+1);
+   _ErrorGr->SetFillStyle  (   3345);
+   
+   if (_verbose) {
+     _ErrorGr->Print();
+     for (int ff = 1; ff<=nbins; ff++)
+       cout << "ErrorY[" << ff << "] = " << _ErrorGr->GetErrorY(ff) << endl;
+   }
+
+   if (_dotable && hname.Contains("h_MT2ll")) {
+     
+     TString TableFlag = hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
+     std::ofstream inFile("./Tables/Yields" + TableFlag + ".tex",std::ios::out);
+     // Process | nbins = 7;    
+
+     //inFile << "\\begin{table}[htb]" << endl;
+     inFile << "\\tiny" << endl;
+     inFile << "\\begin{center}" << endl;
+     inFile << "\\begin{tabular}{|l|ccccccc|}" << endl;
+     inFile << "\\hline" << endl;
+     //Yield & stat_error & systematic_error & total_error" << endl;
+     inFile << "\\hline" << endl;
+     inFile << "$M_{T2}(ll})$ bin &";
+     for (int ibin=1; ibin<nbins; ibin++) 
+       inFile <<  (ibin-1)*20 <<"-"<< ibin*20 << "~\\GeV & ";
+     inFile << "\\ge " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
+     inFile << "\\hline" << endl;
+     for (int kproce=0; kproce<nprocess; kproce++) {       
+       TString ThisLabel = _mclabel[kproce].Data();
+       ThisLabel.ReplaceAll("#", "\\");
+       inFile << "$" << ThisLabel << "$";  
+       //inFile << _mclabel[kproce].Data();     
+       for (int ibin=1; ibin<=nbins; ibin++) {
+	 float ThisYield = yieldTab[kproce][ibin];
+	 float ThisError = (sqrt(errBackTab_up[kproce][ibin])+sqrt(errBackTab_do[kproce][ibin]))/2.;
+	 FormatTableYields(&ThisYield, &ThisError);
+	 inFile << " & $" << ThisYield <<  " \\pm " << ThisError << "$";
+       }
+       inFile << " \\\\" << endl;
+     }
+     inFile << "\\hline" << endl;
+     inFile << "SM Processes ";
+     for (int ibin=1; ibin<=nbins; ibin++) {
+       float ThisYield = y[ibin];
+       float ThisError = _ErrorGr->GetErrorY(ibin);
+       FormatTableYields(&ThisYield, &ThisError);
+       inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
+     }
+     inFile << " \\\\" << endl;
+     inFile << " \\hline" << endl;
+     inFile << " Data ";
+     for (int ibin=1; ibin<=nbins; ibin++)
+       if (_datahist)
+	 inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
+       else
+	 inFile << " & $" << "blind" << "$";
+     inFile << " \\\\" << endl;
+     inFile << " \\hline" << endl;
+     for (int kproce=0; kproce<nsignals; kproce++) {
+       TString ThisLabel = _signallabel[kproce].Data();
+       ThisLabel.ReplaceAll("m_{#tilde{t}}=", "");
+       ThisLabel.ReplaceAll("m_{#tilde{#chi}^{0}_{1}}=", "");   
+       ThisLabel.ReplaceAll("#", "\\");
+       inFile << "$" << ThisLabel << "$";  
+       for (int ibin=1; ibin<=nbins; ibin++) {	
+	 float ThisYield = yieldSign[kproce][ibin];
+	 float ThisError = (sqrt(errSignUp[kproce][ibin])+sqrt(errSignDo[kproce][ibin]))/2.;
+	 FormatTableYields(&ThisYield, &ThisError);
+	 inFile << " & $" << ThisYield <<  " \\pm " << ThisError << "$";
+       }
+       inFile << " \\\\" << endl;
+     }
+     inFile << " \\hline\\hline" << endl;
+     inFile << "\\end{tabular}" << endl;
+     inFile << "\\end{center}" << endl;
+     //inFile << "\\end{table}" << endl;
+     
+     inFile.close();
+    }
+      
+   
 }
