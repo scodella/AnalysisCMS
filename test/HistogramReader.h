@@ -136,7 +136,9 @@ class HistogramReader
 
   void     SetPublicStyle     (Bool_t         publicstyle) {_publicstyle = publicstyle;}
 
-  void     SetLuminosity      (Float_t        lumi) {_luminosity_fb = lumi;}
+  void     SetLuminosity      (Float_t        lumi,
+			       Bool_t         postfitplots = false) { _lumilegend_fb = lumi; 
+                                                                      _luminosity_fb = postfitplots ? 1 : lumi;}
 
   void     SetStackOption     (TString        option) {_stackoption = option;}
 
@@ -179,6 +181,9 @@ class HistogramReader
 
   void 	   IncludeSystematics (TString        hname);
 
+  TH1D*    GetHistogram       (TFile*         file,
+			       TString        HistogramName);    
+
 
  private :
 
@@ -197,6 +202,7 @@ class HistogramReader
   Bool_t 		_SymBinErr; 
 
   Float_t               _luminosity_fb;
+  Float_t               _lumilegend_fb;
   TString               _inputdir;
   TString               _outputdir;
   TString               _stackoption;

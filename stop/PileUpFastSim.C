@@ -22,8 +22,8 @@
 
 #include "../include/CutsStop.h"
 
-TString RootFilesDirectory = "../minitrees/rootfiles3R/";
-TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList_TChiSlepExt.txt";
+TString RootFilesDirectory = "../minitrees/rootfiles2R/";
+TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList_TChiPlot.txt";
 
 float FractionNvtxUp = 0.293, FractionNvtxDo = 0.707;
 float AverageNvtxUp  = 23.52, AverageNvtxDo  = 13.41;

@@ -13,6 +13,7 @@ HistogramReader::HistogramReader(const TString& inputdir,
   _stackoption     ("nostack,hist"),
   _title           ("inclusive"),
   _luminosity_fb   (-1),
+  _lumilegend_fb   (-1),
   _datanorm        (false),
   _drawratio       (false),
   _drawsignificance(false),
@@ -234,7 +235,7 @@ void HistogramReader::Draw(TString hname,
 
     _mcfile[i]->cd();
 
-    TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
+    TH1D* dummy = GetHistogram(_mcfile[i], hname);//(TH1D*)_mcfile[i]->Get(hname);
 
     _mchist.push_back((TH1D*)dummy->Clone());
 
@@ -258,7 +259,7 @@ void HistogramReader::Draw(TString hname,
 
     _signalfile[i]->cd();
 
-    TH1D* dummy = (TH1D*)_signalfile[i]->Get(hname);
+    TH1D* dummy = GetHistogram(_signalfile[i], hname);//(TH1D*)_signalfile[i]->Get(hname);
     
     if (hname.Contains("_SR") && (hname.Contains("h_MT2ll_") || hname.Contains("h_MT2llisr_"))) {
       for (int isyst=0; isyst<_systematics.size(); isyst++) {
@@ -270,7 +271,7 @@ void HistogramReader::Draw(TString hname,
 	  hnamegen.ReplaceAll("_SR3", "_SR3gen");
 	  hnamegen.ReplaceAll("h_MT2ll_", "h_MT2llgen_");
 	  hnamegen.ReplaceAll("h_MT2llisr_", "h_MT2llisrgen_");
-	  TH1D* dummygen = (TH1D*)_signalfile[i]->Get(hnamegen);
+	  TH1D* dummygen = GetHistogram(_signalfile[i], hnamegen);//(TH1D*)_signalfile[i]->Get(hnamegen);
 	  dummy->Add(dummygen); // that's not good if errors are needed
 	  dummy->Scale(0.5);
 	  
@@ -296,7 +297,7 @@ void HistogramReader::Draw(TString hname,
     {
       _datafile->cd();
 
-      TH1D* dummy = (TH1D*)_datafile->Get(hname);
+      TH1D* dummy = GetHistogram(_datafile, hname);//(TH1D*)_datafile->Get(hname);
 
       _datahist = (TH1D*)dummy->Clone();
       
@@ -417,7 +418,7 @@ void HistogramReader::Draw(TString hname,
   Float_t theMin = 0.0;
 
   Float_t theMax = (_datahist) ? GetMaximum(_datahist, xmin, xmax) : 0.0;
-
+  
   Float_t theMaxMC = GetMaximum(_allmchist, xmin, xmax);
 
   if (_stackoption.Contains("nostack"))
@@ -429,7 +430,7 @@ void HistogramReader::Draw(TString hname,
 	  if (mchist_i_max > theMaxMC) theMaxMC = mchist_i_max;
 	}
     }
-
+  
   if (theMaxMC > theMax) theMax = theMaxMC;
 
   Float_t theMaxSignal = 0.0;
@@ -445,7 +446,7 @@ void HistogramReader::Draw(TString hname,
     }
 
   if (theMaxSignal > theMax) theMax = theMaxSignal;
-
+  
   if (pad1->GetLogy())
     {
       theMin = 1e-2; // 1e-5
@@ -454,7 +455,7 @@ void HistogramReader::Draw(TString hname,
   else if (!_stackoption.Contains("nostack"))
     {
       theMax *= 1.7;
-    }
+    } else theMax = 0.8;
 
   hfirst->SetMinimum(theMin);
   hfirst->SetMaximum(theMax);
@@ -467,7 +468,7 @@ void HistogramReader::Draw(TString hname,
   //----------------------------------------------------------------------------
   Float_t x0     = 0.220;                         // x position of the data on the top left
   Float_t y0     = 0.843;                         // y position of the data on the top left
-  Float_t xdelta = (_drawyield) ? 0.228 : 0.170;  // x width between columns
+  Float_t xdelta = (_drawyield) ? 0.228 : 0.228;//0.170;  // x width between columns
   Float_t ydelta = 0.050;                         // y width between rows
   Int_t   nx     = 0;                             // column number
   Int_t   ny     = 0;                             // row    number
@@ -540,7 +541,7 @@ void HistogramReader::Draw(TString hname,
     }
 
   if (_luminosity_fb > 0)
-    DrawLatex(42, 0.940, 0.945, 0.050, 31, Form("%.3f fb^{-1} (13TeV)", _luminosity_fb));
+    DrawLatex(42, 0.940, 0.945, 0.050, 31, Form("%.3f fb^{-1} (13TeV)", _lumilegend_fb));
   else
     DrawLatex(42, 0.940, 0.945, 0.050, 31, "(13TeV)");
 
@@ -563,6 +564,10 @@ void HistogramReader::Draw(TString hname,
       TH1D* ratio = _datahist ? (TH1D*)_datahist->Clone("ratio") : (TH1D*)_allmchist->Clone("ratio");
       TH1D* uncertainty = (TH1D*)_allmchist->Clone("uncertainty");
        
+      float mcrenormalization = 1.;
+      if (_datahist && (hname.Contains("h_njet20") || hname.Contains("h_njet30"))) 
+	mcrenormalization = _datahist->Integral(0, ratio->GetNbinsX()+1)/_allmchist->Integral(0, ratio->GetNbinsX()+1);
+
       for (Int_t ibin=1; ibin<=ratio->GetNbinsX(); ibin++) {
 	
 	Float_t dtValue = _datahist ? _datahist->GetBinContent(ibin) : -999.;
@@ -577,7 +582,7 @@ void HistogramReader::Draw(TString hname,
 
 	if (mcValue > 0)
 	  {
-	    ratioVal         = dtValue / mcValue;
+	    ratioVal         = dtValue / mcValue / mcrenormalization;
 	    ratioErr         = dtError / mcValue;
 	    uncertaintyError = _datahist ? ratioVal * mcError / mcValue : mcError / mcValue;
 	  }
@@ -833,7 +838,12 @@ Float_t HistogramReader::GetMaximum(TH1*    hist,
 
     Float_t binHeight = hist->GetBinContent(i);
 
-    if (binError) binHeight += hist->GetBinError(i);
+    if (binError) {
+      if (_systematics.size()>0) 
+	binHeight += _ErrorGr->GetErrorY(i);
+      else
+	binHeight += hist->GetBinError(i);
+    }
 
     if (binHeight > hmax) hmax = binHeight;
   }
@@ -954,7 +964,7 @@ void HistogramReader::SetAxis(TH1*    hist,
   
   TAxis* xaxis = (TAxis*)hist->GetXaxis();
   TAxis* yaxis = (TAxis*)hist->GetYaxis();
-
+  
   xaxis->SetTitleOffset(xoffset);
   yaxis->SetTitleOffset(yoffset);
 
@@ -971,6 +981,17 @@ void HistogramReader::SetAxis(TH1*    hist,
   gPad->GetFrame()->DrawClone();
   gPad->RedrawAxis();
 }
+
+//------------------------------------------------------------------------------
+// SetLuminosity
+//------------------------------------------------------------------------------
+//void HistogramReader::SetLuminosity(Float_t lumi,
+//				    Bool_t  postfitplots)
+//{
+//  _lumilegend_fb = lumi;
+//  _luminosity = postfitplots ? 1. : lumi;
+//}
+
 
 
 //------------------------------------------------------------------------------
@@ -1057,7 +1078,7 @@ void HistogramReader::EventsByCut(TFile*  file,
 				  TString hname)
 {
   // Check if the evolution histogram already exists
-  TH1D* test_hist = (TH1D*)file->Get(analysis + "/" + hname + "_evolution");
+  TH1D* test_hist = GetHistogram(file, analysis + "/" + hname + "_evolution");//(TH1D*)file->Get(analysis + "/" + hname + "_evolution");
 
   if (test_hist) return;
 
@@ -1082,7 +1103,7 @@ void HistogramReader::EventsByCut(TFile*  file,
     {
       if (!scut[i].Contains(analysis + "/")) continue;
 
-      TH1D* dummy = (TH1D*)file->Get(scut[i] + "/" + hname);
+      TH1D* dummy = GetHistogram(file, scut[i] + "/" + hname);//(TH1D*)file->Get(scut[i] + "/" + hname);
 
       bin++;
 
@@ -1127,7 +1148,7 @@ void HistogramReader::EventsByChannel(TFile*  file,
 				      TString level)
 {
   // Check if the evolution histogram already exists
-  TH1D* test_hist = (TH1D*)file->Get(level + "/h_counterLum_evolution");
+  TH1D* test_hist = GetHistogram(file, level + "/h_counterLum_evolution");//(TH1D*)file->Get(level + "/h_counterLum_evolution");
 
   if (test_hist) return;
 
@@ -1148,7 +1169,7 @@ void HistogramReader::EventsByChannel(TFile*  file,
 
   for (Int_t i=firstchannel, bin=0; i<=lastchannel; i++)
     {
-      TH1D* dummy = (TH1D*)file->Get(level + "/h_counterLum_" + schannel[i]);
+      TH1D* dummy = GetHistogram(file, level + "h_counterLum" + schannel[i]);//(TH1D*)file->Get(level + "/h_counterLum_" + schannel[i]);
 
       bin++;
 
@@ -1646,6 +1667,22 @@ void HistogramReader::Roc(TString hname,
   }
 }*/ 
 
+TH1D* HistogramReader::GetHistogram(TFile*  file, TString HistogramName) {
+
+  if (!HistogramName.Contains("_sf") || _inputdir.Contains("Postfit")) {
+    TH1D* ThisHisto = (TH1D*) file->Get(HistogramName);
+    return ThisHisto;
+  } else {
+    HistogramName.ReplaceAll("_sf", "_ee");
+    TH1D* ThisHisto1 = (TH1D*) file->Get(HistogramName);
+    HistogramName.ReplaceAll("_ee", "_mm");
+    TH1D* ThisHisto2 = (TH1D*) file->Get(HistogramName);
+    ThisHisto1->Add(ThisHisto2);
+    return ThisHisto1;
+  }
+
+}
+
 void FormatTableYields(float *YY, float *EY) {
 
   if (*EY>=10.) {
@@ -1677,6 +1714,7 @@ void HistogramReader::IncludeSystematics(TString hname)
   float errBackTab_do [nprocess][nbins+1]; 
   float errBackTab_up [nprocess][nbins+1];  
   bool FirstSystematic[nprocess];
+  bool _isPostfit = false;
   for (int k=0; k <nprocess; k++){
     FirstSystematic[k] = true;
     for (int j=1; j<=nbins; j++){ 
@@ -1721,20 +1759,29 @@ void HistogramReader::IncludeSystematics(TString hname)
      for (int kproce=0; kproce<nprocess; kproce++) 
        {
        if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Fake" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"    && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
-				   _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim")) continue;
+				   _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim" ||
+				   _systematics.at(isyst)=="Isrnjet")) continue;
        if (_systematics.at(isyst).Contains("MT2ll") && !hname.Contains("h_MT2ll")) continue;
        if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
        if (_systematics.at(isyst)=="MT2llWW" && _mcfilename.at(kproce)!="06_WW") continue;
        if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
        if (_systematics.at(isyst)=="ZMetSF" && _mcfilename.at(kproce)!="03_VZ" &&
 	   _mcfilename.at(kproce).Data()!="07_ZJets" && _mcfilename.at(kproce)!="07_ZJetsHT") continue;
+       if (_systematics.at(isyst)=="normWZ" && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
+       if (_systematics.at(isyst)=="normWW" && _mcfilename.at(kproce)!="06_WW") continue;
+       if (_systematics.at(isyst)=="normTtbar" && _mcfilename.at(kproce)!="04_TTTo2L2Nu") continue;
+       if (_systematics.at(isyst)=="normTW" && _mcfilename.at(kproce)!="05_ST") continue;
+       if (_systematics.at(isyst)=="normTTW" && _mcfilename.at(kproce)!="09_TTW") continue;
+       if (_systematics.at(isyst)=="normHWW" && _mcfilename.at(kproce)!="11_HWW") continue;
+       if (_systematics.at(isyst)=="normVVV" && _mcfilename.at(kproce)!="13_VVV") continue;
        
        TFile* myfile0 = myfile0 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + ".root", "read");;
        
-       TH1D* dummy0 = (TH1D*)myfile0->Get( hname );//nominal
+       TH1D* dummy0 = GetHistogram(myfile0, hname);//(TH1D*)myfile0->Get( hname );//nominal
        if (_luminosity_fb > 0 && _mcscale[kproce] > -999) dummy0->Scale(_luminosity_fb);		
        if (_mcscale[kproce] > 0) dummy0->Scale(_mcscale[kproce]);
 
@@ -1747,7 +1794,12 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 FirstSystematic[kproce] = false;
        }
 
-       if ( _systematics.at(isyst) == "Luminosity") {
+       if (_systematics.at(isyst) == "Postfit") {
+	 _isPostfit = true;
+	 continue; 
+       }
+
+       if (_systematics.at(isyst) == "Luminosity") {
 	 for (int ibin=1; ibin<=nbins; ibin++) {
 	   float LumiBinError = yieldTab[kproce][ibin]*lumi_error_percent/1e2;
 	   errBackTab_up [kproce][ibin] += LumiBinError*LumiBinError;
@@ -1759,7 +1811,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 continue;
        }
        
-       if ( _systematics.at(isyst) == "Trigger") {
+       if (_systematics.at(isyst) == "Trigger") {
 	 for (int ibin=1; ibin<=nbins; ibin++) {
 	   float TrigBinError = yieldTab[kproce][ibin]*2./1e2;
 	   errBackTab_up [kproce][ibin] += TrigBinError*TrigBinError;
@@ -1791,7 +1843,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZMetSF") { 
 	 if (_mcscale[kproce] > 0) {
 	   float errSF;
-	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.37;
+	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.36;
 	   else if (_systematics.at(isyst)=="ZMetSF") errSF = 0.14;
 	   for (int ibin=1; ibin<=nbins; ibin++) {
 	     float errNorm = dummy0->GetBinContent(ibin)/_mcscale[kproce]*errSF; 
@@ -1800,6 +1852,24 @@ void HistogramReader::IncludeSystematics(TString hname)
 	     errSystUp [isyst][ibin] += errNorm;
 	     errSystDo [isyst][ibin] += -errNorm;
 	   }
+	 }
+	 myfile0->Close();
+	 continue;
+       }
+
+       if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
+	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
+	   _systematics.at(isyst)=="normVVV") {
+	 float relErr = 0.5;
+	 if (_systematics.at(isyst)=="normWZ") relErr = 0.2;
+	 if (_systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
+	     _systematics.at(isyst)=="normTW") relErr = 0.1;
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float errNorm = dummy0->GetBinContent(ibin)*relErr; 
+	   errBackTab_up [kproce][ibin] += errNorm*errNorm;
+	   errBackTab_do [kproce][ibin] += errNorm*errNorm;
+	   errSystUp [isyst][ibin] += errNorm;
+	   errSystDo [isyst][ibin] += -errNorm;
 	 }
 	 myfile0->Close();
 	 continue;
@@ -1820,8 +1890,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   myfile2 = new TFile(_inputdir + "/../../" + _systematics.at(isyst) + "do/" + _analysis + "/" + _mcfilename.at(kproce)   + ".root", "read");//down
         }
 
-       TH1D* dummy1 = (TH1D*)myfile1->Get( hname );//up
-       TH1D* dummy2 = (TH1D*)myfile2->Get( hname );//down      
+       TH1D* dummy1 = GetHistogram(myfile1, hname);//(TH1D*)myfile1->Get( hname );//up
+       TH1D* dummy2 = GetHistogram(myfile2, hname);//(TH1D*)myfile2->Get( hname );//down      
 
        if (_luminosity_fb > 0 && _mcscale[kproce] > -999)
         {
@@ -1920,8 +1990,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 
      TFile* myfile0 = TFile::Open(_inputdir + "/" + _signalfilename.at(kproce) + ".root");
 
-     TH1D* dummy0 = (TH1D*)myfile0->Get( hname );
-     TH1D* dummy3 = (TH1D*)myfile0->Get( hnamegen );
+     TH1D* dummy0 = GetHistogram(myfile0, hname);   //(TH1D*)myfile0->Get( hname );
+     TH1D* dummy3 = GetHistogram(myfile0, hnamegen);//(TH1D*)myfile0->Get( hnamegen );
      if (_luminosity_fb > 0) {
        dummy0->Scale(_luminosity_fb); 
        if (_doMetFastSim) dummy3->Scale(_luminosity_fb); 
@@ -1943,13 +2013,17 @@ void HistogramReader::IncludeSystematics(TString hname)
 
      for (int isyst=0; isyst<nsystematics; isyst++) {
 
+       if (_systematics.at(isyst) == "Postfit") continue; 
        if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt") continue;
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Fake") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2") continue;
-       if ( _systematics.at(isyst).Contains("MT2ll")) continue;
-       if ( _systematics.at(isyst)=="ttZSF") continue;
-       if ( _systematics.at(isyst)=="ZMetSF") continue;
-      
+       if (_systematics.at(isyst).Contains("MT2ll")) continue;
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZMetSF") continue;
+       if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
+	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
+	   _systematics.at(isyst)=="normVVV") continue;
+
        if ( _systematics.at(isyst) == "Luminosity") {
 	 for (int ibin=1; ibin<=nbins; ibin++) {
 	   float LumiBinError2 = TMath::Power(yieldSign[kproce][ibin]*lumi_error_percent/1e2, 2);
@@ -1975,7 +2049,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 }
 	 continue;
        }
-
+       
        TString FileUpName, FileDoName;
        if (_minitreebased) { // This is for ttdm
 	 if (isyst%2 != 0) continue; //Only takes the first one systematic_up(down).root as reference
@@ -1988,10 +2062,10 @@ void HistogramReader::IncludeSystematics(TString hname)
        TFile* myfile1 = TFile::Open(FileUpName);
        TFile* myfile2 = TFile::Open(FileDoName);
        
-       TH1D* dummy1 = (TH1D*)myfile1->Get( hname );//up
-       TH1D* dummy4 = (TH1D*)myfile1->Get( hnamegen );//up
-       TH1D* dummy2 = (TH1D*)myfile2->Get( hname );//down 
-       TH1D* dummy5 = (TH1D*)myfile2->Get( hnamegen );//down      
+       TH1D* dummy1 = GetHistogram(myfile1, hname);   //(TH1D*)myfile1->Get( hname );//up
+       TH1D* dummy4 = GetHistogram(myfile1, hnamegen);//(TH1D*)myfile1->Get( hnamegen );//up
+       TH1D* dummy2 = GetHistogram(myfile2, hname);   //(TH1D*)myfile2->Get( hname );//down 
+       TH1D* dummy5 = GetHistogram(myfile2, hnamegen);//(TH1D*)myfile2->Get( hnamegen );//down      
        
        if (_luminosity_fb > 0) {
 	 dummy1->Scale(_luminosity_fb);
@@ -2003,7 +2077,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        // Loop over all bins (Underflow is not included)
        //--------------------------------------------------------------------  
        for (int ibin=1; ibin<=nbins; ibin++) {
-       
+
 	 if (dummy1->GetBinContent(ibin)<0.) dummy1->SetBinContent(ibin, 0.001);
 	 if (dummy2->GetBinContent(ibin)<0.) dummy2->SetBinContent(ibin, 0.001);
 	 if (dummy4->GetBinContent(ibin)<0.) dummy4->SetBinContent(ibin, 0.001);
@@ -2056,9 +2130,18 @@ void HistogramReader::IncludeSystematics(TString hname)
 
    if (_verbose) printf( "--------------------- Printing Errors ----------------------------\n" ); 
    
+   TH1D *dummySM;
+   if (_isPostfit) {
+     TFile *myfileSM = TFile::Open(_inputdir + "/99_TotalBackground.root");
+     dummySM = GetHistogram(myfileSM, hname);
+   }
+
    for (int  ibin=1; ibin<=nbins; ibin++)
      {
-       errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
+       if (!_isPostfit)
+	 errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
+       else 
+	 errStat [ibin] = dummySM->GetBinError(ibin);
        x       [ibin] = _allmchist ->GetXaxis()->GetBinCenter(ibin);
        y       [ibin] = _allmchist ->GetBinContent(ibin);
        errLumi [ibin] =  y[ibin] * lumi_error_percent/1e2;
@@ -2097,6 +2180,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	     continue;
 	   } else if (_systematics.at(isyst).Data()=="Trigger") {
 	     AddTrigger = true;
+	     continue;
+	   } else if (_systematics.at(isyst).Data()=="Postfit") {
 	     continue;
 	   }
 	   
@@ -2241,7 +2326,6 @@ void HistogramReader::IncludeSystematics(TString hname)
      //inFile << "\\end{table}" << endl;
      
      inFile.close();
-    }
-      
+   }
    
 }

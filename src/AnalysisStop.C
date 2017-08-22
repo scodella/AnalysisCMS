@@ -200,7 +200,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	  if (_systematic.Contains("VZ")) {
 	    FillLevelHistograms(Stop_00_VZ, _leadingPtCSVv2M<20.);
 	  } else if (_systematic.Contains("ttZ")) {
-	    FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>20.); 
+	    FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>20. && _njet>=2); 
 	    FillLevelHistograms(Stop_00_ttZ_2Tag, _trailingPtCSVv2M>20.); 
 	  }
 

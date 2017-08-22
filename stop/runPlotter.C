@@ -5,9 +5,11 @@
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
 const Bool_t dosystematics = true;
+const Bool_t postfitplots = true;
 
-//const TString inputdir  = "../rootfiles/ZpeakJetCR/";
-const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
+//const TString inputdir  = "../rootfiles/nominal/";
+//const TString inputdir  = "../minitrees/rootfiles2R/nominal/";
+const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsTestAddBkg/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfitasimov/";
 const TString outputdir = "figures/";
 
 const TString sl  = "#font[12]{l}";
@@ -70,12 +72,12 @@ void runPlotter(TString level,
     }
   else
     {
-      plotter.SetLuminosity(lumi);
+      plotter.SetLuminosity(lumi, postfitplots);
       plotter.SetDrawRatio (true);
     }
 
   float SF_ttZ = 1., SF_ZMet = 1.;
-  if (level.Contains("_SR")) { SF_ttZ = 1.56; SF_ZMet = 1.39; }
+  if (level.Contains("_SR") && !postfitplots) { SF_ttZ = 1.44; SF_ZMet = 1.39; }
 
   // Get the data
   //----------------------------------------------------------------------------
@@ -107,7 +109,7 @@ void runPlotter(TString level,
   //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=263)",6);
   //plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=250, m_{#tilde{#chi}^{0}_{1}}=125)",4);
   //plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
-  //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
+  plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
   //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,175)",kRed);
   //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,263)",kOrange);
   //plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,125)",kBlue);
@@ -116,11 +118,11 @@ void runPlotter(TString level,
   //plotter.AddSignal("TChiSlep_Xm500_Xm400",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (500,400)",  2);
   //plotter.AddSignal("TChiSlep_Xm300_Xm200",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (300,200)",  3);
   //plotter.AddSignal("TChiSlep_Xm100_Xm1",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (100,1)",  4);
-  plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{l}#tilde{#nu} (200,  1)", kRed);
-  plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{l}#tilde{#nu} (500,200)", kViolet);
-  plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{l}#tilde{#nu} (800,400)", kOrange);
-  plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
-  plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
+  //plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
+  //plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
+  //plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (800,400)", kOrange);
+  //plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
+  //plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
 
   // Draw events by cut
   //----------------------------------------------------------------------------
@@ -158,25 +160,37 @@ void runPlotter(TString level,
     }
 
   if (dosystematics) {
-    plotter.AddSystematic("Stop", "Luminosity");
-    plotter.AddSystematic("Stop", "Trigger");
-    plotter.AddSystematic("Stop", "MT2llTop");
-    plotter.AddSystematic("Stop", "MT2llWW");
-    plotter.AddSystematic("Stop", "ttZSF");
-    plotter.AddSystematic("Stop", "ZMetSF");
-    plotter.AddSystematic("Stop", "Fake");
-    plotter.AddSystematic("Stop", "Idiso");
-    plotter.AddSystematic("Stop", "JES");
-    plotter.AddSystematic("Stop", "MET");
-    plotter.AddSystematic("Stop", "PDF");
-    plotter.AddSystematic("Stop", "Q2");
-    plotter.AddSystematic("Stop", "Reco");
-    plotter.AddSystematic("Stop", "Toppt");
-    plotter.AddSystematic("Stop", "Metfastsim");
-    plotter.AddSystematic("Stop", "Pileup");
-    plotter.AddSystematic("Stop", "Fastsim");
-    plotter.AddSystematic("Stop", "BtagFS");
-    plotter.AddSystematic("Stop", "Btag");
+    if (postfitplots) {
+      plotter.AddSystematic("Stop", "Postfit");
+    } else {
+      plotter.AddSystematic("Stop", "Luminosity");
+      plotter.AddSystematic("Stop", "Trigger");
+      plotter.AddSystematic("Stop", "MT2llTop");
+      plotter.AddSystematic("Stop", "MT2llWW");
+      plotter.AddSystematic("Stop", "ttZSF");
+      plotter.AddSystematic("Stop", "ZMetSF");
+      plotter.AddSystematic("Stop", "Fake");
+      plotter.AddSystematic("Stop", "Idiso");
+      plotter.AddSystematic("Stop", "JES");
+      plotter.AddSystematic("Stop", "MET");
+      plotter.AddSystematic("Stop", "PDF");
+      plotter.AddSystematic("Stop", "Q2");
+      plotter.AddSystematic("Stop", "Reco");
+      plotter.AddSystematic("Stop", "Toppt");
+      plotter.AddSystematic("Stop", "Isrnjet");
+      plotter.AddSystematic("Stop", "Metfastsim");
+      plotter.AddSystematic("Stop", "Pileup");
+      plotter.AddSystematic("Stop", "Fastsim");
+      plotter.AddSystematic("Stop", "BtagFS");
+      plotter.AddSystematic("Stop", "Btag");
+      plotter.AddSystematic("Stop", "normWZ");
+      plotter.AddSystematic("Stop", "normWW");
+      plotter.AddSystematic("Stop", "normTtbar");
+      plotter.AddSystematic("Stop", "normTW");
+      plotter.AddSystematic("Stop", "normTTW");
+      plotter.AddSystematic("Stop", "normHWW");
+      plotter.AddSystematic("Stop", "normVVV");
+    }
   }
   
   // Draw distributions
@@ -197,13 +211,32 @@ void runPlotter(TString level,
 
       TString prefix = level + jetbin + "/h_";
 
-      for (int i=firstchannel; i<=lastchannel; i++)
+      for (int i=firstchannel; i<=lastchannel+1; i++)
 	{
-	  TString suffix = "_" + schannel[i];
-	  
+	  TString suffix = (i <= lastchannel) ? "_" + schannel[i] : "_sf";
+
 	  TString title = (i < lastchannel) ? lchannel[i] : "inclusive";
 
+	  if (suffix=="_sf") title = "ee+#mu#mu";
+
+	  if (postfitplots) {
+	    if (suffix=="_ee" || suffix=="_mm" || suffix=="_ll") continue;
+	  } 
+
 	  plotter.SetTitle(title);
+	  
+	  if (postfitplots) {
+	    if (!level.Contains("_SR3")) {
+	      plotter.Draw(prefix + "MT2ll_prefit"     + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2ll_fit_b"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2ll_fit_s"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    } else {
+	      plotter.Draw(prefix + "MT2llisr_prefit"     + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2llisr_fit_b"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2llisr_fit_s"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    }
+	    continue;
+	  }
 	  
 	  // Common histograms
 	  //--------------------------------------------------------------------
@@ -216,7 +249,7 @@ void runPlotter(TString level,
 	  plotter.Draw(prefix + "lep2phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
 	  plotter.Draw(prefix + "nvtx"           + suffix, "number of vertices",                -1, 0, "NULL", scale, true, 0,   30);*/
 	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	  //if (level.Contains("_SR3"))  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  if (level.Contains("_SR3"))  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
 	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
 	  //plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  scale, false, 0,  140);
@@ -231,7 +264,8 @@ void runPlotter(TString level,
 	    //plotter.Draw(prefix + "jet1pt"      + suffix, "jep1pt",                         10, 0, "GeV",  scale, true, 0, 200);
 	    //plotter.Draw(prefix + "m2l" + suffix, "m_{" + sll + "}", m2l_ngroup, 0, "GeV", logY, true, m2l_xmin, m2l_xmax);
 	    //plotter.Draw(prefix + "dphillmet"      + suffix, "#Delta#phi(" +sll + "," + sm + ")",  10, 2, "rad",  scale); 
-	    //plotter.Draw(prefix + "njet"           + suffix, "number of 20 GeV jets",             -1, 0, "NULL", scale);
+	    plotter.Draw(prefix + "njet"           + suffix, "number of 20 GeV jets",             -1, 0, "NULL", scale);
+	    plotter.Draw(prefix + "njet"           + suffix, "number of 20 GeV jets",             -1, 0, "NULL", linY);
 	    //plotter.Draw(prefix + "metPfType1"     + suffix, sm,                                  10, 0, "GeV",  scale, true, 0,  140);
 	    //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  scale, false, 80, 100);
 	    //plotter.Draw(prefix + "mt2ll"        + suffix, "M_{T2}(" + sll + ")",               10, 0, "GeV",  scale, false, 0, 400);
