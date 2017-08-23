@@ -184,7 +184,7 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "BtagFS");
       plotter.AddSystematic("Stop", "Btag");
       plotter.AddSystematic("Stop", "normWZ");
-      plotter.AddSystematic("Stop", "normWW");
+      ////plotter.AddSystematic("Stop", "normWW");
       plotter.AddSystematic("Stop", "normTtbar");
       plotter.AddSystematic("Stop", "normTW");
       plotter.AddSystematic("Stop", "normTTW");
