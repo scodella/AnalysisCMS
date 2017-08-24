@@ -14,6 +14,8 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
   } else {
     SetSaveMinitree(false);
     _SaveHistograms = 1;
+    if (systematic.Contains("JES") || systematic.Contains("MET"))
+      _SaveHistograms = 2;
   }
   _DoTheoreticalVariations = 0;
   if (systematic=="theory") { _DoTheoreticalVariations = 1; _SaveHistograms = -1; }
@@ -409,13 +411,15 @@ void AnalysisStop::BookAnalysisHistograms()
 
     for (int k=0; k<=njetbin; k++) {
 
+      if (_SaveHistograms>=2 && k<njetbin) continue; 
+
       TString sbin = (k < njetbin) ? Form("/%djet", k) : "";
 
       TString directory = scut[j] + sbin;
 
       root_output->cd();
 
-      if (k < njetbin) gDirectory->mkdir(directory);
+      if (_SaveHistograms>=2 || k<njetbin) gDirectory->mkdir(directory);
 
       root_output->cd(directory);
 
@@ -424,6 +428,24 @@ void AnalysisStop::BookAnalysisHistograms()
 	TString suffix = "_" + schannel[i];
 
 	if (_SaveHistograms==0) DefineHistograms(i, j, k, suffix);
+
+	h_MT2ll             [i][j][k] = new TH1F("h_MT2ll"              + suffix, "",    7,    0,  140);
+	h_MT2llgen          [i][j][k] = new TH1F("h_MT2llgen"           + suffix, "",    7,    0,  140);
+	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
+	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
+
+	if (_SaveHistograms>=2 && _systematic!="nominal") continue;
+
+	h_MT2ll_nvtxup      [i][j][k] = new TH1F("h_MT2ll_nvtxup"       + suffix, "",    7,    0,  140);
+	h_MT2ll_nvtxdo      [i][j][k] = new TH1F("h_MT2ll_nvtxdo"       + suffix, "",    7,    0,  140);
+	h_MT2llgen_nvtxup   [i][j][k] = new TH1F("h_MT2llgen_nvtxup"    + suffix, "",    7,    0,  140);
+	h_MT2llgen_nvtxdo   [i][j][k] = new TH1F("h_MT2llgen_nvtxdo"    + suffix, "",    7,    0,  140);
+	h_MT2llisr_nvtxup   [i][j][k] = new TH1F("h_MT2llisr_nvtxup"    + suffix, "",    7,    0,  140);
+	h_MT2llisr_nvtxdo   [i][j][k] = new TH1F("h_MT2llisr_nvtxdo"    + suffix, "",    7,    0,  140);
+	h_MT2llisrgen_nvtxup[i][j][k] = new TH1F("h_MT2llisrgen_nvtxup" + suffix, "",    7,    0,  140);
+	h_MT2llisrgen_nvtxdo[i][j][k] = new TH1F("h_MT2llisrgen_nvtxdo" + suffix, "",    7,    0,  140);
+
+	if (_SaveHistograms>=2) continue; 
 
 	h_mt2lblbcomb       [i][j][k] = new TH1D("h_mt2lblbcomb"        + suffix, "", 3000,    0, 3000);
 	h_mt2bbtrue         [i][j][k] = new TH1D("h_mt2bbtrue"          + suffix, "", 3000,    0, 3000);
@@ -443,18 +465,6 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_dphiminlepmet     [i][j][k] = new TH1D("h_dphiminlepmet"      + suffix, "",  100,    0,  3.2);
 
 	h_metmeff           [i][j][k] = new TH1D("h_metmeff"            + suffix, "",  500,    0,    5);
-	h_MT2ll             [i][j][k] = new TH1F("h_MT2ll"              + suffix, "",    7,    0,  140);
-	h_MT2llgen          [i][j][k] = new TH1F("h_MT2llgen"           + suffix, "",    7,    0,  140);
-	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
-	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
-	h_MT2ll_nvtxup      [i][j][k] = new TH1F("h_MT2ll_nvtxup"       + suffix, "",    7,    0,  140);
-	h_MT2ll_nvtxdo      [i][j][k] = new TH1F("h_MT2ll_nvtxdo"       + suffix, "",    7,    0,  140);
-	h_MT2llgen_nvtxup   [i][j][k] = new TH1F("h_MT2llgen_nvtxup"    + suffix, "",    7,    0,  140);
-	h_MT2llgen_nvtxdo   [i][j][k] = new TH1F("h_MT2llgen_nvtxdo"    + suffix, "",    7,    0,  140);
-	h_MT2llisr_nvtxup   [i][j][k] = new TH1F("h_MT2llisr_nvtxup"    + suffix, "",    7,    0,  140);
-	h_MT2llisr_nvtxdo   [i][j][k] = new TH1F("h_MT2llisr_nvtxdo"    + suffix, "",    7,    0,  140);
-	h_MT2llisrgen_nvtxup[i][j][k] = new TH1F("h_MT2llisrgen_nvtxup" + suffix, "",    7,    0,  140);
-	h_MT2llisrgen_nvtxdo[i][j][k] = new TH1F("h_MT2llisrgen_nvtxdo" + suffix, "",    7,    0,  140);
 	h_MT2ll_fake        [i][j][k] = new TH1F("h_MT2ll_fake"         + suffix, "",    8,    0,  160);
 	h_MT2ll_truth       [i][j][k] = new TH1F("h_MT2ll_truth"        + suffix, "",    8,    0,  160);
 	h_MET_fake          [i][j][k] = new TH1F("h_MET_fake"           + suffix, "",  100,    0, 1000);
@@ -484,7 +494,7 @@ void AnalysisStop::BookSystematicHistograms()
   for (int is = 0; is<nsystematic; is++) {
  
     if (ssystematic[is]=="nominal" || !systematicfromweight[is]) continue;
-    if (ssystematic[is].Contains("isrnjet") && !_isfastsim) continue;
+    if (ssystematic[is].Contains("Isrnjet") && !_isfastsim) continue;
     
     TString prefix = (_isminitree) ? "minitrees/" : "";
     gSystem->mkdir(prefix + "rootfiles/" + ssystematic[is] + "/" + _analysis, kTRUE);
@@ -660,7 +670,39 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
 					  int ijet)
 {
   if (ichannel != ll) FillAnalysisHistograms(ll, icut, ijet);
+ 
+  if (_SaveHistograms>=2 && ijet<njetbin) return;
   
+  h_MT2ll            [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
+  h_MT2llgen         [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
+
+  if (_hasisrjet) {
+    h_MT2llisr         [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
+    h_MT2llisrgen      [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
+  }
+
+  if (_SaveHistograms>=2 && _systematic!="nominal") return;
+
+  if (nvtx>=20) {
+    h_MT2ll_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+    h_MT2llgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+  } else {
+    h_MT2ll_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+    h_MT2llgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+  }
+
+  if (_hasisrjet) {
+    if (nvtx>=20) {
+      h_MT2llisr_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+      h_MT2llisrgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+    } else {
+      h_MT2llisr_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+      h_MT2llisrgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+    }
+  }
+
+  if (_SaveHistograms>=2) return; 
+
   h_mt2lblbcomb      [ichannel][icut][ijet]->Fill(_mt2lblbcomb,    _event_weight);
   h_mt2bbtrue        [ichannel][icut][ijet]->Fill(_mt2bbtrue,      _event_weight);
   h_mt2lblbtrue      [ichannel][icut][ijet]->Fill(_mt2lblbtrue,    _event_weight);
@@ -679,28 +721,6 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
   h_dphiminlepmet    [ichannel][icut][ijet]->Fill(_dphiminlmet,    _event_weight);
   h_metmeff          [ichannel][icut][ijet]->Fill(_metmeff,        _event_weight);
-  h_MT2ll            [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
-  h_MT2llgen         [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
-
-  if (nvtx>=20) {
-    h_MT2ll_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-    h_MT2llgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-  } else {
-    h_MT2ll_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-    h_MT2llgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-  }
-
-  if (_hasisrjet) {
-    h_MT2llisr         [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
-    h_MT2llisrgen      [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
-    if (nvtx>=20) {
-      h_MT2llisr_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-      h_MT2llisrgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-    } else {
-      h_MT2llisr_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-      h_MT2llisrgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-    }
-  }
 
   if (_nLeptonsMatched==2) {
     h_MT2ll_truth    [ichannel][icut][ijet]->Fill(_MT2llfake,      _event_weight);
@@ -730,7 +750,7 @@ void AnalysisStop::FillSystematicHistograms(int ichannel,
   for (int is = 0; is<nsystematic; is++) {
   
     if (ssystematic[is]=="nominal" || !systematicfromweight[is]) continue;
-    if (ssystematic[is].Contains("isrnjet") && !_isfastsim) continue;
+    if (ssystematic[is].Contains("Isrnjet") && !_isfastsim) continue;
     
     root_output_systematic[is]->cd();
 
@@ -820,7 +840,7 @@ void AnalysisStop::SaveSystematicHistograms()
   for (int is = 0; is<nsystematic; is++) {
   
     if (ssystematic[is]=="nominal" || !systematicfromweight[is]) continue;
-    if (ssystematic[is].Contains("isrnjet") && !_isfastsim) continue;
+    if (ssystematic[is].Contains("Isrnjet") && !_isfastsim) continue;
 
     root_output_systematic[is]->cd();
     root_output_systematic[is]->Write("", TObject::kOverwrite);
