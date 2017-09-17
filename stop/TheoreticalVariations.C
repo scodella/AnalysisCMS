@@ -28,11 +28,14 @@ void TheoreticalVariations() {
  int const nUncertainties = 2;
  TString UncertaintyName[nUncertainties] = {"Q2", "PDF"};
  
- int const nProcesses = 11;
+ /*int const nProcesses = 11;
  TString ProcessName[nProcesses] = {"02_WZTo3LNu", "03_VZ",  "04_TTTo2L2Nu",
 				    "05_ST",       "06_WW",  "07_ZJets",
 				    "07_ZJetsHT",  "09_TTW", "10_TTZ",
 				    "11_HWW",      "13_VVV"};
+ */
+ int const nProcesses = 1;
+ TString ProcessName[nProcesses] = {"07_ZJetsHT_DYcorr"};
 
  int const nObservables = 4;
  TString ObservableName[nObservables] = {"MT2ll", "MT2llgen", "MT2llisr", "MT2llisrgen"};
@@ -59,8 +62,9 @@ void TheoreticalVariations() {
 
        for (int sr = 0; sr<ncut; sr++) {
 
-	 //if (!scut[sr].Contains("SR") && !scut[sr].Contains("Zveto")) continue;
+	 if (!scut[sr].Contains("SR") && !scut[sr].Contains("Zveto")) continue;
 	 if (!scut[sr].Contains("SR")) continue;
+	 if (scut[sr].Contains("ZZ")) continue;
 
 	 //cout << ProcessName[pr] << " " << UncertaintyName[un] << " " << scut[sr] << endl;
 

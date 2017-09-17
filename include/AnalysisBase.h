@@ -195,7 +195,8 @@ public :
    //   Float_t         redmet;   
    UInt_t          run;
    UInt_t          lumi;
-   UInt_t          event;
+   //UInt_t          event;
+   Int_t          event;
    //   Float_t         softbjpb;
    //   Float_t         softcmvav2;
    //   Float_t         softcsvv2ivf;

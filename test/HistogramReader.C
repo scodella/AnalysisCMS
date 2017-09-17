@@ -548,6 +548,27 @@ void HistogramReader::Draw(TString hname,
   SetAxis(hfirst, xtitle, ytitle, 1.5, 1.8);
 
 
+      
+  if (hname.Contains("h_dphiLL_llaa")) {
+    TFile *OUT = new TFile("DYFit.root","recreate");
+    OUT->cd();
+    _datahist->SetName("data");
+    _datahist->Write();
+    _allmchist->SetName("MC");
+    _allmchist->Write(); 
+    for (UInt_t i=0; i<_mcfile.size(); i++) {
+      if (_mcfilename[i].Contains("07")) {
+	_mcfile[i]->cd();
+	TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
+	dummy->Scale(_luminosity_fb);
+	dummy->SetName("DY");
+	OUT->cd();
+	dummy->Write();
+      }
+    }
+    OUT->Close();
+  }
+      
   //----------------------------------------------------------------------------
   // pad2
   //----------------------------------------------------------------------------
@@ -565,8 +586,8 @@ void HistogramReader::Draw(TString hname,
       TH1D* uncertainty = (TH1D*)_allmchist->Clone("uncertainty");
        
       float mcrenormalization = 1.;
-      if (_datahist && (hname.Contains("h_njet20") || hname.Contains("h_njet30"))) 
-	mcrenormalization = _datahist->Integral(0, ratio->GetNbinsX()+1)/_allmchist->Integral(0, ratio->GetNbinsX()+1);
+      //if (_datahist && (hname.Contains("h_njet20") || hname.Contains("h_njet30"))) 
+      //mcrenormalization = _datahist->Integral(0, ratio->GetNbinsX()+1)/_allmchist->Integral(0, ratio->GetNbinsX()+1);
 
       for (Int_t ibin=1; ibin<=ratio->GetNbinsX(); ibin++) {
 	
@@ -604,7 +625,7 @@ void HistogramReader::Draw(TString hname,
       uncertainty->Draw("e2,same");
       
       ratio->Draw("ep,same");
-
+ 
       SetAxis(ratio, xtitle, "data / MC", 1.4, 0.75);
     }
   else if (_drawsignificance)
@@ -1667,19 +1688,68 @@ void HistogramReader::Roc(TString hname,
   }
 }*/ 
 
-TH1D* HistogramReader::GetHistogram(TFile*  file, TString HistogramName) {
+TH1D* SumSRHistograms(TFile*  file, TString HistogramName) {
 
+  TH1D *SumHisto;
+  if ((!HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_"))) {
+     SumHisto = (TH1D*) file->Get(HistogramName);
+  } else if (HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_")) {
+    HistogramName.ReplaceAll("_Veto", "_NoTag");
+    SumHisto = (TH1D*) file->Get(HistogramName);
+    SumHisto->SetDirectory(0);
+    HistogramName.ReplaceAll("_NoTag", "_NoJet");
+    TH1D* SumHisto2 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto2);
+  } else if (!HistogramName.Contains("_Veto") && HistogramName.Contains("_SRs_")) {
+    HistogramName.ReplaceAll("_SRs", "_SR1");
+    SumHisto = (TH1D*) file->Get(HistogramName);
+    SumHisto->SetDirectory(0);
+    HistogramName.ReplaceAll("_SR1", "_SR2");
+    TH1D* SumHisto2 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto2);
+    HistogramName.ReplaceAll("_SR2", "_SR3");
+    TH1D* SumHisto3 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto3);
+  } else if (HistogramName.Contains("_Veto") && HistogramName.Contains("_SRs_")) {
+    HistogramName.ReplaceAll("_Veto", "_NoTag");
+    HistogramName.ReplaceAll("_SRs", "_SR1");
+    SumHisto = (TH1D*) file->Get(HistogramName);
+    SumHisto->SetDirectory(0);
+    HistogramName.ReplaceAll("_SR1", "_SR2");
+    TH1D* SumHisto2 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto2);
+    HistogramName.ReplaceAll("_SR2", "_SR3");
+    TH1D* SumHisto3 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto3);
+    HistogramName.ReplaceAll("_NoTag", "_NoJet");
+    HistogramName.ReplaceAll("_SR3", "_SR1");
+    TH1D* SumHisto4 = (TH1D*) file->Get(HistogramName);
+    if (!SumHisto4) return SumHisto;
+    SumHisto->Add(SumHisto4);
+    HistogramName.ReplaceAll("_SR1", "_SR2");
+    TH1D* SumHisto5 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto5);
+    HistogramName.ReplaceAll("_SR2", "_SR3");
+    TH1D* SumHisto6 = (TH1D*) file->Get(HistogramName);
+    SumHisto->Add(SumHisto6);
+  } 
+  return SumHisto;
+
+}
+
+TH1D* HistogramReader::GetHistogram(TFile*  file, TString HistogramName) {
+  
+  TH1D* ThisHisto;
   if (!HistogramName.Contains("_sf") || _inputdir.Contains("Postfit")) {
-    TH1D* ThisHisto = (TH1D*) file->Get(HistogramName);
-    return ThisHisto;
+    ThisHisto = SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
   } else {
     HistogramName.ReplaceAll("_sf", "_ee");
-    TH1D* ThisHisto1 = (TH1D*) file->Get(HistogramName);
+    ThisHisto =  SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
     HistogramName.ReplaceAll("_ee", "_mm");
-    TH1D* ThisHisto2 = (TH1D*) file->Get(HistogramName);
-    ThisHisto1->Add(ThisHisto2);
-    return ThisHisto1;
+    TH1D* ThisHisto2 =  SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
+    ThisHisto->Add(ThisHisto2);
   }
+  return ThisHisto;
 
 }
 
@@ -1696,13 +1766,15 @@ void FormatTableYields(float *YY, float *EY) {
     *YY = round((*YY)*100)/100.;
   } 
 
-  if (*YY<0.) *YY = *EY;
+  //if (*YY<0.) *YY = *EY;
 
 }
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
   bool _verbose = false, _dotable = true;
+
+  float StatZero = 1.84102;
 
   int nsystematics = _systematics.size(); 
   int nbins        = _mchist[0]->GetNbinsX();
@@ -1769,8 +1841,12 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
        if (_systematics.at(isyst)=="MT2llWW" && _mcfilename.at(kproce)!="06_WW") continue;
        if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
-       if (_systematics.at(isyst)=="ZMetSF" && _mcfilename.at(kproce)!="03_VZ" &&
-	   _mcfilename.at(kproce).Data()!="07_ZJets" && _mcfilename.at(kproce)!="07_ZJetsHT") continue;
+       if (_systematics.at(isyst)=="ZZSF" && _mcfilename.at(kproce)!="03_VZ") continue;
+       if (_systematics.at(isyst)=="DYSF" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
+       if (_systematics.at(isyst)=="ZZnojet" && _mcfilename.at(kproce)!="03_VZ") continue;
+       if (_systematics.at(isyst)=="DYnojet" && (!_mcfilename.at(kproce).Contains("07_ZJets") || !hname.Contains("NoJet"))) continue;
+       if (_systematics.at(isyst)=="DYshape" && (!_mcfilename.at(kproce).Contains("07_ZJets") || hname.Contains("NoJet"))) continue;
+       if (_systematics.at(isyst)=="ZMETjet" && !_mcfilename.at(kproce).Contains("07_ZJets") && _mcfilename.at(kproce)!="03_VZ") continue;
        if (_systematics.at(isyst)=="normWZ" && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
        if (_systematics.at(isyst)=="normWW" && _mcfilename.at(kproce)!="06_WW") continue;
        if (_systematics.at(isyst)=="normTtbar" && _mcfilename.at(kproce)!="04_TTTo2L2Nu") continue;
@@ -1788,15 +1864,39 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (FirstSystematic[kproce]) {
 	 for (int ibin = 1; ibin<=nbins; ibin++) {
 	   yieldTab     [kproce][ibin] = dummy0->GetBinContent(ibin); 
-	   errBackTab_up[kproce][ibin] = dummy0->GetSumw2()->At(ibin);
-	   errBackTab_do[kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+	   if ( dummy0->GetBinContent(ibin)<0.) yieldTab [kproce][ibin] = dummy0->GetBinError(ibin);
 	 }
 	 FirstSystematic[kproce] = false;
        }
 
        if (_systematics.at(isyst) == "Postfit") {
 	 _isPostfit = true;
+	 myfile0->Close();
 	 continue; 
+       }
+
+       if (_systematics.at(isyst) == "Statistics") {
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float StatUncert2 = dummy0->GetSumw2()->At(ibin);
+	   if (StatUncert2<0.0001) {
+	     bool ApplyZeroStat = true;
+	     if (_mcfilename.at(kproce).Contains("07_ZJets")) {
+	       ApplyZeroStat = false;
+	       if (ibin>1)
+		 if (fabs(dummy0->GetBinContent(ibin-1)>0.005)) ApplyZeroStat = true;
+	       if (ibin<nbins)
+		 if (fabs(dummy0->GetBinContent(ibin+1)>0.005)) ApplyZeroStat = true;
+	     }
+	     if (ApplyZeroStat) 
+	       StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	   }
+	   errBackTab_up[kproce][ibin] += StatUncert2;
+	   errBackTab_do[kproce][ibin] += StatUncert2;
+	   errSystUp [isyst][ibin] += StatUncert2;
+	   errSystDo [isyst][ibin] += StatUncert2;
+	 }
+	 myfile0->Close();
+	 continue;
        }
 
        if (_systematics.at(isyst) == "Luminosity") {
@@ -1840,13 +1940,21 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 continue;
        }
 
-       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZMetSF") { 
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZZSF" || 
+	   _systematics.at(isyst)=="DYSF" || _systematics.at(isyst)=="DYnojet") { 
 	 if (_mcscale[kproce] > 0) {
 	   float errSF;
 	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.36;
-	   else if (_systematics.at(isyst)=="ZMetSF") errSF = 0.14;
+	   else if (_systematics.at(isyst)=="ZZSF") {
+	     if (hname.Contains("NoJet")) errSF = 0.14;
+	     else if (hname.Contains("Veto")) errSF = 0.17;
+	     else errSF = 0.20;
+	   } else if (_systematics.at(isyst)=="DYSF") errSF = 0.64;
+	   else if (_systematics.at(isyst)=="DYnojet") errSF = 4.;
 	   for (int ibin=1; ibin<=nbins; ibin++) {
-	     float errNorm = dummy0->GetBinContent(ibin)/_mcscale[kproce]*errSF; 
+	     float relErr = errSF;
+	     if (_mcscale[kproce]>0.) relErr /= _mcscale[kproce];
+	     float errNorm = dummy0->GetBinContent(ibin)*relErr; 
 	     errBackTab_up [kproce][ibin] += errNorm*errNorm;
 	     errBackTab_do [kproce][ibin] += errNorm*errNorm;
 	     errSystUp [isyst][ibin] += errNorm;
@@ -1861,7 +1969,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
 	   _systematics.at(isyst)=="normVVV") {
 	 float relErr = 0.5;
-	 if (_systematics.at(isyst)=="normWZ") relErr = 0.2;
+	 if (_systematics.at(isyst)=="normWZ") relErr = 0.04;
 	 if (_systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	     _systematics.at(isyst)=="normTW") relErr = 0.1;
 	 for (int ibin=1; ibin<=nbins; ibin++) {
@@ -2002,12 +2110,8 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (dummy3->GetBinContent(ibin)<0.) dummy3->SetBinContent(ibin, 0.001);
        if (!_doMetFastSim) {
 	 yieldSign [kproce][ibin] = dummy0->GetBinContent(ibin);
-	 errSignUp [kproce][ibin] = dummy0->GetSumw2()->At(ibin);
-	 errSignDo [kproce][ibin] = dummy0->GetSumw2()->At(ibin);
        } else {
 	 yieldSign [kproce][ibin] = (dummy0->GetBinContent(ibin) + dummy3->GetBinContent(ibin))/2.;
-	 errSignUp [kproce][ibin] = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
-	 errSignDo [kproce][ibin] = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
        }
      }
 
@@ -2019,10 +2123,30 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2") continue;
        if (_systematics.at(isyst).Contains("MT2ll")) continue;
-       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZMetSF") continue;
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZZSF" || _systematics.at(isyst)=="DYSF") continue;
+       if (_systematics.at(isyst)=="ZZnojet" || _systematics.at(isyst)=="DYnojet" || _systematics.at(isyst)=="ZMETjet" || _systematics.at(isyst)=="DYshape") continue;
        if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
 	   _systematics.at(isyst)=="normVVV") continue;
+
+       if ( _systematics.at(isyst) == "Statistics") {
+	 if (!_doMetFastSim) {
+	   for (int ibin = 1; ibin<=nbins; ibin++) {
+	     float StatUncert2 = dummy0->GetSumw2()->At(ibin);
+	     if (StatUncert2<0.0001) StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	     errSignUp [kproce][ibin] += StatUncert2;
+	     errSignDo [kproce][ibin] += StatUncert2;
+	   }
+	 } else {
+	   for (int ibin = 1; ibin<=nbins; ibin++) {
+	     float StatUncert2 = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
+	     if (StatUncert2<0.0001) StatUncert2 = TMath::Power(StatZero*(dummy0->Integral()+dummy3->Integral())/(dummy0->GetEntries()+dummy3->GetEntries()), 2);
+	     errSignUp [kproce][ibin] += StatUncert2;
+	     errSignDo [kproce][ibin] += StatUncert2;
+	   }
+	 }
+	 continue;
+       }
 
        if ( _systematics.at(isyst) == "Luminosity") {
 	 for (int ibin=1; ibin<=nbins; ibin++) {
@@ -2175,13 +2299,13 @@ void HistogramReader::IncludeSystematics(TString hname)
        for (int isyst =0; isyst< nsystematics; isyst++)
          {
          
-	   if (_systematics.at(isyst).Data()=="Luminosity") {
+	   if (_systematics.at(isyst)=="Luminosity") {
 	     AddLuminosity = true;
 	     continue;
-	   } else if (_systematics.at(isyst).Data()=="Trigger") {
+	   } else if (_systematics.at(isyst)=="Trigger") {
 	     AddTrigger = true;
 	     continue;
-	   } else if (_systematics.at(isyst).Data()=="Postfit") {
+	   } else if (_systematics.at(isyst)=="Postfit") {
 	     continue;
 	   }
 	   
@@ -2192,6 +2316,11 @@ void HistogramReader::IncludeSystematics(TString hname)
 		 printf( "The systematic is %s, the bin is %i \n\n", _systematics.at(isyst).Data(), ibin);         
 		 printf( "errSystUp = %f\n errSystDo = %f\n", errSystUp [isyst][ibin], errSystDo [isyst][ibin]); 
 	       }
+
+	   if (_systematics.at(isyst)=="Statistics") {
+	     errSystUp [isyst][ibin] =     sqrt( errSystUp [isyst][ibin]  );
+	     errSystDo [isyst][ibin] = -1.*sqrt( errSystDo [isyst][ibin]  );
+	   }
 	   
 	   // Assymetric errors
 	   if ( errSystUp [isyst][ibin] < 0 && errSystDo [isyst][ibin] > 0 )
@@ -2226,8 +2355,10 @@ void HistogramReader::IncludeSystematics(TString hname)
        
        if (!AddLuminosity) errLumi[ibin] = 0.;
        if (!AddTrigger) errTrig[ibin] = 0.;
-       eyl [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
-       eyh [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
+       //eyl [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
+       //eyh [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
+       eyl [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
+       eyh [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
         
        if (_verbose) {
 	 //Print Total Error per bin    

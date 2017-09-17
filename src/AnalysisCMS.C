@@ -59,6 +59,13 @@ bool AnalysisCMS::PassTrigger()
   else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
   else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
   else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
+  else if (_sample.Contains("MET")) {
+    int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
+    for(int a = 0; a < 18; a++) {
+      if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+    }
+    return false;
+  }
   else                                         return true;
 }
 
@@ -107,7 +114,7 @@ bool AnalysisCMS::ApplyMETFilters(bool ApplyGiovanniFilters,
     G1 = -1; G2 = -1, I1 = 6, I2 = 7;
   }
 
-  if (!_ismc && ApplyGiovanniFilters) {
+  if (!_ismc && (ApplyGiovanniFilters || _systematic.Contains("ZZ"))) {
 
     if (std_vector_trigger_special->at(G1) != 0) return false;
     if (std_vector_trigger_special->at(G2) != 0) return false;
@@ -410,6 +417,7 @@ void AnalysisCMS::Setup(TString analysis,
   if (_sample.Contains("MuonEG"))         _ismc = false;
   if (_sample.Contains("SingleElectron")) _ismc = false;
   if (_sample.Contains("SingleMuon"))     _ismc = false;
+  if (_sample.Contains("MET"))            _ismc = false;
   if (_sample.Contains("Data"))           _ismc = false;
 
   _isfastsim = false;
@@ -685,7 +693,7 @@ void AnalysisCMS::ApplyWeights()
   
   return;
 }
-
+/*
 //------------------------------------------------------------------------------
 // ShapeWZ
 //------------------------------------------------------------------------------
@@ -693,17 +701,28 @@ void AnalysisCMS::ShapeWZ()
 {
   
   if (_nlepton<3) { _event_weight = 0.; return; } 
-  if (MET.Et()<100.) { _event_weight = 0.; return; }
-  if (_ntightlepton<3) { _event_weight = 0.; return; }
+  //if (MET.Et()<100.) { _event_weight = 0.; return; }
+
+  int nTightLeptons = 3;
+  if (_systematic.Contains("WZloose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) { _event_weight = 0.; return; }
+
+  float DMZCut = 10.;
+  if (_systematic.Contains("DM15")) DMZCut = 15.;
 
   float DMZ = 999.; int Wlep1 = -1, Wlep2 = -1, Lostlep = -1;
+
   for (int l1 = 0; l1<3; l1++) {
     for (int l2 = l1+1; l2<3; l2++) {
       if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
 	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
-	
+
 	TLorentzVector Zcand = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
 	float DMZcand = fabs( Zcand.M() - Z_MASS );
+	
+	if (DMZcand<DMZCut && _systematic.Contains("WZlooseZ") && _ntightlepton<3)
+	  if (AnalysisLeptons[l1].type==1 && AnalysisLeptons[l2].type==1) { _event_weight = 0.; return; }
+
 	if (DMZcand<DMZ) {
 	  
 	  if (l1==0 && l2==1) {
@@ -727,16 +746,21 @@ void AnalysisCMS::ShapeWZ()
     }
   }
     
-  if (DMZ>=10. || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
+  if (DMZ>=DMZCut || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
     _event_weight = 0.; 
   } else {
 
-    MET += AnalysisLeptons[Lostlep].v; MET.SetTheta(acos(-1.)/2);
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
+				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
     
     if (Wlep2==2) {
       
       if (Wlep1==1) { AnalysisLeptons[0] = AnalysisLeptons[1]; Lepton1 = AnalysisLeptons[1]; }
       AnalysisLeptons[1] = AnalysisLeptons[2]; Lepton2 = AnalysisLeptons[2]; 
+
+      mll = (Lepton1.v+Lepton2.v).M();
       
     }
     
@@ -746,7 +770,175 @@ void AnalysisCMS::ShapeWZ()
 
 }
 
+//------------------------------------------------------------------------------
+// ShapeZZ
+//------------------------------------------------------------------------------
+void AnalysisCMS::ShapeZZ()
+{
+  
+  if (_nlepton<4) { _event_weight = 0.; return; }
 
+  int nTightLeptons = 3;
+  if (_systematic.Contains("ZZtight")) nTightLeptons = 4;
+  if (_systematic.Contains("ZZloose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) { _event_weight = 0.; return; }
+
+  if (_systematic.Contains("ZZtightEl") && jetpt1>25.) { _event_weight = 0.; return; }
+
+  float DMZ1 = 15., DMZ2 = 30., DMZT = 999.; int Z1lep1 = -1, Z1lep2 = -1, Z2lep1 = -1, Z2lep2 = -1;
+  for (int l1 = 0; l1<4; l1++) {
+    for (int l2 = l1+1; l2<4; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+	
+	TLorentzVector Zcand1 = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand1 = fabs( Zcand1.M() - Z_MASS );
+	if (DMZcand1<DMZ1) {
+
+	  for (int l3 = 0; l3<4; l3++) {
+	    if (l3!=l1 && l3!=l2) {
+	      for (int l4 = l3+1; l4<4; l4++) {
+		if (l4!=l1 && l4!=l2) {
+		  if (AnalysisLeptons[l3].flavour*AnalysisLeptons[l4].flavour<0. && 
+		      fabs(AnalysisLeptons[l3].flavour)==fabs(AnalysisLeptons[l4].flavour)) {
+		  
+		    TLorentzVector Zcand2 = AnalysisLeptons[l3].v + AnalysisLeptons[l4].v;
+		    float DMZcand2 = fabs( Zcand2.M() - Z_MASS );
+		    if (DMZcand2<DMZ2) {
+		      
+		      float DMZTcand = sqrt(DMZcand1*DMZcand1 + DMZcand2*DMZcand2);
+		      if (DMZTcand<DMZT) {
+			
+			bool EventOdd = event%2;
+			if (DMZcand2>DMZ1 || EventOdd) {
+			  Z1lep1 = l1;
+			  Z1lep2 = l2;
+			  Z2lep1 = l3;
+			  Z2lep2 = l4;
+			} else {
+			  Z1lep1 = l3;
+			  Z1lep2 = l4;
+			  Z2lep1 = l1;
+			  Z2lep2 = l2;
+			}
+		      
+			DMZT = DMZTcand;
+			
+		      }
+
+		    }
+
+		  }
+		}
+	      }
+	    }
+	  }
+
+	}
+
+      }
+    }
+  }
+    
+  if (DMZT>900. || Z1lep1<0 || Z1lep2<0 || Z2lep1<0 || Z2lep2<0) { 
+    _event_weight = 0.; 
+  } else {
+    
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Z2lep1].v.Px() + AnalysisLeptons[Z2lep2].v.Px(),
+				   MET.Py() + AnalysisLeptons[Z2lep1].v.Py() + AnalysisLeptons[Z2lep2].v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+
+    Lepton1 = AnalysisLeptons[Z1lep1]; 
+    Lepton2 = AnalysisLeptons[Z1lep2]; 
+    Lepton Lepton3 = AnalysisLeptons[Z2lep1];
+    Lepton Lepton4 = AnalysisLeptons[Z2lep2];
+    
+    AnalysisLeptons[0] = Lepton1;
+    AnalysisLeptons[1] = Lepton2;
+    AnalysisLeptons[2] = Lepton3;
+    AnalysisLeptons[3] = Lepton4;
+
+    mll = (Lepton1.v+Lepton2.v).M();
+    
+  }
+  
+  return;
+
+}
+
+
+//------------------------------------------------------------------------------
+// ShapeWZforZZ
+//------------------------------------------------------------------------------
+void AnalysisCMS::ShapeWZforZZ()
+{
+  
+  if (_nlepton<3) { _event_weight = 0.; return; } 
+  //if (MET.Et()<100.) { _event_weight = 0.; return; }
+
+  int nTightLeptons = 3;
+  if (_systematic.Contains("loose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) { _event_weight = 0.; return; }
+
+  float DMZCut = 10.;
+  if (_systematic.Contains("DM15")) DMZCut = 15.;
+
+  float DMZ = 999.; int Zlep1 = -1, Zlep2 = -1, Lostlep = -1;
+
+  for (int l1 = 0; l1<3; l1++) {
+    for (int l2 = l1+1; l2<3; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+
+	TLorentzVector Zcand = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand = fabs( Zcand.M() - Z_MASS );
+	
+	if (DMZcand<DMZCut && _systematic.Contains("looseZ") && _ntightlepton<3)
+	  if (AnalysisLeptons[l1].type==1 && AnalysisLeptons[l2].type==1) { _event_weight = 0.; return; }
+
+	if (DMZcand<DMZ) {
+	  
+	  Zlep1 = l1; 
+	  Zlep2 = l2;
+
+	  if (l1==0 && l2==1) Lostlep = 2;
+	  if (l1==0 && l2==2) Lostlep = 1;
+	  if (l1==1 && l2==2) Lostlep = 0;
+	  
+	  DMZ = DMZcand;
+	  
+	}
+	
+      }
+    }
+  }
+    
+  if (DMZ>=DMZCut || Zlep1<0 || Zlep2<0 || Lostlep<0) { 
+    _event_weight = 0.; 
+  } else {
+
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
+				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+    
+    Lepton1 = AnalysisLeptons[Zlep1]; 
+    Lepton2 = AnalysisLeptons[Zlep2];
+    
+    AnalysisLeptons[0] = Lepton1;
+    AnalysisLeptons[1] = Lepton2;
+
+    AnalysisLeptons[2] = AnalysisLeptons[Lostlep];
+
+    mll = (Lepton1.v+Lepton2.v).M();
+    
+  }
+  
+  return;
+
+} 
+*/ 
 //------------------------------------------------------------------------------
 // GetLeptons
 //------------------------------------------------------------------------------
@@ -761,9 +953,9 @@ void AnalysisCMS::GetLeptons()
   _ntightlepton = 0;
 
   int vector_lepton_size = std_vector_lepton_pt->size();
-
+  
   for (int i=0; i<vector_lepton_size; i++) {
-
+    
     float eta       = std_vector_lepton_eta->at(i);
     float flavour   = std_vector_lepton_flavour->at(i);
     float phi       = std_vector_lepton_phi->at(i);
@@ -777,7 +969,7 @@ void AnalysisCMS::GetLeptons()
     if (pt < 0.) continue;
 
     bool reject_lepton = false;
-    
+
     if (i > 1 && !_filename.Contains("fakeW") && _analysis.EqualTo("WZ"))
       {
 	if (!found_third_tight_lepton)
@@ -828,7 +1020,6 @@ void AnalysisCMS::GetLeptons()
 
   _nlepton = AnalysisLeptons.size();
 
-
   // SUSY check of the nonprompt background shape
   if (_systematic.Contains("fake") && _nlepton > 2 && _ntightlepton == 2) {
 
@@ -873,6 +1064,24 @@ void AnalysisCMS::GetLeptons()
   _lep2mid  = Lepton2.motherPID;
 
   _detall = fabs(_lep1eta - _lep2eta);
+
+  if (_systematic.Contains("multilepton") && _nlepton>=3) {
+ 
+    _lep3eta  = AnalysisLeptons[2].v.Eta();
+    _lep3phi  = AnalysisLeptons[2].v.Phi();
+    _lep3pt   = AnalysisLeptons[2].v.Pt();
+    _lep3mass = AnalysisLeptons[2].v.M(); 
+    _lep3id   = AnalysisLeptons[2].flavour; 
+    _lep3type = AnalysisLeptons[2].type;
+ 
+    _lep4eta  = (_nlepton>=4) ? AnalysisLeptons[3].v.Eta()   : -999.;
+    _lep4phi  = (_nlepton>=4) ? AnalysisLeptons[3].v.Phi()   : -999.;
+    _lep4pt   = (_nlepton>=4) ? AnalysisLeptons[3].v.Pt()    : -999.;
+    _lep4mass = (_nlepton>=4) ? AnalysisLeptons[3].v.M()     : -999.; 
+    _lep4id   = (_nlepton>=4) ? AnalysisLeptons[3].flavour   : -999; 
+    _lep4type = (_nlepton>=4) ? AnalysisLeptons[3].type      : -999;
+
+  }
 
   if (_verbosity > 0) printf(" Leaving >>> [AnalysisCMS::GetLeptons]\n");
 }
@@ -1365,6 +1574,10 @@ void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
 
   GetLeptons();
 
+  if (_systematic.Contains("invertveto") && _nlepton < 3) { _event_weight = 0.; return; }
+  if (_systematic.Contains("multilepton") && _nlepton < 3) { _event_weight = 0.; return; }
+  if (_systematic.Contains("invertvetotight") && _ntightlepton<3) { _event_weight = 0.; return; }
+
   GetJets(jet_eta_max, jet_pt_min);
 
   if (_analysis.EqualTo("TTDM")) GetTops();
@@ -1384,7 +1597,9 @@ void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
 
   // Additional analysis variables
   //----------------------------------------------------------------------------
-  if (_analysis.EqualTo("Stop") && _systematic.EqualTo("WZ")) ShapeWZ();
+  //if (_analysis.EqualTo("Stop") && _systematic.Contains("ZWtoZ")) ShapeWZforZZ();
+  //else if (_analysis.EqualTo("Stop") && _systematic.Contains("WZ")) ShapeWZ();
+  //else if (_analysis.EqualTo("Stop") && _systematic.Contains("ZZ")) ShapeZZ();
 
   GetScaleAndResolution();
 
@@ -1726,6 +1941,22 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("lep2ptGEN",         &_lep2pt_gen,       "lep2ptGEN/F");
   minitree->Branch("lep2tauGEN",        &_lep2tau_gen,      "lep2tauGEN/F");
   minitree->Branch("lumi",              &lumi,              "lumi/I");
+
+  if (_systematic.Contains("multilepton")) {
+    minitree->Branch("lep3id",            &_lep3id,           "lep3id/F");
+    minitree->Branch("lep3type",          &_lep3type,         "lep3type/F");
+    minitree->Branch("lep3eta",           &_lep3eta,          "lep3eta/F");
+    minitree->Branch("lep3mass",          &_lep3mass,         "lep3mass/F");
+    minitree->Branch("lep3phi",           &_lep3phi,          "lep3phi/F");
+    minitree->Branch("lep3pt",            &_lep3pt,           "lep3pt/F");
+    minitree->Branch("lep4id",            &_lep4id,           "lep4id/F");
+    minitree->Branch("lep4type",          &_lep4type,         "lep4type/F");
+    minitree->Branch("lep4eta",           &_lep4eta,          "lep4eta/F");
+    minitree->Branch("lep4mass",          &_lep4mass,         "lep4mass/F");
+    minitree->Branch("lep4phi",           &_lep4phi,          "lep4phi/F");
+    minitree->Branch("lep4pt",            &_lep4pt,           "lep4pt/F");
+  }
+
   // M
   minitree->Branch("mc",                &_mc,               "mc/F");
   minitree->Branch("m2l",               &_m2l,              "m2l/F");
@@ -1768,6 +1999,7 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("nisrjet",           &_nisrjet,          "nisrjet/F");
   minitree->Branch("njet",              &_njet,             "njet/F");
   minitree->Branch("nlepton",           &_nlepton,          "nlepton/I");
+  minitree->Branch("ntightlepton",      &_ntightlepton,     "ntightlepton/I");
   minitree->Branch("nu1ptGEN",          &_nu1pt_gen,        "nu1ptGEN/F");
   minitree->Branch("nu1tauGEN",         &_nu1tau_gen,       "nu1tauGEN/F");
   minitree->Branch("nu2ptGEN",          &_nu2pt_gen,        "nu2ptGEN/F");
@@ -1806,6 +2038,11 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("trailingPtCSVv2L",  &_trailingPtCSVv2L, "trailingPtCSVv2L/F");
   minitree->Branch("trailingPtCSVv2M",  &_trailingPtCSVv2M, "trailingPtCSVv2M/F");
   minitree->Branch("trailingPtCSVv2T",  &_trailingPtCSVv2T, "trailingPtCSVv2T/F");
+  minitree->Branch("trig_SnglMu",       &trig_SnglMu,       "trig_SnglMu/F");
+  minitree->Branch("trig_SnglEle",      &trig_SnglEle,      "trig_SnglEle/F");
+  minitree->Branch("trig_DbleMu",       &trig_DbleMu,       "trig_DbleMu/F");
+  minitree->Branch("trig_DbleEle",      &trig_DbleEle,      "trig_DbleEle/F");
+  minitree->Branch("trig_EleMu",        &trig_EleMu,        "trig_EleMu/F");
   // U
   minitree->Branch("uPara",             &_uPara,            "uPara/F");
   minitree->Branch("uPerp",             &_uPerp,            "uPerp/F");

@@ -22,8 +22,8 @@
 
 #include "../include/CutsStop.h"
 
-TString RootFilesDirectory = "../minitrees/rootfiles2R/";
-TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList_TChiPlot.txt";
+TString RootFilesDirectory = "../minitrees/rootfiles3R/";
+TString MassPointFileName = "../../PlotsConfigurations/Configurations/T2tt/MassPointList_T2bW.txt";
 
 float FractionNvtxUp = 0.293, FractionNvtxDo = 0.707;
 float AverageNvtxUp  = 23.52, AverageNvtxDo  = 13.41;
@@ -372,8 +372,9 @@ void BuildMassPointSystematic(int Strategy, TString MassPoint) {
   for (int rg = 0; rg<ncut; rg++) {
 
     if (!scut[rg].Contains("VR") && !scut[rg].Contains("SR")) continue;
+    if (scut[rg].Contains("/ZZ")) continue;
 
-    if (RootFilesDirectory.Contains("2R") && scut[rg].Contains("NoJet")) continue;
+    if (!RootFilesDirectory.Contains("3R") && scut[rg].Contains("NoJet")) continue;
 
     Pileupup->cd();
     

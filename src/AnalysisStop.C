@@ -8,11 +8,17 @@
 //------------------------------------------------------------------------------
 AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, systematic)
 {
+  _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
+  systematic.ReplaceAll("DYcorr", "");
   if (systematic=="nominal") {
     SetSaveMinitree(true);
     _SaveHistograms = 0;
+  } else if (systematic.Contains("multilepton")) {
+    SetSaveMinitree(true);
+    _SaveHistograms = -1;
   } else {
     SetSaveMinitree(false);
+    if (systematic.Contains("Minitrees")) SetSaveMinitree(true);
     _SaveHistograms = 1;
     if (systematic.Contains("JES") || systematic.Contains("MET"))
       _SaveHistograms = 2;
@@ -23,12 +29,14 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
 
 AnalysisStop::AnalysisStop(TFile* MiniTreeFile, TString systematic, int SaveHistograms) 
 {
+  _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
+  systematic.ReplaceAll("DYcorr", "");
   SetSaveMinitree(false);
   GetMiniTree(MiniTreeFile, systematic);
   _systematic = systematic;
   _SaveHistograms = SaveHistograms;
   if (systematic!="nominal") _SaveHistograms = 1;
-  _DoTheoreticalVariations = (_SaveHistograms>2) ? 1 : 0;
+  _DoTheoreticalVariations = (_SaveHistograms>3) ? 1 : 0;
   if (systematic=="theory") { _DoTheoreticalVariations = 1; _SaveHistograms = -1; }
 }
 
@@ -72,12 +80,16 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
   _applytopptreweighting = true;
  
+  if (_applyDYcorrections) {
+    if (!filename.Contains("DY") && !filename.Contains("ZJets")) _applyDYcorrections = false;
+    else MassPointFlag = "_DYcorr";
+  }
   Setup(analysis, filename, luminosity, MassPointFlag);
  
   // Define histograms
   //----------------------------------------------------------------------------
   if (_SaveHistograms>=0) BookAnalysisHistograms();
-  if (_SaveHistograms>=2) BookSystematicHistograms();
+  if (_SaveHistograms>=3) BookSystematicHistograms();
   if (_DoTheoreticalVariations==1) BookTheoreticalVariationsHistograms();
   
   root_output->cd();
@@ -148,7 +160,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
     // Analysis
     //--------------------------------------------------------------------------
-
+    
     if (!_isminitree) {
 
       // To merge DY_LO and DY_HTbins( always ht >70 GeV) samples it is needed require ht > 70 in DY_LO sample; 
@@ -157,13 +169,13 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	if (_htgen>70.) continue;
 
       // 3L sidebands
-      if (_systematic.Contains("VZ") || _systematic.Contains("ttZ")) {
+      if (_systematic.Contains("WZ3L") || _systematic.Contains("ttZ")) {
 
 	if (_nlepton<3) continue;
 	if (MET.Et()<140.) continue; 
 	if (_ntightlepton<3) continue; 
 
-	if (_systematic.Contains("VZ") && AnalysisLeptons[0].v.Pt()<30.) continue;
+	if (_systematic.Contains("WZ3L") && AnalysisLeptons[0].v.Pt()<30.) continue;
 	if (_systematic.Contains("ttZ") && AnalysisLeptons[0].v.Pt()<25.) continue;
 	if (AnalysisLeptons[1].v.Pt()<20.) continue;
 	if (AnalysisLeptons[2].v.Pt()<20.) continue;
@@ -199,7 +211,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	  if (abs(AnalysisLeptons[Wlep].flavour)==ELECTRON_FLAVOUR) _channel = ee;
 	  else _channel = mm;
 
-	  if (_systematic.Contains("VZ")) {
+	  if (_systematic.Contains("WZ3L")) {
 	    FillLevelHistograms(Stop_00_VZ, _leadingPtCSVv2M<20.);
 	  } else if (_systematic.Contains("ttZ")) {
 	    FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>20. && _njet>=2); 
@@ -213,16 +225,19 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       } // end 3L sidebands
 
       if (!_systematic.Contains("fake") && !_systematic.Contains("invertveto") && 
-	  !_systematic.Contains("WZ") && _nlepton != 2) continue; // 2 and only 2 leptons
-      if (_systematic.Contains("invertveto") && _nlepton < 3) continue;
-      if (_systematic.Contains("fake") && (_nlepton <= 2 || _ntightlepton>2)) continue;
-      
-      if (!_systematic.Contains("SS") && Lepton1.flavour * Lepton2.flavour > 0) continue; 
+	  !_systematic.Contains("WZtoWW") && !_systematic.Contains("ZZ") &&
+	  !_systematic.Contains("ZWtoZ") && !_systematic.Contains("multilepton") && _nlepton != 2) continue; // 2 and only 2 leptons
+      //if (_systematic.Contains("invertveto") && _nlepton < 3) continue;
+      //if (_systematic.Contains("invertvetotight") && _ntightlepton<3) continue;
+      if (_systematic.Contains("fake") && (_nlepton <= 2 || _ntightlepton>2)) continue;      
+
+      //if (!_systematic.Contains("SS")  && !_systematic.Contains("multilepton") && Lepton1.flavour * Lepton2.flavour > 0) continue; 
       if (_systematic.Contains("SS") && Lepton1.flavour * Lepton2.flavour < 0) continue;
       
       if (_ismc) CorrectEventWeight(); 
 
-      if (Lepton1.v.Pt() < 25.) continue;
+      float LeadingLeptonPtCut = (_systematic.Contains("multilepton")) ? 20. : 25.;
+      if (Lepton1.v.Pt() < LeadingLeptonPtCut) continue;
       if (Lepton2.v.Pt() < 20.) continue;
       
       _nelectron = 0;
@@ -237,11 +252,65 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       _m2l  = mll;
       _pt2l = ptll;
 
+      _njet30 = 0;
+      for (int ij = 0; ij<_jet_pt.size(); ij++)
+	if (_jet_pt.at(ij)>=30.) _njet30++;
+
+      if (_systematic.Contains("multilepton")) {
+	minitree->Fill();      
+	continue;
+      }
+
     }
+
+    bool passShapeAnalysis = true;
+    if (_systematic.Contains("WZtoWW")) passShapeAnalysis = ShapeWZtoWW();
+    if (_systematic.Contains("ZWtoZ"))  passShapeAnalysis = ShapeZWtoZ();
+    if (_systematic.Contains("ZZ"))     passShapeAnalysis = ShapeZZ();
+    if (!passShapeAnalysis) continue;
+    
+    if (_systematic.Contains("invertvetotight") && _ntightlepton<3) continue;
+    if (!_systematic.Contains("SS") && Lepton1.flavour * Lepton2.flavour > 0) continue;
+    if (Lepton1.v.Pt() < 25.) continue;
 
     // ISR reweighting
     if (_applyisrreweighting && _isfastsim && (_isminitree || _systematic!="nominal")) ApplyISRReweighting();
-    
+ 
+    // DY corrections
+    if (_applyDYcorrections) {
+      if (_njet>=1) {
+	float x = fabs(dphill);
+	float DYweight = 1.;
+	if (MET.Et()<140.) DYweight = 1.03909 +0.414243*x -0.485282*x*x + 0.10607*x*x*x;
+	else { 
+	  if (_systematic.Contains("DYshapedo")) DYweight = 1.;
+	  else if (_systematic.Contains("DYshapeup")) DYweight = 1.23218 +1.4524*x -1.3196*x*x + 0.253482*x*x*x;
+	  else DYweight = 1.16803 +1.10048*x -1.13608*x*x + 0.23263*x*x*x;
+	}
+	//UpdateWeights(DYweight);
+	_event_weight *= DYweight;
+	_event_weight_Btagup     *= DYweight; 
+	_event_weight_Btagdo     *= DYweight;
+	_event_weight_BtagFSup   *= DYweight; 
+	_event_weight_BtagFSdo   *= DYweight; 
+	_event_weight_Idisoup    *= DYweight; 
+	_event_weight_Idisodo    *= DYweight;  
+	_event_weight_Idisoeleup *= DYweight; 
+	_event_weight_Idisoeledo *= DYweight;  
+	_event_weight_Idisomuup  *= DYweight; 
+	_event_weight_Idisomudo  *= DYweight; 
+	_event_weight_Triggerup  *= DYweight; 
+	_event_weight_Triggerdo  *= DYweight; 
+	_event_weight_Recoup     *= DYweight; 
+	_event_weight_Recodo     *= DYweight; 
+	_event_weight_Fastsimup  *= DYweight; 
+	_event_weight_Fastsimdo  *= DYweight;
+	_event_weight_Toppt      *= DYweight;
+	_event_weight_Isrnjetup  *= DYweight;
+	_event_weight_Isrnjetdo  *= DYweight;
+      }
+    }
+
     // Fake uncertainty
     _event_weight_Fakeup = _event_weight;
     _event_weight_Fakedo = _event_weight;
@@ -268,57 +337,78 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
     if (_systematic.Contains("BlindMT2") && _mt2ll>40.) pass_blind = false;
 
-    if (!_isminitree) {
+    // Fill histograms
+    // -----------------------------------------------------------------------------
+    
+    // Basics Stop
+    //-------------------------------------------------------------------------
+    FillLevelHistograms(Stop_00_Has2Leptons, !_isminitree && _m2l>20. && pass && pass_blind && pass_masspoint);
 
-      // Fill histograms
-      // -----------------------------------------------------------------------------
-           
-      // Basics Stop
-      //-------------------------------------------------------------------------
-      //FillLevelHistograms(Stop_00_Has2Leptons, pass && pass_blind && pass_masspoint);    
+    pass &= _m2l>20.;
 
-      pass &= mll>20.;
-
-   /*   FillLevelHistograms(Stop_00_mll20, pass && pass_blind && pass_masspoint);
+    //FillLevelHistograms(Stop_00_mll20, pass && !_isminitree && pass_blind && pass_masspoint); 
+   
+    if (_systematic.Contains("ZZlepton")) {
+      if (_leadingPtCSVv2M >= 20.) {
+	FillLevelHistograms(Stop_ZZ_Tag_loose, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_Tag, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_Tag_tight, pass && pass_blind && pass_masspoint);
+	if (MET.Et()>=140.) {
+	  FillLevelHistograms(Stop_ZZ_SRs_Tag_loose, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_SRs_Tag, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_SRs_Tag_tight, pass && pass_blind && pass_masspoint);
+	}
+      } else if (_njet<1) {
+	FillLevelHistograms(Stop_ZZ_NoJet_loose, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_NoJet, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_NoJet_tight, pass && pass_blind && pass_masspoint);
+	if (MET.Et()>=140.) {
+	  FillLevelHistograms(Stop_ZZ_SRs_NoJet_loose, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_SRs_NoJet, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_SRs_NoJet_tight, pass && pass_blind && pass_masspoint);
+	}
+      } else {
+	FillLevelHistograms(Stop_ZZ_NoTag_loose, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_NoTag, pass && pass_blind && pass_masspoint);
+	if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_NoTag_tight, pass && pass_blind && pass_masspoint);
+	if (MET.Et()>=140.) {
+	  FillLevelHistograms(Stop_ZZ_SRs_NoTag_loose, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=3) FillLevelHistograms(Stop_ZZ_SRs_NoTag, pass && pass_blind && pass_masspoint);
+	  if (_ntightlepton>=4) FillLevelHistograms(Stop_ZZ_SRs_NoTag_tight, pass && pass_blind && pass_masspoint);
+	}
+      }
+      continue;
+    }
       
-              // Look in the Z-peak
-     */         // ---------------------------------------------------------------
+    // Look in the Z-peak
+    bool Zpeak = pass && _channel!=em && fabs(_m2l - Z_MASS)<15. ;  
+    if (_systematic.Contains("Zpeak") && !Zpeak) continue;
 
-               //bool Zpeak = pass && ( _channel == em || fabs(_m2l - Z_MASS) < 15. );
-               bool Zpeak = pass && _channel!=em && fabs(_m2l - Z_MASS)<15. ;  
+    //bool Zveto = ( _channel == em || fabs(_m2l - Z_MASS) > 15. ); 
+    //if (_systematic.Contains("Zveto") && !Zveto) continue;
 
-               FillLevelHistograms(Stop_05_Zpeak,      Zpeak && pass_blind && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak
-              
-	       if (_systematic.Contains("Zpeak") && !Zpeak) continue;
+    if (!_isminitree) { 
 
-    /*           FillLevelHistograms(Stop_05_NoTagZpeak, Zpeak && (_leadingPtCSVv2M <  20.) && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak + 0 b Tag (VET0) 
-
-               FillLevelHistograms(Stop_05_TagZpeak,   Zpeak && (_leadingPtCSVv2M >= 20.) && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak + 1 b Tag         
-
-	      // DY estimation -> Routin Level
-	      // ---------------------------------------------------------------
-
-               FillLevelHistograms(Stop_04_Routin,      pass && pass_masspoint);  // 2 OS Leptons, mll > 20 
-               
-               FillLevelHistograms(Stop_04_Jet2Routin,  pass &&  jetpt2 >= 30. && pass_masspoint);  // 2 OS Leptons, mll > 20,  2 Jets
-     
-               FillLevelHistograms(Stop_04_TagRoutin,   pass && (_leadingPtCSVv2M >= 20.) && pass_masspoint);  // 2 OS Leptons, mll > 20, 1 b Tag
-               
-               FillLevelHistograms(Stop_04_NoTagRoutin, pass && (_leadingPtCSVv2M <  20.) && pass_masspoint);  // 2 OS Leptons, mll > 20, 0 b Tag (VET0)
-
-   */           // ---------------------------------------------------------------
-
-     //cout << "GoodDM " << endl;
- 
-
-	       pass &= ( _channel == em || fabs(_m2l - Z_MASS) > 15. ) || _systematic.Contains("WZ") || _systematic.Contains("Zpeak");
-     //if (!( _channel == em || fabs(_m2l - Z_MASS) > 15. )) cout <<"fail zveto"<<endl;
-
-       //~~~~~~~~~~~~~~~~~~~~~~ save minitree ~~~~~~~~~~~~~~~~~~
-
+      // Zpeak level
+      FillLevelHistograms(Stop_05_Zpeak,      Zpeak && pass_blind && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak
+      //FillLevelHistograms(Stop_05_NoTagZpeak, Zpeak && (_leadingPtCSVv2M <  20.) && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak + 0 b Tag (VET0) 
+      //FillLevelHistograms(Stop_05_TagZpeak,   Zpeak && (_leadingPtCSVv2M >= 20.) && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak + 1 b Tag         
+      
+      // DY estimation -> Routin Level
+      // ---------------------------------------------------------------
+      //FillLevelHistograms(Stop_04_Routin,      pass && pass_masspoint);  // 2 OS Leptons, mll > 20 
+      //FillLevelHistograms(Stop_04_Jet2Routin,  pass &&  jetpt2 >= 30. && pass_masspoint);  // 2 OS Leptons, mll > 20,  2 Jets
+      //FillLevelHistograms(Stop_04_TagRoutin,   pass && (_leadingPtCSVv2M >= 20.) && pass_masspoint);  // 2 OS Leptons, mll > 20, 1 b Tag
+      //FillLevelHistograms(Stop_04_NoTagRoutin, pass && (_leadingPtCSVv2M <  20.) && pass_masspoint);  // 2 OS Leptons, mll > 20, 0 b Tag (VET0)
+      
+      bool Zveto = ( _channel == em || fabs(_m2l - Z_MASS) > 15. ); 
+      bool _isZSelection = _systematic.Contains("WZ")    || _systematic.Contains("ZWtoZ") || 
+	_systematic.Contains("Zpeak") || _systematic.Contains("ZZ");
+      pass &= Zveto || _isZSelection;
+    
       // Leave this line at the end of this if or the results on latino trees and minitrees will be inconsistent
-      if (pass && _saveminitree) minitree->Fill();      
-       //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      if (pass && _saveminitree && (MET.Et()>=100. || !_systematic.Contains("Zpeak"))) minitree->Fill();
+
     }
 
     FillLevelHistograms(Stop_00_Zveto, pass && pass_blind && pass_masspoint);
@@ -360,7 +450,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       FillLevelHistograms(Stop_02_SRs_Tag,   pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
     }
     
-    /*if (_njet<1) {
+    if (_njet<1) {
+      //if (cos(dphill)>-0.95) { 
       FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_NoJet,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2_NoJet,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
@@ -368,11 +459,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       FillLevelHistograms(Stop_02_SR1gen_NoJet, pass && (metGenpt>=140. && metGenpt<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2gen_NoJet, pass && (metGenpt>=200. && metGenpt<300.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR3gen_NoJet, pass && (metGenpt>=300.) && pass_blind && pass_masspoint);
-      } else */
-    if (_leadingPtCSVv2M <  20.) {
+      //} 
+    } else if (_leadingPtCSVv2M <  20.) {
       FillLevelHistograms(Stop_02_VR1_NoTag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
-      if (njet<1)
-	FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
+      //if (_njet<1)
+      //FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_NoTag,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2_NoTag,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR3_NoTag,   pass && (MET.Et()>=300.) && pass_blind && pass_masspoint);
@@ -386,9 +477,9 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
   }
 
-  if (_SaveHistograms>=2) SaveSystematicHistograms();
+  if (_SaveHistograms>=3) SaveSystematicHistograms();
   if (_DoTheoreticalVariations==1) SaveTheoreticalVariationsHistograms();
-
+ 
   EndJob();
 }
 
@@ -406,12 +497,15 @@ void AnalysisStop::BookAnalysisHistograms()
 
     if (!_systematic.Contains("SS") && j>=Stop_00_SS_Tag && j<=Stop_00_SS) continue;
       
-    if (_systematic.Contains("VZ") && j!=Stop_00_VZ) continue; 
+    if (_systematic.Contains("WZ3L") && j!=Stop_00_VZ) continue; 
     if (_systematic.Contains("ttZ") && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Tag) continue; 
+
+    if (_systematic.Contains("ZZlepton") && !scut[j].Contains("/ZZ_")) continue;
+    if (!_systematic.Contains("ZZlepton") && scut[j].Contains("/ZZ_")) continue;
 
     for (int k=0; k<=njetbin; k++) {
 
-      if (_SaveHistograms>=2 && k<njetbin) continue; 
+      if ((_SaveHistograms>=2 || _systematic!="nominal") && k<njetbin) continue; 
 
       TString sbin = (k < njetbin) ? Form("/%djet", k) : "";
 
@@ -419,7 +513,7 @@ void AnalysisStop::BookAnalysisHistograms()
 
       root_output->cd();
 
-      if (_SaveHistograms>=2 || k<njetbin) gDirectory->mkdir(directory);
+      if (_SaveHistograms>=2 || _systematic!="nominal" || k<njetbin) gDirectory->mkdir(directory);
 
       root_output->cd(directory);
 
@@ -434,18 +528,56 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
 	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
 
-	if (_SaveHistograms>=2 && _systematic!="nominal") continue;
+	if (_SaveHistograms>=2 && _systematic=="nominal") {
 
-	h_MT2ll_nvtxup      [i][j][k] = new TH1F("h_MT2ll_nvtxup"       + suffix, "",    7,    0,  140);
-	h_MT2ll_nvtxdo      [i][j][k] = new TH1F("h_MT2ll_nvtxdo"       + suffix, "",    7,    0,  140);
-	h_MT2llgen_nvtxup   [i][j][k] = new TH1F("h_MT2llgen_nvtxup"    + suffix, "",    7,    0,  140);
-	h_MT2llgen_nvtxdo   [i][j][k] = new TH1F("h_MT2llgen_nvtxdo"    + suffix, "",    7,    0,  140);
-	h_MT2llisr_nvtxup   [i][j][k] = new TH1F("h_MT2llisr_nvtxup"    + suffix, "",    7,    0,  140);
-	h_MT2llisr_nvtxdo   [i][j][k] = new TH1F("h_MT2llisr_nvtxdo"    + suffix, "",    7,    0,  140);
-	h_MT2llisrgen_nvtxup[i][j][k] = new TH1F("h_MT2llisrgen_nvtxup" + suffix, "",    7,    0,  140);
-	h_MT2llisrgen_nvtxdo[i][j][k] = new TH1F("h_MT2llisrgen_nvtxdo" + suffix, "",    7,    0,  140);
+	  h_MT2ll_nvtxup      [i][j][k] = new TH1F("h_MT2ll_nvtxup"       + suffix, "",    7,    0,  140);
+	  h_MT2ll_nvtxdo      [i][j][k] = new TH1F("h_MT2ll_nvtxdo"       + suffix, "",    7,    0,  140);
+	  h_MT2llgen_nvtxup   [i][j][k] = new TH1F("h_MT2llgen_nvtxup"    + suffix, "",    7,    0,  140);
+	  h_MT2llgen_nvtxdo   [i][j][k] = new TH1F("h_MT2llgen_nvtxdo"    + suffix, "",    7,    0,  140);
+	  h_MT2llisr_nvtxup   [i][j][k] = new TH1F("h_MT2llisr_nvtxup"    + suffix, "",    7,    0,  140);
+	  h_MT2llisr_nvtxdo   [i][j][k] = new TH1F("h_MT2llisr_nvtxdo"    + suffix, "",    7,    0,  140);
+	  h_MT2llisrgen_nvtxup[i][j][k] = new TH1F("h_MT2llisrgen_nvtxup" + suffix, "",    7,    0,  140);
+	  h_MT2llisrgen_nvtxdo[i][j][k] = new TH1F("h_MT2llisrgen_nvtxdo" + suffix, "",    7,    0,  140);
+	  
+	}
 
-	if (_SaveHistograms>=2) continue; 
+	if (_SaveHistograms>=2) continue;
+
+	if (_systematic.Contains("Zpeak")) {
+	  h_HT                [i][j][k] = new TH1D("h_HT"                + suffix, "",   80,    0,  800);
+	  h_MT2ll_HTm150      [i][j][k] = new TH1D("h_MT2ll_HTm150"      + suffix, "",    7,    0,  140);
+	  h_MT2ll_HTp150      [i][j][k] = new TH1D("h_MT2ll_HTp150"      + suffix, "",    7,    0,  140);
+	  h_MT2ll_HTm200      [i][j][k] = new TH1D("h_MT2ll_HTm200"      + suffix, "",    7,    0,  140);
+	  h_MT2ll_HTp200      [i][j][k] = new TH1D("h_MT2ll_HTp200"      + suffix, "",    7,    0,  140);
+	  h_njet20dphilmet    [i][j][k] = new TH1D("h_njet20dphilmet"    + suffix, "",   10,    0,   10);
+	} else if (_systematic.Contains("ZZ")) {
+	  h_M1ll              [i][j][k] = new TH1D("h_M1ll"              + suffix, "",   60,  60., 120.);
+	  h_M2ll              [i][j][k] = new TH1D("h_M2ll"              + suffix, "",   60,  60., 120.);
+	}
+
+	h_dphillMET         [i][j][k] = new TH1D("h_dphillMET"          + suffix, "",  100,    0,  3.2);
+	h_dphiLL            [i][j][k] = new TH1D("h_dphiLL"             + suffix, "",  100,    0,  3.2);
+	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
+	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
+	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",   10,    0,   10);
+	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);
+	
+	if (_systematic.Contains("DYcorrections")) {
+	  h_dphiLLbin1            [i][j][k] = new TH1D("h_dphiLLbin1"   + suffix, "",   80,    0, 3.14159);
+	  h_dphiLLbin2            [i][j][k] = new TH1D("h_dphiLLbin2"   + suffix, "",   80,    0, 3.14159);
+	  h_dphiLLbin3            [i][j][k] = new TH1D("h_dphiLLbin3"   + suffix, "",   80,    0, 3.14159);
+	  h_dphiLLbin4            [i][j][k] = new TH1D("h_dphiLLbin4"   + suffix, "",   80,    0, 3.14159);
+	  h_dphiLLbin5            [i][j][k] = new TH1D("h_dphiLLbin5"   + suffix, "",   80,    0, 3.14159);
+	  continue;
+	}
+
+	if (_systematic.Contains("ZZ")) continue;
+	if (_systematic.Contains("WZ")) continue;
+	if (_systematic.Contains("ZWtoZ")) continue;
+
+	h_dphiminlepmet     [i][j][k] = new TH1D("h_dphiminlepmet"      + suffix, "",  100,    0,  3.2);
+
+	if (_systematic.Contains("Zpeak")) continue;
 
 	h_mt2lblbcomb       [i][j][k] = new TH1D("h_mt2lblbcomb"        + suffix, "", 3000,    0, 3000);
 	h_mt2bbtrue         [i][j][k] = new TH1D("h_mt2bbtrue"          + suffix, "", 3000,    0, 3000);
@@ -458,11 +590,6 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_mt2lblbvsmlbtrue  [i][j][k] = new TH2D("h_mt2lblbvsmlbtrue"   + suffix, "",  100,    0, 1000,  100,    0, 1000);
 	h_nisrjet           [i][j][k] = new TH1D("h_nisrjet"            + suffix, "",   10,    0,   10);
 	h_maxjetpt          [i][j][k] = new TH1D("h_maxjetpt"           + suffix, "",   80,    0,  800);
-	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",   10,    0,   10);
-	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);
-	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
-	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
-	h_dphiminlepmet     [i][j][k] = new TH1D("h_dphiminlepmet"      + suffix, "",  100,    0,  3.2);
 
 	h_metmeff           [i][j][k] = new TH1D("h_metmeff"            + suffix, "",  500,    0,    5);
 	h_MT2ll_fake        [i][j][k] = new TH1F("h_MT2ll_fake"         + suffix, "",    8,    0,  160);
@@ -508,8 +635,11 @@ void AnalysisStop::BookSystematicHistograms()
   
       if (_isminitree && j<Stop_00_Zveto) continue; 
       
-      if (_systematic.Contains("VZ") && j!=Stop_00_VZ) continue; 
+      if (_systematic.Contains("WZ3L") && j!=Stop_00_VZ) continue; 
       if (_systematic.Contains("ttZ") && j!=Stop_00_ttZ_Tag && j!=Stop_00_ttZ_2Tag) continue; 
+
+      if (_systematic.Contains("ZZ") && !scut[j].Contains("/ZZ_")) continue;
+      if (!_systematic.Contains("ZZ") && scut[j].Contains("/ZZ_")) continue;
 
       TString directory = scut[j];
 
@@ -565,6 +695,7 @@ void AnalysisStop::BookTheoreticalVariationsHistograms()
   for (int j=0; j<ncut; j++) {
   
     if (!scut[j].Contains("SR")) continue;
+    if (scut[j].Contains("/ZZ_")) continue;
 
     TString directory = scut[j];
       
@@ -599,11 +730,42 @@ void AnalysisStop::BookTheoreticalVariationsHistograms()
 void AnalysisStop::GetAnalysisVariables()
 {
 
-  // Met
   if (_isminitree) { 
 
+    // Met
     MET.SetPtEtaPhiM(metPfType1, 0.0, metPfType1Phi, 0.0); 
     _jetbin = (_njet < njetbin) ? _njet : njetbin - 1;
+
+    // Leptons
+    AnalysisLeptons.clear();
+    
+    Lepton lep; TLorentzVector tlv;
+    lep.type      = 1;
+    lep.flavour   = _lep1id;
+    tlv.SetPtEtaPhiM(_lep1pt, _lep1eta, _lep1phi, _lep1mass);
+    lep.v = tlv;
+    AnalysisLeptons.push_back(lep);
+    lep.type      = 1;
+    lep.flavour   = _lep2id;
+    tlv.SetPtEtaPhiM(_lep2pt, _lep2eta, _lep2phi, _lep2mass);
+    lep.v = tlv;
+    AnalysisLeptons.push_back(lep);
+    if (_nlepton>=3) {
+      lep.type      = _lep3type;
+      lep.flavour   = _lep3id;
+      tlv.SetPtEtaPhiM(_lep3pt, _lep3eta, _lep3phi, _lep3mass);
+      lep.v = tlv;
+      AnalysisLeptons.push_back(lep);
+      if (_nlepton>=4) {
+	lep.type      = _lep4type;
+	lep.flavour   = _lep4id;
+	tlv.SetPtEtaPhiM(_lep4pt, _lep4eta, _lep4phi, _lep4mass);
+	lep.v = tlv;
+	AnalysisLeptons.push_back(lep);
+      }
+    }
+    Lepton1 = AnalysisLeptons[0];
+    Lepton2 = AnalysisLeptons[1];
 
   }
 
@@ -655,11 +817,6 @@ void AnalysisStop::GetAnalysisVariables()
   float dphil2met = fabs(Lep2.DeltaPhi(MET));
   _dphiminlmet  = min(dphil1met, dphil2met);
 
-  //
-  _njet30 = 0;
-  for (int ij = 0; ij<_jet_pt.size(); ij++)
-    if (_jet_pt.at(ij)>=30.) _njet30++;
-
 }
 
 //------------------------------------------------------------------------------
@@ -671,7 +828,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
 {
   if (ichannel != ll) FillAnalysisHistograms(ll, icut, ijet);
  
-  if (_SaveHistograms>=2 && ijet<njetbin) return;
+  if ((_SaveHistograms>=2 || _systematic!="nominal") && ijet<njetbin) return;
   
   h_MT2ll            [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
   h_MT2llgen         [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
@@ -681,27 +838,70 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
     h_MT2llisrgen      [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
   }
 
-  if (_SaveHistograms>=2 && _systematic!="nominal") return;
+  if (_SaveHistograms>=2 && _systematic=="nominal") {
 
-  if (nvtx>=20) {
-    h_MT2ll_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-    h_MT2llgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-  } else {
-    h_MT2ll_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-    h_MT2llgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
-  }
-
-  if (_hasisrjet) {
     if (nvtx>=20) {
-      h_MT2llisr_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-      h_MT2llisrgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+      h_MT2ll_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+      h_MT2llgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
     } else {
-      h_MT2llisr_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
-      h_MT2llisrgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+      h_MT2ll_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+      h_MT2llgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
     }
+
+    if (_hasisrjet) {
+      if (nvtx>=20) {
+	h_MT2llisr_nvtxup   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+	h_MT2llisrgen_nvtxup[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+      } else {
+	h_MT2llisr_nvtxdo   [ichannel][icut][ijet]->Fill(_MT2ll,       _event_weight);
+	h_MT2llisrgen_nvtxdo[ichannel][icut][ijet]->Fill(_MT2llgen,    _event_weight);
+      }
+    }
+    
+    return;
+
   }
 
   if (_SaveHistograms>=2) return; 
+
+  if (_systematic.Contains("Zpeak")) {
+    h_HT             [ichannel][icut][ijet]->Fill(_htjets,           _event_weight);
+    if (_htjets<200.) h_MT2ll_HTm200 [ichannel][icut][ijet]->Fill(_MT2ll,           _event_weight);
+    else              h_MT2ll_HTp200 [ichannel][icut][ijet]->Fill(_MT2ll,           _event_weight);
+    if (_htjets<150.) h_MT2ll_HTm150 [ichannel][icut][ijet]->Fill(_MT2ll,           _event_weight);
+    else              h_MT2ll_HTp150 [ichannel][icut][ijet]->Fill(_MT2ll,           _event_weight);
+    if (_dphiminlmet<2.)
+      h_njet20dphilmet [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
+  } else if (_systematic.Contains("ZZ")) {
+    h_M1ll            [ichannel][icut][ijet]->Fill(_m2l,              _event_weight);
+    h_M2ll            [ichannel][icut][ijet]->Fill(_m2lZ2,            _event_weight);
+  }
+
+  h_dphillMET        [ichannel][icut][ijet]->Fill(_dphillmet,      _event_weight);
+  h_dphiLL           [ichannel][icut][ijet]->Fill(dphill,          _event_weight);
+  h_MET              [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
+  h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
+  h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
+  h_njet30           [ichannel][icut][ijet]->Fill(_njet30,         _event_weight);
+
+  if (_systematic.Contains("DYcorrections")) {
+    float pi = acos(-1.);
+    if (_dphillmet<pi/8.)         h_dphiLLbin1 [ichannel][icut][ijet]->Fill(dphill, _event_weight);
+    else if (_dphillmet<3.*pi/8.) h_dphiLLbin2 [ichannel][icut][ijet]->Fill(dphill, _event_weight);
+    else if (_dphillmet<5.*pi/8.) h_dphiLLbin3 [ichannel][icut][ijet]->Fill(dphill, _event_weight);
+    else if (_dphillmet<7.*pi/8.) h_dphiLLbin4 [ichannel][icut][ijet]->Fill(dphill, _event_weight);
+    else                          h_dphiLLbin5 [ichannel][icut][ijet]->Fill(dphill, _event_weight);
+    return;
+  }
+  
+  if (_systematic.Contains("ZZ")) return;
+  if (_systematic.Contains("WZ")) return;
+  if (_systematic.Contains("ZWtoZ")) return;
+
+  h_dphiminlepmet    [ichannel][icut][ijet]->Fill(_dphiminlmet,    _event_weight);
+  
+  if (_systematic.Contains("Zpeak")) return;
+  if (!_systematic.Contains("kinematic")) return;
 
   h_mt2lblbcomb      [ichannel][icut][ijet]->Fill(_mt2lblbcomb,    _event_weight);
   h_mt2bbtrue        [ichannel][icut][ijet]->Fill(_mt2bbtrue,      _event_weight);
@@ -715,11 +915,6 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_mt2lblbvsmlbtrue [ichannel][icut][ijet]->Fill(_mlb2true, _mt2lblbtrue,       _event_weight);
   h_nisrjet          [ichannel][icut][ijet]->Fill(_nisrjet,        _event_weight);
   h_maxjetpt         [ichannel][icut][ijet]->Fill(jetpt1,          _event_weight);
-  h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
-  h_njet30           [ichannel][icut][ijet]->Fill(_njet30,         _event_weight);
-  h_MET              [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
-  h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
-  h_dphiminlepmet    [ichannel][icut][ijet]->Fill(_dphiminlmet,    _event_weight);
   h_metmeff          [ichannel][icut][ijet]->Fill(_metmeff,        _event_weight);
 
   if (_nLeptonsMatched==2) {
@@ -885,7 +1080,7 @@ void AnalysisStop::FillLevelHistograms(int  icut,
 
   }
 
-  if (_SaveHistograms>=2) FillSystematicHistograms(_channel, icut);
+  if (_SaveHistograms>=3) FillSystematicHistograms(_channel, icut);
   if (_DoTheoreticalVariations==1) FillTheoreticalVariationsHistograms(_channel, icut);
   
 }
@@ -24627,7 +24822,7 @@ void AnalysisStop::CorrectEventWeight() {
 
   _event_weight            *= EventBTagSF/bPogSF_CSVM;
   _event_weight_Btagup      = _event_weight*EventBTagSF_Upb/EventBTagSF; 
-  _event_weight_Btagdo       = _event_weight*EventBTagSF_Dob/EventBTagSF; 
+  _event_weight_Btagdo      = _event_weight*EventBTagSF_Dob/EventBTagSF; 
   _event_weight_BtagFSup    = _event_weight*EventBTagSF_UpFSb/EventBTagSF; 
   _event_weight_BtagFSdo    = _event_weight*EventBTagSF_DoFSb/EventBTagSF; 
   _event_weight_Idisoup    *= EventBTagSF/bPogSF_CSVM; 
@@ -24768,6 +24963,7 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
 
   fChain = (TTree*) MiniTreeFile->Get("latino");
 
+  fChain->SetBranchAddress("event",           &event);
   fChain->SetBranchAddress("dyll",            &_dyll);
   fChain->SetBranchAddress("ptbll",           &_ptbll);
   fChain->SetBranchAddress("m2l",             &_m2l);
@@ -24795,12 +24991,31 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
   
   fChain->SetBranchAddress("lep1eta",         &_lep1eta); 
   fChain->SetBranchAddress("lep1phi",         &_lep1phi);  
-  fChain->SetBranchAddress("lep1pt",          &_lep1pt); 
+  fChain->SetBranchAddress("lep1pt",          &_lep1pt);   
+  fChain->SetBranchAddress("lep1id",          &_lep1id); 
   fChain->SetBranchAddress("lep1isfake",      &_lep1isfake);
+  fChain->SetBranchAddress("lep1mass",        &_lep1mass);
   fChain->SetBranchAddress("lep2eta",         &_lep2eta);
   fChain->SetBranchAddress("lep2phi",         &_lep2phi);
   fChain->SetBranchAddress("lep2pt",          &_lep2pt);
-  fChain->SetBranchAddress("lep2isfake",      &_lep2isfake);
+  fChain->SetBranchAddress("lep2isfake",      &_lep2isfake);  
+  fChain->SetBranchAddress("lep2id",          &_lep2id); 
+  fChain->SetBranchAddress("lep2mass",        &_lep2mass);
+
+  //if (_systematic.Contains("multilepton")) {
+    fChain->SetBranchAddress("lep3eta",         &_lep3eta); 
+    fChain->SetBranchAddress("lep3phi",         &_lep3phi);  
+    fChain->SetBranchAddress("lep3pt",          &_lep3pt); 
+    fChain->SetBranchAddress("lep3mass",        &_lep3mass); 
+    fChain->SetBranchAddress("lep3type",        &_lep3type);
+    fChain->SetBranchAddress("lep3id",          &_lep3id);
+    fChain->SetBranchAddress("lep4eta",         &_lep4eta);
+    fChain->SetBranchAddress("lep4phi",         &_lep4phi);
+    fChain->SetBranchAddress("lep4pt",          &_lep4pt);
+    fChain->SetBranchAddress("lep4mass",        &_lep4mass); 
+    fChain->SetBranchAddress("lep4type",        &_lep4type);
+    fChain->SetBranchAddress("lep4id",          &_lep4id);
+    //}
 
   fChain->SetBranchAddress("ht",              &_ht);
   fChain->SetBranchAddress("htjets",          &_htjets);
@@ -24809,6 +25024,8 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
   fChain->SetBranchAddress("nisrjet",         &_nisrjet);
   fChain->SetBranchAddress("isrpt",           &_isrpt);
   fChain->SetBranchAddress("njet",            &_njet);
+  fChain->SetBranchAddress("nlepton",         &_nlepton);
+  fChain->SetBranchAddress("ntightlepton",    &_ntightlepton);
   
   fChain->SetBranchAddress("susyMLSP",        &susyMLSP);
   fChain->SetBranchAddress("susyMstop",       &susyMstop);
@@ -24956,3 +25173,281 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
 
 }
     
+//------------------------------------------------------------------------------
+// ShapeWZtoWW
+//------------------------------------------------------------------------------
+bool AnalysisStop::ShapeWZtoWW()
+{
+  
+  if (_nlepton<3) return false;
+  //if (MET.Et()<100.) return false;
+
+  int nTightLeptons = 3;
+  if (_systematic.Contains("WZtoWWloose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) return false;
+
+  if (_systematic.Contains("veto") && _nlepton>3) return false;
+
+  float DMZCut = 10.;
+  if (_systematic.Contains("DM15")) DMZCut = 15.;
+
+  float DMZ = 999.; int Wlep1 = -1, Wlep2 = -1, Lostlep = -1;
+
+  for (int l1 = 0; l1<3; l1++) {
+    for (int l2 = l1+1; l2<3; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+
+	TLorentzVector Zcand = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand = fabs( Zcand.M() - Z_MASS );
+	
+	if (DMZcand<DMZCut && _systematic.Contains("WZtoWWlooseZ") && _ntightlepton<3)
+	  if (AnalysisLeptons[l1].type==1 && AnalysisLeptons[l2].type==1) return false;
+
+	if (DMZcand<DMZ) {
+	  
+	  if (l1==0 && l2==1) {
+	    Wlep2 = 2;
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[Wlep2].flavour<0.) { Wlep1 = l1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[Wlep2].flavour<0.) { Wlep1 = l2; Lostlep = l1; }
+	  } if (l1==0 && l2==2) {
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[1].flavour<0.) { Wlep1 = l1; Wlep2 = 1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[1].flavour<0.) { Wlep1 = 1; Wlep2 = l2; Lostlep = l1; }
+	  } if (l1==1 && l2==2) {
+	    Wlep1 = 0;
+	    if (AnalysisLeptons[l1].flavour*AnalysisLeptons[Wlep1].flavour<0.) { Wlep2 = l1; Lostlep = l2; }
+	    else if (AnalysisLeptons[l2].flavour*AnalysisLeptons[Wlep1].flavour<0.) { Wlep2 = l2; Lostlep = l1; }
+	  }
+	  
+	  DMZ = DMZcand;
+	  
+	}
+	
+      }
+    }
+  }
+    
+  if (DMZ>=DMZCut || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
+    return false; 
+  } else {
+
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
+				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+    
+    if (Wlep2==2) {
+      
+      if (Wlep1==1) AnalysisLeptons[0] = AnalysisLeptons[1]; 
+      AnalysisLeptons[1] = AnalysisLeptons[2];
+
+      Lepton1 = AnalysisLeptons[0];
+      Lepton2 = AnalysisLeptons[1];
+
+      if (Lepton1.v.Pt()<25. && Lepton2.v.Pt()<25.) return false;
+
+      mll = (Lepton1.v+Lepton2.v).M();
+      _m2l  = mll;
+
+      if (abs(Lepton1.flavour)!=abs(Lepton2.flavour)) _channel = em;
+      else if (abs(Lepton1.flavour)==11) _channel = ee;
+      else if (abs(Lepton1.flavour)==13) _channel = mm;
+
+      _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
+      _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
+      
+    }
+
+    return true;
+    
+  }
+
+}
+
+//------------------------------------------------------------------------------
+// ShapeZZ
+//------------------------------------------------------------------------------
+bool AnalysisStop::ShapeZZ()
+{
+  
+  if (_nlepton<4) return false;
+
+  int nTightLeptons = 3;
+  if (_systematic.Contains("ZZtight")) nTightLeptons = 4;
+  if (_systematic.Contains("ZZloose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) return false;
+
+  float DMZ1 = 15., DMZ2 = 30., DMZT = 999.; int Z1lep1 = -1, Z1lep2 = -1, Z2lep1 = -1, Z2lep2 = -1;
+  for (int l1 = 0; l1<4; l1++) {
+    for (int l2 = l1+1; l2<4; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+	
+	TLorentzVector Zcand1 = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand1 = fabs( Zcand1.M() - Z_MASS );
+	if (DMZcand1<DMZ1) {
+
+	  for (int l3 = 0; l3<4; l3++) {
+	    if (l3!=l1 && l3!=l2) {
+	      for (int l4 = l3+1; l4<4; l4++) {
+		if (l4!=l1 && l4!=l2) {
+		  if (AnalysisLeptons[l3].flavour*AnalysisLeptons[l4].flavour<0. && 
+		      fabs(AnalysisLeptons[l3].flavour)==fabs(AnalysisLeptons[l4].flavour)) {
+		  
+		    TLorentzVector Zcand2 = AnalysisLeptons[l3].v + AnalysisLeptons[l4].v;
+		    float DMZcand2 = fabs( Zcand2.M() - Z_MASS );
+		    if (DMZcand2<DMZ2) {
+		      
+		      float DMZTcand = sqrt(DMZcand1*DMZcand1 + DMZcand2*DMZcand2);
+		      if (DMZTcand<DMZT) {
+			
+			bool EventOdd = event%2;
+			if (DMZcand2>DMZ1 || EventOdd) {
+			  Z1lep1 = l1;
+			  Z1lep2 = l2;
+			  Z2lep1 = l3;
+			  Z2lep2 = l4;
+			} else {
+			  Z1lep1 = l3;
+			  Z1lep2 = l4;
+			  Z2lep1 = l1;
+			  Z2lep2 = l2;
+			}
+		      
+			DMZT = DMZTcand;
+			
+		      }
+
+		    }
+
+		  }
+		}
+	      }
+	    }
+	  }
+
+	}
+
+      }
+    }
+  }
+
+  if (DMZT>900. || Z1lep1<0 || Z1lep2<0 || Z2lep1<0 || Z2lep2<0) { 
+    return false;
+  } else {
+
+    Lepton1 = AnalysisLeptons[Z1lep1]; 
+    Lepton2 = AnalysisLeptons[Z1lep2]; 
+    Lepton Lepton3 = AnalysisLeptons[Z2lep1];
+    Lepton Lepton4 = AnalysisLeptons[Z2lep2];
+
+    if (Lepton1.v.Pt()<25. && Lepton2.v.Pt()<25.) return false;
+    
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + Lepton3.v.Px() + Lepton4.v.Px(),
+				   MET.Py() + Lepton3.v.Py() + Lepton4.v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+    
+    AnalysisLeptons[0] = Lepton1;
+    AnalysisLeptons[1] = Lepton2;
+    AnalysisLeptons[2] = Lepton3;
+    AnalysisLeptons[3] = Lepton4;
+
+    mll = (Lepton1.v+Lepton2.v).M();
+    _m2l  = mll;
+    _m2lZ2 = (Lepton3.v+Lepton4.v).M();
+
+    if (abs(Lepton1.flavour)!=abs(Lepton3.flavour)) _channel = em;
+    else if (abs(Lepton1.flavour)==11) _channel = ee;
+    else if (abs(Lepton1.flavour)==13) _channel = mm;
+    
+    _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
+    _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
+  
+    return true;
+    
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+// ShapeZWtoZ
+//------------------------------------------------------------------------------
+bool AnalysisStop::ShapeZWtoZ()
+{
+  
+  if (_nlepton<3) return false; 
+  //if (MET.Et()<100.) return false;
+
+  int nTightLeptons = 3;
+  if (_systematic.Contains("loose")) nTightLeptons = 2;
+  if (_ntightlepton<nTightLeptons) return false;
+
+  float DMZCut = 10.;
+  if (_systematic.Contains("DM15")) DMZCut = 15.;
+
+  float DMZ = 999.; int Zlep1 = -1, Zlep2 = -1, Lostlep = -1;
+
+  for (int l1 = 0; l1<3; l1++) {
+    for (int l2 = l1+1; l2<3; l2++) {
+      if (AnalysisLeptons[l1].flavour*AnalysisLeptons[l2].flavour<0. && 
+	  fabs(AnalysisLeptons[l1].flavour)==fabs(AnalysisLeptons[l2].flavour)) {
+
+	TLorentzVector Zcand = AnalysisLeptons[l1].v + AnalysisLeptons[l2].v;
+	float DMZcand = fabs( Zcand.M() - Z_MASS );
+	
+	if (DMZcand<DMZCut && _systematic.Contains("looseZ") && _ntightlepton<3)
+	  if (AnalysisLeptons[l1].type==1 && AnalysisLeptons[l2].type==1) return false;
+
+	if (DMZcand<DMZ) {
+	  
+	  Zlep1 = l1; 
+	  Zlep2 = l2;
+
+	  if (l1==0 && l2==1) Lostlep = 2;
+	  if (l1==0 && l2==2) Lostlep = 1;
+	  if (l1==1 && l2==2) Lostlep = 0;
+	  
+	  DMZ = DMZcand;
+	  
+	}
+	
+      }
+    }
+  }
+    
+  if (DMZ>=DMZCut || Zlep1<0 || Zlep2<0 || Lostlep<0) { 
+    return false; 
+  } else {
+    
+    Lepton1 = AnalysisLeptons[Zlep1]; 
+    Lepton2 = AnalysisLeptons[Zlep2];
+    Lepton Lepton3 =  AnalysisLeptons[Lostlep];
+
+    if (Lepton1.v.Pt()<25. && Lepton2.v.Pt()<25.) return false;
+
+    TVector3 NewMET; NewMET.SetXYZ(MET.Px() + Lepton3.v.Px(),
+				   MET.Py() + Lepton3.v.Py(),
+				   MET.Pz());
+    MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+    
+    AnalysisLeptons[0] = Lepton1;
+    AnalysisLeptons[1] = Lepton2;
+    AnalysisLeptons[2] = Lepton3;
+
+    mll = (Lepton1.v+Lepton2.v).M();
+    _m2l  = mll;
+
+    if (abs(Lepton1.flavour)!=abs(Lepton3.flavour)) _channel = em;
+    else if (abs(Lepton1.flavour)==11) _channel = ee;
+    else if (abs(Lepton1.flavour)==13) _channel = mm;
+    
+    _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
+    _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
+  
+    return true;
+    
+  }
+
+}

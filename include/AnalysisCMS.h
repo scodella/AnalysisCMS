@@ -113,7 +113,11 @@ class AnalysisCMS : public AnalysisBase
 				    float    luminosity,
 				    TString  suffix = "");
 
-  void        ShapeWZ              ();
+  //void        ShapeWZ              ();
+
+  //void        ShapeZZ              ();
+
+  //void        ShapeWZforZZ         ();
 
   void        Summary              (TString  analysis,
 				    TString  precision,
@@ -300,6 +304,18 @@ class AnalysisCMS : public AnalysisBase
   float                  _lep2motherid_gen;
   float                  _lep1mid;
   float	                 _lep2mid;
+  float                  _lep3id;
+  float                  _lep3eta;
+  float                  _lep3phi;
+  float                  _lep3pt;
+  float			 _lep3mass;
+  float			 _lep3type;
+  float                  _lep4id;
+  float                  _lep4eta;
+  float                  _lep4phi;
+  float                  _lep4pt;
+  float			 _lep4mass;
+  float			 _lep4type;
   float                  _nu1pt_gen; 
   float                  _nu1tau_gen;
   float                  _nu2pt_gen; 
@@ -402,8 +418,10 @@ class AnalysisCMS : public AnalysisBase
 
   unsigned int           _jetbin;
   unsigned int           _nelectron;
-  unsigned int           _nlepton;
-  unsigned int           _ntightlepton;
+  //unsigned int           _nlepton;
+  //unsigned int           _ntightlepton;
+  int                    _nlepton;
+  int                    _ntightlepton;
 
   int                    _verbosity;
   

@@ -81,10 +81,25 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_nisrjet          [nchannel][ncut][njetbin+1];
   TH1D*                  h_maxjetpt         [nchannel][ncut][njetbin+1];
   TH1D*                  h_njet20           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_njet20dphilmet   [nchannel][ncut][njetbin+1];
   TH1D*                  h_njet30           [nchannel][ncut][njetbin+1];
   TH1D*                  h_MET              [nchannel][ncut][njetbin+1];
   TH1D*                  h_Counter          [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiminlepmet    [nchannel][ncut][njetbin+1];
+  TH1D*                  h_HT               [nchannel][ncut][njetbin+1];
+  TH1D*                  h_MT2ll_HTm150     [nchannel][ncut][njetbin+1];
+  TH1D*                  h_MT2ll_HTp150     [nchannel][ncut][njetbin+1];
+  TH1D*                  h_MT2ll_HTm200     [nchannel][ncut][njetbin+1];
+  TH1D*                  h_MT2ll_HTp200     [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphillMET        [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLL           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLLbin1       [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLLbin2       [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLLbin3       [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLLbin4       [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphiLLbin5       [nchannel][ncut][njetbin+1];
+  TH1D*                  h_M1ll             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_M2ll             [nchannel][ncut][njetbin+1];
 
   int _SaveHistograms, _DoTheoreticalVariations;
 
@@ -109,7 +124,7 @@ class AnalysisStop : public AnalysisCMS
 
   bool  _hasisrjet;
 
-  float _dphiminlmet;
+  float _dphiminlmet, _m2lZ2;
 
   int   _nLeptonsMatched, _njet30;
 
@@ -145,6 +160,9 @@ class AnalysisStop : public AnalysisCMS
   TH1F*                  h_MT2llisr_theoreticalvariation     [nchannel][ncut][111];
   TH1F*                  h_MT2llisrgen_theoreticalvariation  [nchannel][ncut][111];
 
+  //
+  bool _applyDYcorrections;
+
   // Tools for ISR jet reweighting 
   // https://indico.cern.ch/event/592621/contributions/2398559/attachments/1383909/2105089/16-12-05_ana_manuelf_isr.pdf
   bool _applyisrreweighting = true;
@@ -159,6 +177,12 @@ class AnalysisStop : public AnalysisCMS
   const int nISRPtBins = 8;
   float ISRPtBinWeight[8] = {1., 1.052, 1.179, 1.150, 1.057, 1.000, 0.912, 0.783};
   float ISRPtBinEdge[8] = {0., 50., 100., 150., 200., 300., 400., 600.};
+
+  bool        ShapeWZtoWW         ();
+
+  bool        ShapeZZ             ();
+
+  bool        ShapeZWtoZ          ();
 
 };
 

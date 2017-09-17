@@ -64,6 +64,24 @@ enum {
   Stop_02_SRs,
   Stop_02_SRs_Tag,
   Stop_02_SRs_NoTag,
+  Stop_ZZ_Tag_tight,
+  Stop_ZZ_NoTag_tight,
+  Stop_ZZ_NoJet_tight,
+  Stop_ZZ_SRs_Tag_tight,
+  Stop_ZZ_SRs_NoTag_tight,
+  Stop_ZZ_SRs_NoJet_tight,
+  Stop_ZZ_Tag,
+  Stop_ZZ_NoTag,
+  Stop_ZZ_NoJet,
+  Stop_ZZ_SRs_Tag,
+  Stop_ZZ_SRs_NoTag,
+  Stop_ZZ_SRs_NoJet,
+  Stop_ZZ_Tag_loose,
+  Stop_ZZ_NoTag_loose,
+  Stop_ZZ_NoJet_loose,
+  Stop_ZZ_SRs_Tag_loose,
+  Stop_ZZ_SRs_NoTag_loose,
+  Stop_ZZ_SRs_NoJet_loose,
 
   ncut  // This line should be always last
 };
@@ -126,7 +144,25 @@ const TString scut[ncut] = {
   "Stop/02_SR3gen_NoJet",
   "Stop/02_SRs",
   "Stop/02_SRs_Tag",
-  "Stop/02_SRs_NoTag"
+  "Stop/02_SRs_NoTag",
+  "Stop/ZZ_Tag_tight",
+  "Stop/ZZ_NoTag_tight",
+  "Stop/ZZ_NoJet_tight",
+  "Stop/ZZ_SRs_Tag_tight",
+  "Stop/ZZ_SRs_NoTag_tight",
+  "Stop/ZZ_SRs_NoJet_tight",
+  "Stop/ZZ_Tag",
+  "Stop/ZZ_NoTag",
+  "Stop/ZZ_NoJet",
+  "Stop/ZZ_SRs_Tag",
+  "Stop/ZZ_SRs_NoTag",
+  "Stop/ZZ_SRs_NoJet",
+  "Stop/ZZ_Tag_loose",
+  "Stop/ZZ_NoTag_loose",
+  "Stop/ZZ_NoJet_loose",
+  "Stop/ZZ_SRs_Tag_loose",
+  "Stop/ZZ_SRs_NoTag_loose",
+  "Stop/ZZ_SRs_NoJet_loose"
 
 };
 
