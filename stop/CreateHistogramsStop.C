@@ -9,12 +9,12 @@
 
 #include "stop.h"
 
-const TString outputdir = "histo_Minitree_WWSel_em"; 
+const TString outputdir = "histo_Minitree_JetCheck"; 
 
 void CreateHistograms2( int process );
 
 
-void CreateHistogramsBarbara(){
+void CreateHistogramsStop(){
 
 	Assign();
 
@@ -65,9 +65,9 @@ void CreateHistograms2( int process ){
 
 		TCut thecut = mycut[k]; 
 
-		if ( process == TT && k != toppTrw ) thecut = Form("         %4.2f", ttSF)*thecut; 
-		if ( process == TT && k == toppTrw ) thecut = Form("toppTRwW*%4.2f", ttSF)*thecut; 
-		if ( process == DY                 ) thecut = Form("         %4.2f", DYSF)*thecut; 
+	//	if ( process == TT && k != toppTrw ) thecut = Form("         %4.2f", ttSF)*thecut; 
+	//	if ( process == TT && k == toppTrw ) thecut = Form("toppTRwW*%4.2f", ttSF)*thecut; 
+	//	if ( process == DY                 ) thecut = Form("         %4.2f", DYSF)*thecut; 
 
 	/*	if( (k >= QCDup && k <= PDFdo) && (process != data && process != ttDM && process != fakes && process != ST && process != HZ) ){
 
@@ -151,8 +151,8 @@ void CreateHistograms2( int process ){
 		mytree -> Draw( b_name[htnojets     ] + " >> " + h_name[htnojets     ] + "( 3000,  0,   3000   )", thecut );
 
 */		mytree -> Draw( b_name[njet         ] + " >> " + h_name[njet         ] + "(   10,  0,     10   )", thecut );
-/*		mytree -> Draw( b_name[nbjet30csvv2l] + " >> " + h_name[nbjet30csvv2l] + "(   10,  0,     10   )", thecut );
 		mytree -> Draw( b_name[nbjet30csvv2m] + " >> " + h_name[nbjet30csvv2m] + "(   10,  0,     10   )", thecut );
+/*		mytree -> Draw( b_name[nbjet30csvv2l] + " >> " + h_name[nbjet30csvv2l] + "(   10,  0,     10   )", thecut );
 		mytree -> Draw( b_name[nbjet30csvv2t] + " >> " + h_name[nbjet30csvv2t] + "(   10,  0,     10   )", thecut );
 
 		mytree -> Draw( b_name[dphijet1met  ] + " >> " + h_name[dphijet1met  ] + "(  100,  0,      3.2 )", thecut );   

@@ -1,9 +1,10 @@
 #include "TCut.h"
 
 //const TString  inputdir = "/gpfs/csic_projects/tier3data/LatinosSkims/RunII/2016/Stop/minitrees/nominal/Stop/";  // where the minitrees are stored
-const TString  inputdir = "../minitrees/nominal/Stop/";  // where the minitrees are stored
+//const TString  inputdir = "../minitrees/nominal/Stop/";  // where the minitrees are stored
+const TString  inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored
 
-const float thelumi = 9.983; 
+const float thelumi = 35.867; 
 const float    ttSF = 1.;  const float ettSF = 0.0;
 const float    DYSF = 1.;  const float eDYSF = 0.0;
 			     const float efakes= 0.00;
@@ -11,29 +12,82 @@ const float    DYSF = 1.;  const float eDYSF = 0.0;
 const bool doshape = false; 
 
 
-  //const TCut selection= "1>0";
-  const TCut selection= "channel == 5";
+  const TCut selection= "1>0";
+  //const TCut selection= " run < 276502 && channel == 5 && leadingPtCSVv2M > 20.";
   //const TCut selection= "channel == 5 && njet < 1";
 
-//const TCut soft_cut = "metPfType1>80. && njet > 1 && leadingPtCSVv2M > 20."; 
+//const TCut soft_cut = "njet >=1 && leadingPtCSVv2M > 20."; 
 /*const TCut hard_cut = soft_cut&&"mt2ll>100.&&darkpt>0."; 
 //const TCut  MVA_cut = hard_cut&&"ANN_met80_mt2ll100_ttDM0001scalar00500>0.50";
 TCut MVA_cut;
 *
 */
 
-enum{ data,
-      TT,
-      ST,
-      DY,
-      TTZ,
-      TTW,
-      WW,
-      WZ, 
-      VZ,
-      VVV,
-      nprocess
-}; 
+enum{ /*	data,
+      	//TT:
+      	TT0,
+	TT1,
+	TT10,
+	TT11,
+	TT12,
+	TT13,
+	TT14,
+	TT15,
+	TT16,
+	TT17,
+	TT18,
+	TT2,
+	TT3,
+	TT4,
+	TT5,
+	TT6,
+	TT7,
+	TT8,
+	TT9,
+     */    
+
+     	//DY,
+     	DY_M10to50_LO,
+        DY_M5to50_HT_0,
+        DY_M5to50_HT_1,
+        DY_M5to50_HT_2,
+        DY_M5to50_HT_3,
+        DY_M5to50_HT_4,
+        DY_M50_LO_ext1__part0,
+        DY_M50_LO_ext1__part1,
+        DY_M50_LO_ext1__part2,
+        DY_M50_LO_ext1__part3,
+        DY_M50_LO_ext1__part4,
+        DY_M50_LO_ext1__part5,
+        DY_M50_LO_ext1__part6,
+        DY_M50_LO_ext1__part7,
+
+        //DY_M50_HT_0, 
+        DY_M50_HT_1, 
+        DY_M50_HT_2, 
+        DY_M50_HT_3, 
+        //DY_M50_HT_4, 
+        DY_M50_HT_5, 
+        DY_M50_HT_6, 
+        DY_M50_HT_7, 
+        DY_M50_HT_8, 
+        DY_M50_HT_9, 
+        DY_M50_HT_10,
+        DY_M50_HT_11,
+        DY_M50_HT_12,
+        DY_M50_HT_13,
+        DY_M50_HT_14,
+      	
+       /* ST,
+        TTZ,
+      	TTW,
+      	WW,
+      	WZ, 
+      	VZ,
+     	VVV,
+      	HWW,
+      */nprocess
+    }; 
 
 enum{ ttDM0001scalar00010, 
       ttDM0001scalar00020, 
@@ -85,7 +139,7 @@ enum{ lep1pt, lep1eta, lep1phi, lep1mass,
       metPfType1, metPfType1Phi,
       m2l, mt2ll, mt2lblb, /*mtw1, mtw2,
       ht, htjets, htnojets,*/
-      njet, /*nbjet30csvv2l, nbjet30csvv2m, nbjet30csvv2t,  
+      njet, nbjet30csvv2m, /*nbjet30csvv2l, nbjet30csvv2t,  
       dphijet1met, dphijet2met, dphijj, dphijjmet, dphill, dphilep1jet1, dphilep1jet2, dphilep2jet1, dphilep2jet2, dphilmet1, dphilmet2, dphillmet,	
       top1eta_gen, top1phi_gen, top1pt_gen, top2eta_gen, top2phi_gen, top2pt_gen, detatt_gen,  
       nvtx,
@@ -114,17 +168,70 @@ void Assign(){
 
 	//----------
 
-	processID[data ] = "01_Data"                 ;
-	processID[TT   ] = "04_TTTo2L2Nu"            ; 
+/*	processID[data ] = "01_Data"                 ;
+	//processID[TT   ] = "04_TTTo2L2Nu"            ;
+	  processID[TT0  ] = "TTTo2L2Nu__part0";
+          processID[TT1  ] = "TTTo2L2Nu__part1"; 
+          processID[TT10 ] =  "TTTo2L2Nu__part10";
+          processID[TT11 ] =  "TTTo2L2Nu__part11";
+          processID[TT12 ] =  "TTTo2L2Nu__part12";
+          processID[TT13 ] =  "TTTo2L2Nu__part13";
+          processID[TT14 ] =  "TTTo2L2Nu__part14";
+          processID[TT15 ] =  "TTTo2L2Nu__part15";
+          processID[TT16 ] =  "TTTo2L2Nu__part16";
+          processID[TT17 ] =  "TTTo2L2Nu__part17";
+          processID[TT18 ] =  "TTTo2L2Nu__part18";
+          processID[TT2  ] =  "TTTo2L2Nu__part2";
+          processID[TT3  ] =  "TTTo2L2Nu__part3";
+          processID[TT4  ] =  "TTTo2L2Nu__part4";
+          processID[TT5  ] =  "TTTo2L2Nu__part5";
+          processID[TT6  ] =  "TTTo2L2Nu__part6";
+          processID[TT7  ] =  "TTTo2L2Nu__part7";
+          processID[TT8  ] =  "TTTo2L2Nu__part8";
+          processID[TT9  ] =  "TTTo2L2Nu__part9";
+*/
+	//processID[DY   ] = "07_ZJets"                ;
+	   
+          processID[DY_M10to50_LO ]  = "DYJetsToLL_M-10to50-LO";
+          processID[DY_M5to50_HT_0 ] = "DYJetsToLL_M-5to50_HT-100to200";
+	  processID[DY_M5to50_HT_1 ] = "DYJetsToLL_M-5to50_HT-200to400";
+	  processID[DY_M5to50_HT_2 ] = "DYJetsToLL_M-5to50_HT-400to600";
+  	  processID[DY_M5to50_HT_3 ] = "DYJetsToLL_M-5to50_HT-600toInf";
+  	  processID[DY_M5to50_HT_4 ] = "DYJetsToLL_M-5to50_HT-70to100";
+          processID [DY_M50_LO_ext1__part0]= "DYJetsToLL_M-50-LO-ext1__part0";
+          processID [DY_M50_LO_ext1__part1] = "DYJetsToLL_M-50-LO-ext1__part1";
+          processID [DY_M50_LO_ext1__part2] = "DYJetsToLL_M-50-LO-ext1__part2";
+          processID [DY_M50_LO_ext1__part3] = "DYJetsToLL_M-50-LO-ext1__part3";
+          processID [DY_M50_LO_ext1__part4] = "DYJetsToLL_M-50-LO-ext1__part4";
+          processID [DY_M50_LO_ext1__part5] = "DYJetsToLL_M-50-LO-ext1__part5";
+          processID [DY_M50_LO_ext1__part6] = "DYJetsToLL_M-50-LO-ext1__part6";
+          processID [DY_M50_LO_ext1__part7] = "DYJetsToLL_M-50-LO-ext1__part7";
+  	  //processID[DY_M50_HT_0 ] = "DYJetsToLL_M-50_HT-100to200";
+  	  processID[DY_M50_HT_1 ] = "DYJetsToLL_M-50_HT-100to200_ext1__part0";
+  	  processID[DY_M50_HT_2 ] = "DYJetsToLL_M-50_HT-100to200_ext1__part1";
+      	  processID[DY_M50_HT_3 ] = "DYJetsToLL_M-50_HT-1200to2500";
+  	  //processID[DY_M50_HT_4 ] = "DYJetsToLL_M-50_HT-200to400";
+  	  processID[DY_M50_HT_5 ] = "DYJetsToLL_M-50_HT-200to400_ext1__part0";
+  	  processID[DY_M50_HT_6 ] = "DYJetsToLL_M-50_HT-200to400_ext1__part1";
+  	  processID[DY_M50_HT_7 ] = "DYJetsToLL_M-50_HT-2500toInf";
+  	  processID[DY_M50_HT_8 ] = "DYJetsToLL_M-50_HT-400to600";
+  	  processID[DY_M50_HT_9 ] = "DYJetsToLL_M-50_HT-600to800__part0";
+          processID[DY_M50_HT_10 ] = "DYJetsToLL_M-50_HT-600to800__part1";
+  	  processID[DY_M50_HT_11 ] = "DYJetsToLL_M-50_HT-600to800__part2";
+  	  processID[DY_M50_HT_12 ] = "DYJetsToLL_M-50_HT-70to100__part0";
+  	  processID[DY_M50_HT_13 ] = "DYJetsToLL_M-50_HT-70to100__part1";
+  	  processID[DY_M50_HT_14] = "DYJetsToLL_M-50_HT-800to1200";
+
+/* 
 	processID[ST   ] = "05_ST"                   ; 
-	processID[DY   ] = "07_ZJets"                ; 
 	processID[TTW  ] = "09_TTW"                  ; 
 	processID[WW   ] = "06_WW"                   ; 
 	processID[WZ   ] = "02_WZTo3LNu"             ; 
 	processID[VZ   ] = "03_VZ"                   ; 
 	processID[VVV  ] = "13_VVV"                  ; 
 	processID[TTZ  ] = "10_TTZ"                  ; 
-
+	processID[HWW  ] = "11_HWW"                  ; 
+*/
 	scalarID[ttDM0001scalar00010] = "ttDM0001scalar00010"; 
 	scalarID[ttDM0001scalar00020] = "ttDM0001scalar00020"; 
 	scalarID[ttDM0001scalar00050] = "ttDM0001scalar00050"; 
@@ -233,9 +340,9 @@ void Assign(){
 	b_name[htjets  ] = "htjets"  ;
 	b_name[htnojets] = "htnojets";
 
-*/	b_name[njet         ] = "njet"         ;
-/*	b_name[nbjet30csvv2l] = "nbjet30csvv2l";
+*/	b_name[njet         ]  = "njet"         ;
 	b_name[nbjet30csvv2m] = "nbjet30csvv2m";
+/*	b_name[nbjet30csvv2l] = "nbjet30csvv2l";
 	b_name[nbjet30csvv2t] = "nbjet30csvv2t";
 
 	b_name[dphijet1met ] = "dphijet1met" ;   
