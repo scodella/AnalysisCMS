@@ -185,6 +185,11 @@ class AnalysisCMS : public AnalysisBase
   std::vector<float>     _bjet30csvv2m_phi;
   std::vector<float>     _bjet30csvv2m_pt; 
 
+  // to testing for the fakes
+  //std::vector<float>     _lep1GenDeltaR;
+  //std::vector<float>     _lep2GenDeltaR;
+  //std::vector<float>     _testMotherID;
+  
   TH1F*                  _shapemlb; 
 
   bool                   _saveminitree;
@@ -408,6 +413,8 @@ class AnalysisCMS : public AnalysisBase
   float                  _tjet2mass;
   float                  _tjet2csvv2ivf;
   float                  _tjet2assignment;
+
+
 
   float                  _MR;
   float                  _R2;
