@@ -1054,14 +1054,14 @@ void AnalysisCMS::GetLeptons()
   _lep1pt   = Lepton1.v.Pt();
   _lep1mass = Lepton1.v.M(); 
   _lep1id   = Lepton1.flavour; 
-  _lep1mid  = Lepton1.motherPID;
+  _lep1mid  = GetMotherPID(0);
 
   _lep2eta  = Lepton2.v.Eta();
   _lep2phi  = Lepton2.v.Phi();
   _lep2pt   = Lepton2.v.Pt();
   _lep2mass = Lepton2.v.M(); 
   _lep2id   = Lepton2.flavour; 
-  _lep2mid  = Lepton2.motherPID;
+  _lep2mid  = GetMotherPID(1);
 
   _detall = fabs(_lep1eta - _lep2eta);
 
@@ -3067,3 +3067,53 @@ void AnalysisCMS::GetScaleAndResolution()
 
   _uPerp = (uT.Px() * qT.Py() - uT.Py() * qT.Px()) / qT.Mod();
 }
+
+
+//------------------------------------------------------------------------------
+// GetMotherPID
+//------------------------------------------------------------------------------
+
+int AnalysisCMS::GetMotherPID(int index)
+{
+  int motherPID = -9999;
+
+  if (!_ismc || index > 1) return motherPID;
+
+  TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
+
+  // Loop over GEN leptons
+  //----------------------------------------------------------------------------
+  float deltaRMin = 0.3;
+
+  for (UInt_t j=0; j<std_vector_leptonGen_pt->size(); j++) {
+
+    if (std_vector_leptonGen_pt->at(j) < 0) continue;
+
+    if (std_vector_leptonGen_status->at(j) != 1) continue;
+
+    if (abs(std_vector_leptonGen_pid->at(j)) != 11 && abs(std_vector_leptonGen_pid->at(j)) != 13) continue;
+
+    if (std_vector_leptonGen_isPrompt->at(j) != 1 && std_vector_leptonGen_isDirectPromptTauDecayProduct->at(j) != 1) continue;
+
+    float std_vector_leptonGen_mass = (abs(std_vector_leptonGen_pid->at(j)) == 11) ? ELECTRON_MASS : MUON_MASS;
+
+    TLorentzVector leptonGen_tlorentz;
+
+    leptonGen_tlorentz.SetPtEtaPhiM(std_vector_leptonGen_pt->at(j),
+				    std_vector_leptonGen_eta->at(j),
+				    std_vector_leptonGen_phi->at(j),
+				    std_vector_leptonGen_mass);
+
+     // Get the GEN lepton index
+     //--------------------------------------------------------------------------
+     if (lepton_tlorentz.DeltaR(leptonGen_tlorentz) < deltaRMin) {
+
+      motherPID = std_vector_leptonGen_MotherPID->at(j);
+
+      deltaRMin = lepton_tlorentz.DeltaR(leptonGen_tlorentz);
+    }
+  }
+
+  return motherPID;
+}
+

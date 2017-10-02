@@ -73,9 +73,9 @@ mkdir -p jobs
 cd jobs
 
 if [[ "$SAMPLES" != *"minitrees"* ]]; then
-    bsub -q cmscaf1nd -J "settings[1-$NJOBS]" -o $WORKDIRECTORY/jobs $WORKDIRECTORY/settings.lsf WORKDIRECTORY SAMPLES SYSTEMATIC
+    bsub -q 8nh -J "settings[1-$NJOBS]" -o $WORKDIRECTORY/jobs $WORKDIRECTORY/settings.lsf WORKDIRECTORY SAMPLES SYSTEMATIC
 else
-    bsub -q cmscaf1nd -J "settings[1-$NJOBS]" -o $WORKDIRECTORY/jobs $WORKDIRECTORY/settings_minitrees.lsf WORKDIRECTORY SAMPLES SYSTEMATIC
+    bsub -q 8nh -J "settings[1-$NJOBS]" -o $WORKDIRECTORY/jobs $WORKDIRECTORY/settings_minitrees.lsf WORKDIRECTORY SAMPLES SYSTEMATIC
 fi
 
 

@@ -163,6 +163,8 @@ class AnalysisCMS : public AnalysisBase
 				    int            MT2Type      = 0,
 				    double         MT2Precision = 0.);
 
+  int         GetMotherPID         (int            index);
+
   void        GetScaleAndResolution(); 
 
 
