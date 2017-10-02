@@ -14,6 +14,7 @@
 #include <TStyle.h>
 #include <TSystem.h>
 #include <TTree.h>
+#include <TSpline.h>
 
 
 enum {Loose, Tight};
@@ -150,6 +151,8 @@ class AnalysisCMS : public AnalysisBase
 
   void        GetZHCRVar           ();
 
+  void        GetZZGenVar          ();
+
   void        GetStopVar           ();
 
   void        GetRazor             ();
@@ -162,6 +165,8 @@ class AnalysisCMS : public AnalysisBase
 				    TLorentzVector Invisible,
 				    int            MT2Type      = 0,
 				    double         MT2Precision = 0.);
+
+  int         GetMotherPID         (int            index);
 
   void        GetScaleAndResolution(); 
 
@@ -406,6 +411,9 @@ class AnalysisCMS : public AnalysisBase
   float                  _tjet2mass;
   float                  _tjet2csvv2ivf;
   float                  _tjet2assignment;
+  float                  _ZZdphi;
+  float                  _ZZpt;
+  float                  _ZZmass; 
 
   float                  _MR;
   float                  _R2;
@@ -435,6 +443,14 @@ class AnalysisCMS : public AnalysisBase
   float 		 _uPara; 
   float 		 _uPerp; 
 
+  // ZZ k-factors 
+  // https://twiki.cern.ch/twiki/bin/viewauth/CMS/HiggsZZ4l2015#K_factorshttps://twiki.cern.ch/twiki/bin/viewauth/CMS/HiggsZZ4l2015#K_factors
+  TSpline3* ggZZ_kf[9];
+  void ReadGluGluHZZkfactors();
+  float kfactor_ggHZZ_qcd    (float GENmassZZ, TString SystTitle);
+  float kfactor_qqZZ_qcd_dPhi(float GENdPhiZZ, int finalState);
+  float kfactor_qqZZ_qcd_M   (float GENmassZZ, int finalState);
+  float kfactor_qqZZ_qcd_Pt  (float GENpTZZ,   int finalState);
 
   // TH1 histograms
   //----------------------------------------------------------------------------
