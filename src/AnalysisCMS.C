@@ -3171,7 +3171,6 @@ int AnalysisCMS::GetMotherPID(int index)
 
   TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
 
-
   // Loop over GEN leptons
   //----------------------------------------------------------------------------
   float deltaRMin = 0.3;
@@ -3196,14 +3195,14 @@ int AnalysisCMS::GetMotherPID(int index)
 				    std_vector_leptonGen_mass);
 
 
-    // Get the GEN lepton index
-    //--------------------------------------------------------------------------
-    if (lepton_tlorentz.DeltaR(leptonGen_tlorentz) < deltaRMin) {
+     // Get the GEN lepton index
+     //--------------------------------------------------------------------------
+     if (lepton_tlorentz.DeltaR(leptonGen_tlorentz) < deltaRMin) {
 
-      motherPID = std_vector_leptonGen_MotherPID->at(j);
+       motherPID = std_vector_leptonGen_MotherPID->at(j);
 
-      deltaRMin = lepton_tlorentz.DeltaR(leptonGen_tlorentz);
-    }
+       deltaRMin = lepton_tlorentz.DeltaR(leptonGen_tlorentz);
+     }
   }
 
   return motherPID;
@@ -3466,3 +3465,4 @@ float AnalysisCMS::kfactor_qqZZ_qcd_Pt(float GENpTZZ, int finalState)
     else return k; // if something goes wrong return inclusive k-factor
 
 }
+
