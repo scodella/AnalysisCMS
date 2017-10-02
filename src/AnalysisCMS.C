@@ -1841,6 +1841,8 @@ void AnalysisCMS::OpenMinitree()
   //----------------------------------------------------------------------------
   minitree = new TTree("latino", "minitree");
 
+  
+
   // B
   minitree->Branch("bjet1csvv2ivf",     &_bjet1csvv2ivf,    "bjet1csvv2ivf/F");
   minitree->Branch("bjet1eta",          &_bjet1eta,         "bjet1eta/F");
@@ -2059,6 +2061,10 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("Mdr",               &_Mdr,              "Mdr/F");
   minitree->Branch("DeltaPhiRll",       &_DeltaPhiRll,      "DeltaPhiRll/F");
 
+  // to test 
+  //minitree->Branch("lep1GenDeltaR",    "std::vector<float>",    &_lep1GenDeltaR);
+  //minitree->Branch("lep2GenDeltaR",    "std::vector<float>",    &_lep2GenDeltaR);
+  //minitree->Branch("testMotherID",     "std::vector<float>",    &_testMotherID);
   // Only available in MC
   if (std_vector_LHE_weight)
     minitree->Branch("LHEweight", &std_vector_LHE_weight);
@@ -2586,6 +2592,10 @@ void AnalysisCMS::GetStopVar()
     }
   }
 
+  // Matching gen and reco leptons from W
+  // --------------------------------------
+  // fakes estimate
+
   for (int ml = 0; ml<2; ml++) {
 
     double MinimumDeltaR = 1.;
@@ -2594,11 +2604,11 @@ void AnalysisCMS::GetStopVar()
       
       if (std_vector_leptonGen_pt->at(lp) < 0) continue;
       
-      int Wid = 2*ml - 1;  // -1 for ml==0 (W-), +1 for ml==1 (W+)
+      int Wid = 2*ml - 1;  // Stablish the sign of W =>  -1 for ml==0 (W-), +1 for ml==1 (W+)
 
-      if (Wid*std_vector_leptonGen_pid->at(lp) > 0) continue;
+      if (Wid*std_vector_leptonGen_pid->at(lp) > 0) continue; // avoid lepton mismatching  W+ & e-mu-  or W- & e+mu+  
 
-      if (fabs(std_vector_leptonGen_MotherPID->at(lp)) != 24) continue;
+      if (fabs(std_vector_leptonGen_MotherPID->at(lp)) != 24) continue; 
       
       float LeptonMass = (fabs(std_vector_leptonGen_pid->at(lp)) == 13) ? MUON_MASS : ELECTRON_MASS;
       
@@ -2610,16 +2620,18 @@ void AnalysisCMS::GetStopVar()
 				 LeptonMass);
 
       double DeltaRGenLepLep1 = (Lepton1.v).DeltaR(ChargedLepton);
-
+     
+      // Get the MinimumDeltaR of the two W's, i.e., get the best matching of the two possible W's (+-)
+      
       if (DeltaRGenLepLep1<MinimumDeltaR && DeltaRGenLepLep1<fabs(_lep1isfake)) {
 
 	MinimumDeltaR = DeltaRGenLepLep1; 
 
 	_lep1isfake = MinimumDeltaR;
 	
-	if (std_vector_lepton_ch->at(Lepton1.index)*Wid<0) _lep1isfake *= -1;
+	if (std_vector_lepton_ch->at(Lepton1.index)*Wid<0) _lep1isfake *= -1; //_lep1fake < 0 there is a charge mismatching. It counts as fake lepton 
 
-	if (MinimumDeltaR < 0.04 && lepIndex[ml] < 0) lepIndex[ml] = lp;
+	if (MinimumDeltaR < 0.04 && lepIndex[ml] < 0) lepIndex[ml] = lp; // different use
       }
 
       double DeltaRGenLepLep2 = (Lepton2.v).DeltaR(ChargedLepton);
@@ -2630,7 +2642,7 @@ void AnalysisCMS::GetStopVar()
 
 	_lep2isfake = MinimumDeltaR;
 	
-	if (std_vector_lepton_ch->at(Lepton2.index)*Wid < 0) _lep2isfake *= -1;
+	if (std_vector_lepton_ch->at(Lepton2.index)*Wid < 0) _lep2isfake *= -1; //_lep1fake < 0 there is a charge mismatching. It counts as fake lepton
 
 	if (MinimumDeltaR<0.04 && lepIndex[ml]<0)
 	  lepIndex[ml] = lp;
@@ -3165,17 +3177,23 @@ void AnalysisCMS::GetScaleAndResolution()
 //------------------------------------------------------------------------------
 int AnalysisCMS::GetMotherPID(int index)
 {
+ // _lep1GenDeltaR.clear();
+ // _lep2GenDeltaR.clear();
+ // _testMotherID.clear();
+
   int motherPID = -9999;
 
   if (!_ismc || index > 1) return motherPID;
 
   TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
 
+
   // Loop over GEN leptons
   //----------------------------------------------------------------------------
   float deltaRMin = 0.3;
 
   for (UInt_t j=0; j<std_vector_leptonGen_pt->size(); j++) {
+  
 
     if (std_vector_leptonGen_pt->at(j) < 0) continue;
 
