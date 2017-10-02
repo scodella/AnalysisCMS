@@ -2,7 +2,7 @@
 
 //const TString  inputdir = "/gpfs/csic_projects/tier3data/LatinosSkims/RunII/2016/Stop/minitrees/nominal/Stop/";  // where the minitrees are stored
 //const TString  inputdir = "../minitrees/nominal/Stop/";  // where the minitrees are stored
-const TString  inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored
+const TString  inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored. 29Sept2017
 
 const float thelumi = 35.867; 
 const float    ttSF = 1.;  const float ettSF = 0.0;
@@ -10,17 +10,16 @@ const float    DYSF = 1.;  const float eDYSF = 0.0;
 			     const float efakes= 0.00;
 
 const bool doshape = false; 
+const bool onlyShape = false; 
 
 
-  const TCut selection= "1>0";
+  const TCut selection= "leadingPtCSVv2M < 20 && metPfType1 >= 140";
+  //const TCut selection= "1>0";
   //const TCut selection= " run < 276502 && channel == 5 && leadingPtCSVv2M > 20.";
   //const TCut selection= "channel == 5 && njet < 1";
 
 //const TCut soft_cut = "njet >=1 && leadingPtCSVv2M > 20."; 
 /*const TCut hard_cut = soft_cut&&"mt2ll>100.&&darkpt>0."; 
-//const TCut  MVA_cut = hard_cut&&"ANN_met80_mt2ll100_ttDM0001scalar00500>0.50";
-TCut MVA_cut;
-*
 */
 
 enum{ /*	data,
@@ -44,7 +43,7 @@ enum{ /*	data,
 	TT7,
 	TT8,
 	TT9,
-     */    
+        
 
      	//DY,
      	DY_M10to50_LO,
@@ -78,15 +77,16 @@ enum{ /*	data,
         DY_M50_HT_13,
         DY_M50_HT_14,
       	
-       /* ST,
+        ST,
         TTZ,
       	TTW,
-      	WW,
-      	WZ, 
       	VZ,
      	VVV,
       	HWW,
-      */nprocess
+      */
+      	WW,
+      	WZ, 
+        nprocess
     }; 
 
 enum{ ttDM0001scalar00010, 
@@ -132,15 +132,16 @@ enum{ 	nominal,
 	DDfakes,
 	nsystematic }; 
 
-enum{ lep1pt, lep1eta, lep1phi, lep1mass,
+enum{ dphilmet1, dphilmet2, dphillmet, mt2ll, njet,
+      /*lep1pt, lep1eta, lep1phi, lep1mass,
       lep2pt, lep2eta, lep2phi, lep2mass,
       jet1pt, jet1eta, jet1phi, jet1mass,
       jet2pt, jet2eta, jet2phi, jet2mass,
       metPfType1, metPfType1Phi,
-      m2l, mt2ll, mt2lblb, /*mtw1, mtw2,
-      ht, htjets, htnojets,*/
-      njet, nbjet30csvv2m, /*nbjet30csvv2l, nbjet30csvv2t,  
-      dphijet1met, dphijet2met, dphijj, dphijjmet, dphill, dphilep1jet1, dphilep1jet2, dphilep2jet1, dphilep2jet2, dphilmet1, dphilmet2, dphillmet,	
+      m2l, mt2ll, mt2lblb, mtw1, mtw2,
+      ht, htjets, htnojets,
+      njet, nbjet30csvv2m, dphilmet1, dphilmet2, dphillmet, nbjet30csvv2l, nbjet30csvv2t,  
+      dphijet1met, dphijet2met, dphijj, dphijjmet, dphill, dphilep1jet1, dphilep1jet2, dphilep2jet1, dphilep2jet2,	
       top1eta_gen, top1phi_gen, top1pt_gen, top2eta_gen, top2phi_gen, top2pt_gen, detatt_gen,  
       nvtx,
       sphericity, alignment, planarity,
@@ -189,7 +190,7 @@ void Assign(){
           processID[TT7  ] =  "TTTo2L2Nu__part7";
           processID[TT8  ] =  "TTTo2L2Nu__part8";
           processID[TT9  ] =  "TTTo2L2Nu__part9";
-*/
+
 	//processID[DY   ] = "07_ZJets"                ;
 	   
           processID[DY_M10to50_LO ]  = "DYJetsToLL_M-10to50-LO";
@@ -221,8 +222,7 @@ void Assign(){
   	  processID[DY_M50_HT_12 ] = "DYJetsToLL_M-50_HT-70to100__part0";
   	  processID[DY_M50_HT_13 ] = "DYJetsToLL_M-50_HT-70to100__part1";
   	  processID[DY_M50_HT_14] = "DYJetsToLL_M-50_HT-800to1200";
-
-/* 
+ 
 	processID[ST   ] = "05_ST"                   ; 
 	processID[TTW  ] = "09_TTW"                  ; 
 	processID[WW   ] = "06_WW"                   ; 
@@ -232,7 +232,10 @@ void Assign(){
 	processID[TTZ  ] = "10_TTZ"                  ; 
 	processID[HWW  ] = "11_HWW"                  ; 
 */
-	scalarID[ttDM0001scalar00010] = "ttDM0001scalar00010"; 
+	processID[WW   ] = "06_WW"                   ; 
+	processID[WZ   ] = "02_WZTo3LNu"             ; 
+	
+        /*scalarID[ttDM0001scalar00010] = "ttDM0001scalar00010"; 
 	scalarID[ttDM0001scalar00020] = "ttDM0001scalar00020"; 
 	scalarID[ttDM0001scalar00050] = "ttDM0001scalar00050"; 
 	scalarID[ttDM0001scalar00100] = "ttDM0001scalar00100"; 
@@ -256,7 +259,7 @@ void Assign(){
 	pseudoID[ttDM0001pseudo00300] = "ttDM0001pseudo00300"; 
 	pseudoID[ttDM0001pseudo00500] = "ttDM0001pseudo00500"; 
 
-	//----------
+	*///----------
 
 	systematicID[nominal  ] = "nominal"  ;
 	systematicID[Btagup   ] = "Btagup"   ;
@@ -307,7 +310,7 @@ void Assign(){
 
 	//----------
 
- 	b_name[lep1pt  ] = "lep1pt"  ;
+/* 	b_name[lep1pt  ] = "lep1pt"  ;
 	b_name[lep1eta ] = "lep1eta" ;
 	b_name[lep1phi ] = "lep1phi" ;
 	b_name[lep1mass] = "lep1mass";
@@ -331,17 +334,20 @@ void Assign(){
 	b_name[metPfType1Phi] = "metPfType1Phi";
 
 	b_name[m2l    ] = "m2l"    ;
-	b_name[mt2ll  ] = "mt2ll"  ;
 	b_name[mt2lblb] = "mt2lblb";
-/*	b_name[mtw1   ] = "mtw1"   ;
+	b_name[mtw1   ] = "mtw1"   ;
 	b_name[mtw2   ] = "mtw2"   ;
 
 	b_name[ht      ] = "ht"      ;
 	b_name[htjets  ] = "htjets"  ;
 	b_name[htnojets] = "htnojets";
 
-*/	b_name[njet         ]  = "njet"         ;
 	b_name[nbjet30csvv2m] = "nbjet30csvv2m";
+*/	b_name[dphilmet1   ] = "dphilmet1"   ;
+	b_name[dphilmet2   ] = "dphilmet2"   ;
+	b_name[dphillmet   ] = "dphillmet"   ;
+	b_name[mt2ll       ] = "mt2ll"  ;
+	b_name[njet        ]  = "njet"         ;
 /*	b_name[nbjet30csvv2l] = "nbjet30csvv2l";
 	b_name[nbjet30csvv2t] = "nbjet30csvv2t";
 
@@ -354,9 +360,6 @@ void Assign(){
 	b_name[dphilep1jet2] = "dphilep1jet2";
 	b_name[dphilep2jet1] = "dphilep2jet1";
 	b_name[dphilep2jet2] = "dphilep2jet2";
-	b_name[dphilmet1   ] = "dphilmet1"   ;
-	b_name[dphilmet2   ] = "dphilmet2"   ;
-	b_name[dphillmet   ] = "dphillmet"   ;
 
 	b_name[top1eta_gen ] = "top1eta_gen" ;
 	b_name[top1phi_gen ] = "top1phi_gen" ;
