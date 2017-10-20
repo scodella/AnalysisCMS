@@ -100,6 +100,13 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_dphiLLbin5       [nchannel][ncut][njetbin+1];
   TH1D*                  h_M1ll             [nchannel][ncut][njetbin+1];
   TH1D*                  h_M2ll             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep1Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep2Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep1Phi          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep2Phi          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphil1MET        [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphil2MET        [nchannel][ncut][njetbin+1];
+  TH1D*                  h_METphi           [nchannel][ncut][njetbin+1];
 
   int _SaveHistograms, _DoTheoreticalVariations;
 

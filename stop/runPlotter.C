@@ -7,13 +7,13 @@ const Bool_t allplots  = false;
 const Bool_t dosystematics = false;
 const Bool_t postfitplots = false;
 
-const TString inputdir  = "WZtoWW_WW/";
+const TString inputdir  = "WZtoWW_Exp/";
 //const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles/ZpeakDYcorrections/";
 //const TString inputdir  = "../minitrees/rootfiles/WZtoWWveto/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsTestAddBkg/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfitasimov/";
-const TString outputdir = "figures_WZtoWW/";
+const TString outputdir = "figures_WZtoWW_Exp/";
 
 const TString signal = "";
 //const TString signal = "TChi";
@@ -123,7 +123,7 @@ void runPlotter(TString level,
     plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
     plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
     plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
-    */plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
+    */plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
     plotter.AddProcess("06_WW",        "WW",       color_WW);
   
   if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);
@@ -292,8 +292,6 @@ void runPlotter(TString level,
 	  // Common histograms
 	  //--------------------------------------------------------------------
 	  /*plotter.Draw(prefix + "m2l" + suffix, "m_{" + sll + "}", m2l_ngroup, 0, "GeV", linY, true, m2l_xmin, m2l_xmax);
-	  plotter.Draw(prefix + "lep1pt"         + suffix, "leading lepton p_{T}",              10, 0, "GeV",  scale, true, 0,  250);
-	  plotter.Draw(prefix + "lep2pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
 	  plotter.Draw(prefix + "lep1eta"        + suffix, "leading lepton #eta",               -1, 1, "NULL", scale);
 	  plotter.Draw(prefix + "lep2eta"        + suffix, "trailing lepton #eta",              -1, 1, "NULL", scale);
 	  plotter.Draw(prefix + "nvtx"           + suffix, "number of vertices",                -1, 0, "NULL", scale, true, 0,   30);*/
@@ -302,17 +300,22 @@ void runPlotter(TString level,
 	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
           //plotter.Draw(prefix + "MT2ll_fake"   + suffix, "M_{T2}(" + sll + "_fake)",          1, 0, "GeV",  scale, false, 0, 140);
 	  //plotter.Draw(prefix + "dphillMET"           + suffix, "#Delta#phi(" +sll + "," + sm + ")",             10, 0, "NULL", scale);
-	  //plotter.Draw(prefix + "dphillMET"           + suffix, "#Delta#phi(" +sll + "," + sm + ")",             10, 0, "NULL", linY);
+	  plotter.Draw(prefix + "dphillMET"           + suffix, "#Delta#phi(" +sll + "," + sm + ")",             10, 0, "NULL", linY);
+	  plotter.Draw(prefix + "dphil1MET"           + suffix, "#Delta#phi(l1," + sm + ")",             10, 0, "NULL", linY);
+	  plotter.Draw(prefix + "dphil2MET"           + suffix, "#Delta#phi(l2," + sm + ")",             10, 0, "NULL", linY);
 	  //plotter.Draw(prefix + "dphiLL"              + suffix, "#Delta#phi(lep1,lep2)",             10, 0, "NULL", scale);
-	  //plotter.Draw(prefix + "dphiLL"              + suffix, "#Delta#phi(lep1,lep2)",             10, 0, "NULL", linY);
+	  plotter.Draw(prefix + "dphiLL"              + suffix, "#Delta#phi(lep1,lep2)",             10, 0, "NULL", linY);
 	  //plotter.Draw(prefix + "metPfType1"     + suffix, sm,                                  100, 0, "GeV",  scale, true, 0,  400);
 	  //plotter.Draw(prefix + "metPfType1"     + suffix, sm,                                  100, 0, "GeV",  linY,  true, 0,  400);
 	  //plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  scale, false, 50,  200);
 	  plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  linY,  false, 140,  400);
-	  //plotter.Draw(prefix + "lep1phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
+	  plotter.Draw(prefix + "Lep1Phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
 	  //plotter.Draw(prefix + "lep2phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
 	  //plotter.Draw(prefix + "lep1phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  linY);
-	  //plotter.Draw(prefix + "lep2phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  linY);
+	  plotter.Draw(prefix + "Lep2Phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  linY);
+	  plotter.Draw(prefix + "METphi"         + suffix, "sm #phi",                            5, 2, "rad",  linY);
+	  plotter.Draw(prefix + "Lep1Pt"         + suffix, "leading lepton p_{T}",              10, 0, "GeV",  scale, true, 0,  250);
+	  plotter.Draw(prefix + "Lep2Pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
 	  
           if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	  if (dosystematics) continue;

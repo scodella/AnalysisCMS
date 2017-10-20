@@ -542,12 +542,13 @@ void AnalysisStop::BookAnalysisHistograms()
 
 	TString suffix = "_" + schannel[i];
 
-	if (_SaveHistograms==0) DefineHistograms(i, j, k, suffix);
+	if (_SaveHistograms==0)  DefineHistograms(i, j, k, suffix); 
 
 	h_MT2ll             [i][j][k] = new TH1F("h_MT2ll"              + suffix, "",    7,    0,  140);
 	h_MT2llgen          [i][j][k] = new TH1F("h_MT2llgen"           + suffix, "",    7,    0,  140);
 	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
 	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
+
 
 	if (_SaveHistograms>=2 && _systematic=="nominal") {
 
@@ -582,6 +583,13 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
 	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",   10,    0,   10);
 	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);
+        h_Lep1Pt            [i][j][k] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
+        h_Lep2Pt            [i][j][k] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
+        h_Lep1Phi           [i][j][k] = new TH1D("h_Lep2Phi"            + suffix, "",  200, -3.2,  3.2);
+        h_Lep2Phi           [i][j][k] = new TH1D("h_Lep1Phi"            + suffix, "",  200, -3.2,  3.2);
+	h_dphil1MET         [i][j][k] = new TH1D("h_dphil1MET"          + suffix, "",  100,    0,  3.2);
+	h_dphil2MET         [i][j][k] = new TH1D("h_dphil2MET"          + suffix, "",  100,    0,  3.2);
+        h_METphi            [i][j][k] = new TH1D("h_METphi"             + suffix, "",  200, -3.2,  3.2);
 	
 	if (_systematic.Contains("DYcorrections")) {
 	  h_dphiLLbin1            [i][j][k] = new TH1D("h_dphiLLbin1"   + suffix, "",   80,    0, 3.14159);
@@ -912,6 +920,13 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
   h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
   h_njet30           [ichannel][icut][ijet]->Fill(_njet30,         _event_weight);
+  h_Lep1Pt           [ichannel][icut][ijet]->Fill(_lep1pt,         _event_weight);
+  h_Lep2Pt           [ichannel][icut][ijet]->Fill(_lep2pt,         _event_weight);
+  h_Lep1Phi          [ichannel][icut][ijet]->Fill(_lep1phi,        _event_weight);
+  h_Lep2Phi          [ichannel][icut][ijet]->Fill(_lep2phi,        _event_weight);
+  h_dphil1MET        [ichannel][icut][ijet]->Fill(dphilmet1,       _event_weight);
+  h_dphil2MET        [ichannel][icut][ijet]->Fill(dphilmet2,       _event_weight);
+  h_METphi           [ichannel][icut][ijet]->Fill(MET.Phi(),       _event_weight);
 
   if (_systematic.Contains("DYcorrections")) {
     float pi = acos(-1.);
@@ -1098,7 +1113,7 @@ void AnalysisStop::FillLevelHistograms(int  icut,
   if (!pass) return;
   
   if (_SaveHistograms==0) {
-
+    printf("fill");
     FillHistograms(_channel, icut, _jetbin);
     FillHistograms(_channel, icut, njetbin);
   }
@@ -25299,9 +25314,9 @@ bool AnalysisStop::ShapeWZtoWW()
       _lep1phi = Lepton1.v.Phi();   
       _lep2phi = Lepton2.v.Phi();  
   
-      _metPfType1Phi = MET.Phi();
+      metPfType1Phi = MET.Phi();
 
-      _dphill = fabs(Lepton1.DeltaPhi(Lepton2));
+      dphill = fabs((Lepton1.v).DeltaPhi(Lepton2.v));
       dphilmet1 = fabs((Lepton1.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
       dphilmet2 = fabs((Lepton2.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
       _dphillmet = fabs((Lepton1.v + Lepton2.v).DeltaPhi(MET));
