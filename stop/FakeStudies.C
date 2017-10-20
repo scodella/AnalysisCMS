@@ -10,24 +10,38 @@
 #include "TStyle.h"
 #include "TSystem.h"
 #include "TTree.h"
+#include "TFile.h"
+#include "TPad.h"
+#include "TCanvas.h"
+#include "TH1F.h"
+#include "TDirectory.h"
 #include <fstream>
 #include <iostream>
 
-void FakeStudies(TString Selection) {
 
-  const int nChannels = 4, nVariables = 2, nMetCuts = 5, nBtagCuts = 2;
+void FakeStudies(TString Selection, TString channel) {
+
+  const int nChannels = 4, nVariables = 1, nMetCuts = 1, nBtagCuts = 1;
   TString Channel[nChannels] = {"_ee", "_mm", "_em", "_ll"};
-  TString Variable[nVariables] = {"MT2ll", "MET"};
-  TString MetCut[nMetCuts] = {"01", "02_VR1", "02_SR1", "02_SR2", "02_SR3"};
-  TString BtagCut[nBtagCuts] = {"_NoTag", "_Tag"};
-  
+  TString Variable[nVariables] = {"MT2ll"};
+  //TString MetCut[nMetCuts] = {"02_VR1", "02_SR1", "02_SR2", "02_SR3"};
+  TString MetCut[nMetCuts] = {"02_VR1"};
+  TString BtagCut[nBtagCuts] = {"_Veto"};
+
+  gSystem->mkdir("FakesPlots", kTRUE); 
+ // gSystem->Exec("cp  ./index.php ./FakesPlots/; done");
+//  gSystem->Exec("for dir in $(find ./FakesPlots/ -type d); do cp -n ./index.php $dir/; done");
+ 
   TString RootFileName = "";
-  if (Selection=="ttbar") RootFileName = "../rootfiles/nominal/Stop/04_TTTo2L2Nu.root";
-  if (Selection=="WW") RootFileName = "../rootfiles/nominal/Stop/06_WW.root";
+  if (Selection=="ttbar") RootFileName = "../minitrees/rootfiles/nominal/Stop/04_TTTo2L2Nu.root";
+  if (Selection=="WW")    RootFileName = "../minitrees/rootfiles/nominal/Stop/06_WW.root";
+  if (Selection=="ST")    RootFileName = "../minitrees/rootfiles/nominal/Stop/05_ST.root";
+  if (Selection=="ZJets") RootFileName = "../minitrees/rootfiles/nominal/Stop/07_ZJetsHT.root";
 
   if (RootFileName=="") return;
 
   TFile *RootFile = TFile::Open(RootFileName);
+  //TFile *RootFile = TFile::Open(RootFileName);
 
   TCanvas *CC = new TCanvas("CC", "", 900, 600); 
   CC->Divide(2, 2);
@@ -36,9 +50,9 @@ void FakeStudies(TString Selection) {
   CL->Divide(1, 2);
   
   TPad *PadC1 = (TPad*)CC->GetPad(1);
-  TPad *PadC2 = (TPad*)CC->GetPad(2);
-  TPad *PadC4 = (TPad*)CC->GetPad(3);
-  TPad *PadC3 = (TPad*)CC->GetPad(4);
+  //TPad *PadC2 = (TPad*)CC->GetPad(2);
+  //TPad *PadC4 = (TPad*)CC->GetPad(3);
+  //TPad *PadC3 = (TPad*)CC->GetPad(4);
   
   //TPad *PadL1 = (TPad*)CL->GetPad(1); 
   TPad *PadL1 = new TPad("PadL1", "", 0.02, 0.27, 0.98, 0.98, 21);
@@ -131,20 +145,63 @@ void FakeStudies(TString Selection) {
 	leg->SetTextFont(62); 
 	leg->SetHeader("t#bar{t} dilepton events");
 	if (Selection=="WW") leg->SetHeader("WW dilepton events");
+	if (Selection=="ST") leg->SetHeader("tW dilepton events");
+	if (Selection=="ZJets") leg->SetHeader("ZJets dilepton events");
+       
+	//for (int c = 3; c<nChannels; c++) {
 
-	for (int c = 3; c<nChannels; c++) {
+          TH1F* Fake; TH1F* Truth;  
 
-	  TH1F* Fake  = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + BtagCut[b] + "/h_" + Variable[v] + "_fake"  + Channel[c]);
-	  TH1F* Truth = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + BtagCut[b] + "/h_" + Variable[v] + "_truth" + Channel[c]);
-	  
-	  Fake->Scale(lumi);
+          if (BtagCut[b].Contains("Veto"))
+           {
+             TH1F* Fake0;  TH1F* Truth0;
+             TH1F* Fake1;  TH1F* Truth1;
+
+              std::cout <<  MetCut[m] <<std::endl; 
+             Fake0   = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + "_NoTag/h_" + Variable[v] + "_fake"  + channel);
+            // Fake1->SetDirectory(0);
+             Fake1  = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + "_NoJet/h_" + Variable[v] + "_fake"  + channel);
+             Fake0  -> Add (Fake1);
+             Fake = (TH1F*) Fake0 ->Clone(); 
+             //Fake->SetDirectory(0);
+
+	     Truth0  = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + "_NoTag/h_" + Variable[v] + "_truth" + channel);
+             //Truth1->SetDirectory(0);
+	     Truth1 = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + "_NoJet/h_" + Variable[v] + "_truth" + channel);
+             Truth0 -> Add (Truth1);            
+             //Truth->SetDirectory(0);
+             Truth = (TH1F*) Truth0 ->Clone(); 
+             std::cout << "done Veto" <<std::endl;
+ 
+             Fake0 ->Reset(); Fake1 ->Reset(); Truth0 ->Reset(); Truth1 ->Reset(); 
+           }
+          else
+           {
+             Fake  = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + BtagCut[b] + "/h_" + Variable[v] + "_fake"  + channel);
+	     Truth = (TH1F*) RootFile->Get("Stop/" + MetCut[m] + BtagCut[b] + "/h_" + Variable[v] + "_truth" + channel);
+	   }
+
+          Fake->Scale(lumi);
 	  Truth->Scale(lumi);
+	  
+         //if (!BtagCut[b].Contains("Veto")) 
+         //   {
+         //    Fake->Scale(lumi);
+	 //    Truth->Scale(lumi);
+         //  }
+ 
+             std::cout << "Fake  ->GetMinimum()  " << Fake->GetMinimum() <<std::endl; 
+             std::cout << "Truth ->GetMinimum()  " << Truth->GetMinimum() <<std::endl; 
+	  float fakemin = Fake->GetMinimum();
+	  float truthmin = Truth->GetMinimum();
+	  if (fakemin < truthmin) { Truth->SetMinimum(fakemin + 0.0001);} 
+	//float fmin = Fake->GetMinimum();
+	//  if (fmin>0.)
+	//    Truth->SetMinimum(fmin*0.9);
+	// else  Truth->SetMinimum(0.1);
 
-	  float fmin = Fake->GetMinimum();
-	  if (fmin>0.)
-	    Truth->SetMinimum(fmin*0.9);
-	  else  Truth->SetMinimum(0.1);
 
+         // Truth->SetMinimum(0.1);
 	  //Truth->SetXTitle("M_{T2}(ll) [GeV]");
 	  Truth->SetYTitle("Events / 20 GeV");
 	      
@@ -165,15 +222,18 @@ void FakeStudies(TString Selection) {
 
 	  Fake->SetLineColor(2);
 
-	  if (c==0) PadC1->cd();
-	  if (c==1) PadC2->cd();
-	  if (c==2) PadC3->cd();
-	  if (c==3) PadC4->cd();
+          PadC1->cd();
+	  //if (c==0) PadC1->cd();
+	  //if (c==1) PadC2->cd();
+	  //if (c==2) PadC3->cd();
+	  //if (c==3) PadC4->cd();
 
 	  Truth->DrawCopy();
 	  Fake->DrawCopy("same");
 
-	  if (c==3) PadL1->cd();
+             std::cout << "2" <<std::endl; 
+	  PadL1->cd();
+          //if (c==3) PadL1->cd();
 	  //if (c==1) PadL2->cd();
 	  //if (c==2) PadL3->cd();
 	  //if (c==3) PadL4->cd();
@@ -181,7 +241,7 @@ void FakeStudies(TString Selection) {
 	  Truth->DrawCopy();
 	  Fake->DrawCopy("same");
 
-	  leg->AddEntry(Truth, "Two leptons matched to W leptons", "l");
+	  leg->AddEntry(Truth, "Two leptons matched", "l");
 	  leg->AddEntry(Fake,  "At least one no matched lepton",   "l");
 
 	  leg->Draw();
@@ -206,14 +266,18 @@ void FakeStudies(TString Selection) {
 	  Fake->GetYaxis()->SetTitleOffset(0.44);
 
 	  Fake->DrawCopy("p");
+             std::cout << "3" <<std::endl; 
 
-	}
+	//}
 
-	TString PlotName = Selection + "_" + Variable[v] + "_" + MetCut[m] + BtagCut[b];
+	TString PlotName = Selection + "_" + Variable[v] + "_" + MetCut[m] + BtagCut[b] + channel ;
 	//CC->Print("../Plots/FakeStudies/" + PlotName + ".png");
-	CL->Print("../Plots/FakeStudies/" + PlotName + "_log.png");
+	CL->Print("FakesPlots/" + PlotName + "_log.png");
 
+      Truth->Reset();
+      Fake ->Reset();
       }
+             std::cout << "end " << MetCut[m] << std::endl; 
 
     }
 

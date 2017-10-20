@@ -460,7 +460,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     
     if (_leadingPtCSVv2M >= 20.) {
       FillLevelHistograms(Stop_02_VR1_Tag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
-      if (_leadingPtCSVv2T >= 30. && njet>1)
+      if (_leadingPtCSVv2T >= 20. && _njet>1)
 	FillLevelHistograms(Stop_02_VR1_Tag2Jet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_Tag,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2_Tag,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
@@ -829,8 +829,9 @@ void AnalysisStop::GetAnalysisVariables()
   
   // Fake
   _nLeptonsMatched = 0;
-  if (fabs(lep1mid)==24 || fabs(lep1mid)==23 || fabs(lep1mid)==15) _nLeptonsMatched++; 
-  if (fabs(lep2mid)==24 || fabs(lep2mid)==23 || fabs(lep2mid)==15) _nLeptonsMatched++;
+  if (fabs(_lep1mid)==24 || fabs(_lep1mid)==23 || fabs(_lep1mid)==15) _nLeptonsMatched++; 
+  if (fabs(_lep2mid)==24 || fabs(_lep2mid)==23 || fabs(_lep2mid)==15) _nLeptonsMatched++;
+  if (fabs(_lep1mid)== fabs(_lep2mid) && (fabs(_lep1mid)==21 || fabs(_lep1mid)<= 6)) _nLeptonsMatched = 2;
   //if (fabs(_lep1isfake)<0.1) _nLeptonsMatched++; 
   //if (fabs(_lep2isfake)<0.1) _nLeptonsMatched++;
   
@@ -931,10 +932,10 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   if (_systematic.Contains("Zpeak")) return;
 
   if (_nLeptonsMatched==2) {
-    h_MT2ll_truth    [ichannel][icut][ijet]->Fill(_MT2llfake,      _event_weight);
+    h_MT2ll_truth    [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
     h_MET_truth      [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   } else { 
-    h_MT2ll_fake     [ichannel][icut][ijet]->Fill(_MT2llfake,      _event_weight);
+    h_MT2ll_fake     [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
     h_MET_fake       [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   }
 
@@ -25266,6 +25267,7 @@ bool AnalysisStop::ShapeWZtoWW()
     return false; 
   } else {
 
+    // Variables re-computation
     TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
 				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
 				   MET.Pz());
@@ -25290,7 +25292,20 @@ bool AnalysisStop::ShapeWZtoWW()
 
       _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
       _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
-      
+     
+      _lep1pt = Lepton1.v.Pt();   
+      _lep2pt = Lepton2.v.Pt();
+
+      _lep1phi = Lepton1.v.Phi();   
+      _lep2phi = Lepton2.v.Phi();  
+  
+      _metPfType1Phi = MET.Phi();
+
+      _dphill = fabs(Lepton1.DeltaPhi(Lepton2));
+      dphilmet1 = fabs((Lepton1.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
+      dphilmet2 = fabs((Lepton2.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
+      _dphillmet = fabs((Lepton1.v + Lepton2.v).DeltaPhi(MET));
+ 
     }
 
     return true;

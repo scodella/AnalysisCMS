@@ -1888,7 +1888,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 		 if (fabs(dummy0->GetBinContent(ibin+1)>0.005)) ApplyZeroStat = true;
 	     }
 	     if (ApplyZeroStat) 
-	       StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	       if (dummy0->GetEntries()>0)StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	   }
 	   errBackTab_up[kproce][ibin] += StatUncert2;
 	   errBackTab_do[kproce][ibin] += StatUncert2;
@@ -2133,14 +2133,14 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 if (!_doMetFastSim) {
 	   for (int ibin = 1; ibin<=nbins; ibin++) {
 	     float StatUncert2 = dummy0->GetSumw2()->At(ibin);
-	     if (StatUncert2<0.0001) StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	     if (StatUncert2<0.0001 && dummy0->GetEntries()>0) StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	     errSignUp [kproce][ibin] += StatUncert2;
 	     errSignDo [kproce][ibin] += StatUncert2;
 	   }
 	 } else {
 	   for (int ibin = 1; ibin<=nbins; ibin++) {
 	     float StatUncert2 = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
-	     if (StatUncert2<0.0001) StatUncert2 = TMath::Power(StatZero*(dummy0->Integral()+dummy3->Integral())/(dummy0->GetEntries()+dummy3->GetEntries()), 2);
+	     if (StatUncert2<0.0001 && dummy0->GetEntries()>0) StatUncert2 = TMath::Power(StatZero*(dummy0->Integral()+dummy3->Integral())/(dummy0->GetEntries()+dummy3->GetEntries()), 2);
 	     errSignUp [kproce][ibin] += StatUncert2;
 	     errSignDo [kproce][ibin] += StatUncert2;
 	   }
@@ -2389,9 +2389,9 @@ void HistogramReader::IncludeSystematics(TString hname)
    }
 
    if (_dotable && hname.Contains("h_MT2ll")) {
-     
+     gSystem->mkdir("Tables/", kTRUE);     
      TString TableFlag = hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
-     std::ofstream inFile("./Tables/Yields" + TableFlag + ".tex",std::ios::out);
+     std::ofstream inFile("Tables/Yields" + TableFlag + ".tex",std::ios::out);
      // Process | nbins = 7;    
 
      //inFile << "\\begin{table}[htb]" << endl;
