@@ -4,7 +4,7 @@
 #include "AnalysisCMS.h"
 #include "../../BTagSFUtil/BTagSFUtil.C"
 #include <map>
-
+#include "TEfficiency.h"
 
 class AnalysisStop : public AnalysisCMS
 {
@@ -55,6 +55,9 @@ class AnalysisStop : public AnalysisCMS
   TString FastSimDataset;
   BTagSFUtil *BTagSF, *BTagSF_Upb, *BTagSF_Dob, *BTagSF_UpFSb, *BTagSF_DoFSb;
 
+  TEfficiency *TrgEff_ee, *TrgEff_mm, *TrgEff_em;
+  void ApplyStopTriggerEfficiency();
+
   TString SUSYProductionProcess;
 
   typedef pair<int, int> MassPoint;
@@ -92,6 +95,10 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_MT2ll_HTm200     [nchannel][ncut][njetbin+1];
   TH1D*                  h_MT2ll_HTp200     [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphillMET        [nchannel][ncut][njetbin+1];
+  TH2D*                  h_ptdphiLL         [nchannel][ncut][njetbin+1];
+  TH1D*                  h_ptLL             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_ptLLbins         [nchannel][ncut][njetbin+1];
+  TH1D*                  h_genptLL          [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLL           [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLLbin1       [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLLbin2       [nchannel][ncut][njetbin+1];

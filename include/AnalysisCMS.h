@@ -153,6 +153,8 @@ class AnalysisCMS : public AnalysisBase
 
   void        GetZZGenVar          ();
 
+  void        GetHZZTo2L2Nu        ();
+
   void        GetStopVar           ();
 
   void        GetRazor             ();
@@ -280,6 +282,7 @@ class AnalysisCMS : public AnalysisBase
   float                  _fake_weight_muStatUp;
   float                  _fake_weight_muStatDown;
   float                  _gen_ptll_weight;
+  float                  _gen_ptll;
   float                  _fullpmet;
   float                  _ht;
   float                  _htvisible;
@@ -320,12 +323,14 @@ class AnalysisCMS : public AnalysisBase
   float                  _lep3pt;
   float			 _lep3mass;
   float			 _lep3type;
+  float			 _lep3idisoW;
   float                  _lep4id;
   float                  _lep4eta;
   float                  _lep4phi;
   float                  _lep4pt;
   float			 _lep4mass;
   float			 _lep4type;
+  float			 _lep4idisoW;
   float                  _nu1pt_gen; 
   float                  _nu1tau_gen;
   float                  _nu2pt_gen; 

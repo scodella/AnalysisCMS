@@ -496,7 +496,7 @@ void HistogramReader::Draw(TString hname,
 
   // Standard Model processes legend
   //----------------------------------------------------------------------------
-  Int_t nrow = (_mchist.size() > 10) ? 5 : 4;
+  Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
 
   for (int i=0; i<_mchist.size(); i++)
     {
@@ -546,11 +546,11 @@ void HistogramReader::Draw(TString hname,
     DrawLatex(42, 0.940, 0.945, 0.050, 31, "(13TeV)");
 
   SetAxis(hfirst, xtitle, ytitle, 1.5, 1.8);
-
-
       
-  if (hname.Contains("h_dphiLL_llaa")) {
-    TFile *OUT = new TFile("DYFit.root","recreate");
+  if (hname.Contains("h_ptLLbins_llaa") || hname.Contains("h_dphiLL_llaa")) {
+    TString hName = "DYFitPtLL";
+    if (hname.Contains("h_dphiLL_ll")) hName = "DYFitDPhiLL";
+    TFile *OUT = new TFile(hName + ".root","recreate");
     OUT->cd();
     _datahist->SetName("data");
     _datahist->Write();
@@ -567,8 +567,8 @@ void HistogramReader::Draw(TString hname,
       }
     }
     OUT->Close();
-  }
-      
+  }   
+
   //----------------------------------------------------------------------------
   // pad2
   //----------------------------------------------------------------------------
@@ -1831,7 +1831,6 @@ void HistogramReader::IncludeSystematics(TString hname)
      for (int kproce=0; kproce<nprocess; kproce++) 
        {
        if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
-       if (_analysis == "Stop" && _systematics.at(isyst) == "Fake" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"    && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
@@ -1841,13 +1840,15 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
        if (_systematics.at(isyst)=="MT2llWW" && _mcfilename.at(kproce)!="06_WW") continue;
        if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
-       if (_systematics.at(isyst)=="ZZSF" && _mcfilename.at(kproce)!="03_VZ") continue;
+       if (_systematics.at(isyst)=="ZZSF" && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="DYSF" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
-       if (_systematics.at(isyst)=="ZZnojet" && _mcfilename.at(kproce)!="03_VZ") continue;
+       if (_systematics.at(isyst)=="ZZnojet" && _mcfilename.at(kproce)!="03_ZZ") continue;
+       if (_systematics.at(isyst)=="ZZshape" && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="DYnojet" && (!_mcfilename.at(kproce).Contains("07_ZJets") || !hname.Contains("NoJet"))) continue;
        if (_systematics.at(isyst)=="DYshape" && (!_mcfilename.at(kproce).Contains("07_ZJets") || hname.Contains("NoJet"))) continue;
-       if (_systematics.at(isyst)=="ZMETjet" && !_mcfilename.at(kproce).Contains("07_ZJets") && _mcfilename.at(kproce)!="03_VZ") continue;
+       if (_systematics.at(isyst)=="ZMETjet" && !_mcfilename.at(kproce).Contains("07_ZJets") && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="normWZ" && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
+       if (_systematics.at(isyst)=="WZSF"   && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
        if (_systematics.at(isyst)=="normWW" && _mcfilename.at(kproce)!="06_WW") continue;
        if (_systematics.at(isyst)=="normTtbar" && _mcfilename.at(kproce)!="04_TTTo2L2Nu") continue;
        if (_systematics.at(isyst)=="normTW" && _mcfilename.at(kproce)!="05_ST") continue;
@@ -1940,15 +1941,16 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 continue;
        }
 
-       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZZSF" || 
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="WZSF" || _systematics.at(isyst)=="ZZSF" || 
 	   _systematics.at(isyst)=="DYSF" || _systematics.at(isyst)=="DYnojet") { 
-	 if (_mcscale[kproce] > 0) {
+	 if (_mcscale[kproce] > 0 || _systematics.at(isyst)=="DYnojet") {
 	   float errSF;
 	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.36;
+	   else if (_systematics.at(isyst)=="WZSF") errSF = 0.08;
 	   else if (_systematics.at(isyst)=="ZZSF") {
-	     if (hname.Contains("NoJet")) errSF = 0.14;
-	     else if (hname.Contains("Veto")) errSF = 0.17;
-	     else errSF = 0.20;
+	     if (hname.Contains("NoJet")) errSF = 0.19;
+	     else if (hname.Contains("NoTag")) errSF = 0.17;
+	     else errSF = 0.12;
 	   } else if (_systematics.at(isyst)=="DYSF") errSF = 0.64;
 	   else if (_systematics.at(isyst)=="DYnojet") errSF = 4.;
 	   for (int ibin=1; ibin<=nbins; ibin++) {
@@ -1969,7 +1971,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
 	   _systematics.at(isyst)=="normVVV") {
 	 float relErr = 0.5;
-	 if (_systematics.at(isyst)=="normWZ") relErr = 0.04;
+	 if (_systematics.at(isyst)=="normWZ") relErr = 0.05;
 	 if (_systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	     _systematics.at(isyst)=="normTW") relErr = 0.1;
 	 for (int ibin=1; ibin<=nbins; ibin++) {
@@ -2123,8 +2125,10 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2") continue;
        if (_systematics.at(isyst).Contains("MT2ll")) continue;
-       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="ZZSF" || _systematics.at(isyst)=="DYSF") continue;
-       if (_systematics.at(isyst)=="ZZnojet" || _systematics.at(isyst)=="DYnojet" || _systematics.at(isyst)=="ZMETjet" || _systematics.at(isyst)=="DYshape") continue;
+       if (_systematics.at(isyst)=="ttZSF" || _systematics.at(isyst)=="WZSF" ||
+	   _systematics.at(isyst)=="ZZSF" || _systematics.at(isyst)=="DYSF") continue;
+       if (_systematics.at(isyst)=="ZZnojet" || _systematics.at(isyst)=="DYnojet" || _systematics.at(isyst)=="ZMETjet" || 
+	   _systematics.at(isyst)=="DYshape" || _systematics.at(isyst)=="ZZshape") continue;
        if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
 	   _systematics.at(isyst)=="normVVV") continue;
@@ -2401,10 +2405,11 @@ void HistogramReader::IncludeSystematics(TString hname)
      inFile << "\\hline" << endl;
      //Yield & stat_error & systematic_error & total_error" << endl;
      inFile << "\\hline" << endl;
-     inFile << "$M_{T2}(ll})$ bin &";
+     //inFile << "$M_{T2}(ll})$ bin &";
+     inFile << "\\mtll bin &";
      for (int ibin=1; ibin<nbins; ibin++) 
        inFile <<  (ibin-1)*20 <<"-"<< ibin*20 << "~\\GeV & ";
-     inFile << "\\ge " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
+     inFile << "$\\ge$ " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
      inFile << "\\hline" << endl;
      for (int kproce=0; kproce<nprocess; kproce++) {       
        TString ThisLabel = _mclabel[kproce].Data();
@@ -2429,6 +2434,7 @@ void HistogramReader::IncludeSystematics(TString hname)
      }
      inFile << " \\\\" << endl;
      inFile << " \\hline" << endl;
+     /*
      inFile << " Data ";
      for (int ibin=1; ibin<=nbins; ibin++)
        if (_datahist)
@@ -2437,6 +2443,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 inFile << " & $" << "blind" << "$";
      inFile << " \\\\" << endl;
      inFile << " \\hline" << endl;
+     */
      for (int kproce=0; kproce<nsignals; kproce++) {
        TString ThisLabel = _signallabel[kproce].Data();
        ThisLabel.ReplaceAll("m_{#tilde{t}}=", "");
