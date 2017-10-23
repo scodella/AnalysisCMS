@@ -117,7 +117,7 @@ void runPlotter(TString level,
   //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background, SF_DY);
     *///plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
     //plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
-    plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l)",       color_ZZ,  roc_background, SF_ZMet);
+    plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l)",       color_VZ,  roc_background, SF_ZMet);
     plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
     plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
     plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);

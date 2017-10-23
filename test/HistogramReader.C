@@ -1888,8 +1888,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	       if (ibin<nbins)
 		 if (fabs(dummy0->GetBinContent(ibin+1)>0.005)) ApplyZeroStat = true;
 	     }
-	     if (ApplyZeroStat) 
-	       if (dummy0->GetEntries()>0)StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	     if (ApplyZeroStat && dummy0->GetEntries()>0.) 
+	        StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	   }
 	   errBackTab_up[kproce][ibin] += StatUncert2;
 	   errBackTab_do[kproce][ibin] += StatUncert2;

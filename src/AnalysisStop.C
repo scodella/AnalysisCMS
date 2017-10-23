@@ -518,7 +518,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     
     if (_leadingPtCSVv2M >= 20.) {
       FillLevelHistograms(Stop_02_VR1_Tag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
-      if (_leadingPtCSVv2T >= 20. && _njet>1)
+      //if (_leadingPtCSVv2T >= 30. && njet>1)
 	FillLevelHistograms(Stop_02_VR1_Tag2Jet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_Tag,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2_Tag,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
@@ -1208,7 +1208,7 @@ void AnalysisStop::FillLevelHistograms(int  icut,
   if (!pass) return;
   
   if (_SaveHistograms==0) {
-    printf("fill");
+    
     FillHistograms(_channel, icut, _jetbin);
     FillHistograms(_channel, icut, njetbin);
   }
