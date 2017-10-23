@@ -154,6 +154,8 @@ const Color_t color_WgStar    = kBlue+2;
 const Color_t color_Zg        = kTeal;
 const Color_t color_VVV       = kYellow-6;
 const Color_t color_HZ        = kOrange+1;
+const Color_t color_ZZ4L      = 49;
+const Color_t color_VZ2L2Q    = kYellow-2;
 
 
 // Branching ratios

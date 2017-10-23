@@ -4,7 +4,7 @@
 #include "AnalysisCMS.h"
 #include "../../BTagSFUtil/BTagSFUtil.C"
 #include <map>
-
+#include "TEfficiency.h"
 
 class AnalysisStop : public AnalysisCMS
 {
@@ -55,6 +55,9 @@ class AnalysisStop : public AnalysisCMS
   TString FastSimDataset;
   BTagSFUtil *BTagSF, *BTagSF_Upb, *BTagSF_Dob, *BTagSF_UpFSb, *BTagSF_DoFSb;
 
+  TEfficiency *TrgEff_ee, *TrgEff_mm, *TrgEff_em;
+  void ApplyStopTriggerEfficiency();
+
   TString SUSYProductionProcess;
 
   typedef pair<int, int> MassPoint;
@@ -92,6 +95,10 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_MT2ll_HTm200     [nchannel][ncut][njetbin+1];
   TH1D*                  h_MT2ll_HTp200     [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphillMET        [nchannel][ncut][njetbin+1];
+  TH2D*                  h_ptdphiLL         [nchannel][ncut][njetbin+1];
+  TH1D*                  h_ptLL             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_ptLLbins         [nchannel][ncut][njetbin+1];
+  TH1D*                  h_genptLL          [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLL           [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLLbin1       [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphiLLbin2       [nchannel][ncut][njetbin+1];
@@ -100,6 +107,13 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_dphiLLbin5       [nchannel][ncut][njetbin+1];
   TH1D*                  h_M1ll             [nchannel][ncut][njetbin+1];
   TH1D*                  h_M2ll             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep1Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep2Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep1Phi          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep2Phi          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphil1MET        [nchannel][ncut][njetbin+1];
+  TH1D*                  h_dphil2MET        [nchannel][ncut][njetbin+1];
+  TH1D*                  h_METphi           [nchannel][ncut][njetbin+1];
 
   int _SaveHistograms, _DoTheoreticalVariations;
 
