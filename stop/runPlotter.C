@@ -101,7 +101,7 @@ void runPlotter(TString level,
 
   // Get the data
   //----------------------------------------------------------------------------
-  //plotter.AddData("01_Data", "data", color_Data);
+  plotter.AddData("01_Data", "data", color_Data);
 
 
   // Add processes
@@ -115,15 +115,17 @@ void runPlotter(TString level,
   //plotter.AddProcess("11_Wg",        "W#gamma",  color_Wg);
   //plotter.AddProcess("15_WgStar",    "W#gamma*", color_WgStar);
   //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background, SF_DY);
-    plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
-    plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
+    *///plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
+    //plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
     plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l)",       color_ZZ,  roc_background, SF_ZMet);
-    plotter.AddProcess("05_ST",        "tW",       color_ST);
-    plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
-    plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
-    plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
     plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
-    */plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
+    plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
+    plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
+    plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
+    plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
+    plotter.AddProcess("05_ST",        "tW",       color_ST);
+    plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
+    plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
     plotter.AddProcess("06_WW",        "WW",       color_WW);
   
   if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);

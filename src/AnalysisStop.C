@@ -25281,7 +25281,10 @@ bool AnalysisStop::ShapeWZtoWW()
   if (DMZ>=DMZCut || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
     return false; 
   } else {
-
+    
+    // Selection of the WW leptons
+    if (AnalysisLeptons[Wlep1].v.Pt() <25 || AnalysisLeptons[Wlep2].v.Pt() <20) return false; 
+    
     // Variables re-computation
     TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
 				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
@@ -25295,8 +25298,8 @@ bool AnalysisStop::ShapeWZtoWW()
 
       Lepton1 = AnalysisLeptons[0];
       Lepton2 = AnalysisLeptons[1];
-
-      if (Lepton1.v.Pt()<25. && Lepton2.v.Pt()<25.) return false;
+     
+      //if (Lepton1.v.Pt()<25. && Lepton2.v.Pt()<25.) return false;
 
       mll = (Lepton1.v+Lepton2.v).M();
       _m2l  = mll;
