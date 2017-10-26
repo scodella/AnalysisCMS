@@ -25429,7 +25429,7 @@ bool AnalysisStop::ShapeWZtoWW()
     return false; 
   } else {
     
-    // Selection of the WW leptons
+    // Selection of the WW leptons Pt
     if (AnalysisLeptons[Wlep1].v.Pt() <25 || AnalysisLeptons[Wlep2].v.Pt() <20) return false; 
     //if (AnalysisLeptons[Wlep1].v.Pt()<25. && AnalysisLeptons[Wlep2].v.Pt()<25.) return false;
     //if (AnalysisLeptons[Wlep1].v.Pt()<20. || AnalysisLeptons[Wlep2].v.Pt()<20.) return false;
@@ -25473,7 +25473,7 @@ bool AnalysisStop::ShapeWZtoWW()
     }
  
      
-    if (fabs(_m2l - Z_MASS) < 15. && _channel != em) return false;   
+   // if (fabs(_m2l - Z_MASS) < 15. && _channel != em) return false;   
     return true;
   
   }
