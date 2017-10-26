@@ -463,6 +463,7 @@ void HistogramReader::Draw(TString hname,
   if (ymin != -999) hfirst->SetMinimum(ymin);
   if (ymax != -999) hfirst->SetMaximum(ymax);
 
+  //hfirst ->SetMaximum(0.1);
 
   // Legend
   //----------------------------------------------------------------------------
@@ -496,7 +497,7 @@ void HistogramReader::Draw(TString hname,
 
   // Standard Model processes legend
   //----------------------------------------------------------------------------
-  Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
+  Int_t nrow = (_mchist.size() >= 11) ? 5 : 4;
 
   for (int i=0; i<_mchist.size(); i++)
     {

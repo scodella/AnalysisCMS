@@ -655,6 +655,7 @@ void AnalysisStop::BookAnalysisHistograms()
  	h_dphil1MET         [i][j][k] = new TH1D("h_dphil1MET"          + suffix, "",  100,    0,  3.2);
  	h_dphil2MET         [i][j][k] = new TH1D("h_dphil2MET"          + suffix, "",  100,    0,  3.2);
         h_METphi            [i][j][k] = new TH1D("h_METphi"             + suffix, "",  200, -3.2,  3.2);
+        h_m2L               [i][j][k] = new TH1D("h_m2L"                + suffix, "",  180,    0,  180);
 
 	if (_systematic.Contains("DYcorrections")) {
 	  h_dphiLLbin1            [i][j][k] = new TH1D("h_dphiLLbin1"   + suffix, "",   80,    0, 3.14159);
@@ -1021,6 +1022,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_dphil1MET        [ichannel][icut][ijet]->Fill(dphilmet1,       _event_weight);
   h_dphil2MET        [ichannel][icut][ijet]->Fill(dphilmet2,       _event_weight);
   h_METphi           [ichannel][icut][ijet]->Fill(MET.Phi(),       _event_weight);
+  h_m2L              [ichannel][icut][ijet]->Fill(_m2l,            _event_weight);
 
   if (_systematic.Contains("DYcorrections")) {
     float pi = acos(-1.);
@@ -25452,7 +25454,8 @@ bool AnalysisStop::ShapeWZtoWW()
       if (abs(Lepton1.flavour)!=abs(Lepton2.flavour)) _channel = em;
       else if (abs(Lepton1.flavour)==11) _channel = ee;
       else if (abs(Lepton1.flavour)==13) _channel = mm;
-      
+  
+   
       _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
       _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
      
@@ -25468,7 +25471,9 @@ bool AnalysisStop::ShapeWZtoWW()
       _dphillmet = fabs((Lepton1.v + Lepton2.v).DeltaPhi(MET));
     
     }
-  
+ 
+     
+    if (fabs(_m2l - Z_MASS) < 15. && _channel != em) return false;   
     return true;
   
   }
