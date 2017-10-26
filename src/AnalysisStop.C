@@ -558,7 +558,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       FillLevelHistograms(Stop_02_SRs_Tag,   pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
     }
     
-    if (_njet<1 && fabs(dphill)<112.5) {
+    if (_njet<1) {
+    //if (_njet<1 && fabs(dphill)<112.5) { // To study the question about DY statistics on-Z and off-Z regions for dphi(l,l) distribution.
       //if (MET.Et()>140.) {
       //if (fabs(dphill)<2.5) cout << "Dminor  " << dphill << endl;
       //else cout << "Dmayor  " << dphill << endl;
