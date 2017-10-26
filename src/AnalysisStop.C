@@ -313,8 +313,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	  else DYweight = 1.16803 +1.10048*x -1.13608*x*x + 0.23263*x*x*x;
 	} 
       }
-      */
-      // AN v6 dphi
+      // AN v6 
       if (MET.Et()>140.) {
 	//float x = fabs(dphill);
 	//float DYfit = 1.38577 + 3.36723*x -2.78402*x*x + 0.536200*x*x*x; 
@@ -325,7 +324,37 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	if (_systematic.Contains("DYshapedo")) DYweight = 1.;
 	else if (_systematic.Contains("DYshapeup")) DYweight = DYfit;
 	else DYweight = (DYfit+1.)/2.;
-      } 
+      }
+      */
+      if (MET.Et()>100.) {
+	// VR1 
+	/*if (_MT2ll<20.) DYweight = 0.638916;
+	else if (_MT2ll<40.) DYweight = 0.625556;
+	else if (_MT2ll<60.) DYweight = 0.690579;
+	else if (_MT2ll<80.) DYweight = 0.775666;
+	else if (_MT2ll<100.) DYweight = 1.15934;
+	else if (_MT2ll<120.) DYweight = 1.4206;
+	else DYweight = 1.15749; */ 
+	// VR1 norm
+	if (_MT2ll<20.) DYweight = 0.904089;
+	else if (_MT2ll<40.) DYweight = 0.885184;
+	else if (_MT2ll<60.) DYweight = 0.977194;
+	else if (_MT2ll<80.) DYweight = 1.09759;
+	else if (_MT2ll<100.) DYweight = 1.64051;
+	else if (_MT2ll<120.) DYweight = 2.0102;
+	else DYweight = 1.63789;
+	if (MET.Et()<140.) DYweight *= 0.70;
+	// SRs
+	/*if (_MT2ll<20.) DYweight = 1.44905;
+	else if (_MT2ll<40.) DYweight = 1.34401;
+	else if (_MT2ll<60.) DYweight = 0.695682;
+	else if (_MT2ll<80.) DYweight = 0.680000;
+	else if (_MT2ll<100.) DYweight = 0.670264;
+	else if (_MT2ll<120.) DYweight = 2.24221;
+	else DYweight = 1.77837;*/
+	if (_systematic.Contains("DYshapedo")) DYweight = 1.;
+	else if (_systematic.Contains("DYshapeup")) DYweight = 1. + 2*(DYweight-1.);
+      }
       _event_weight *= DYweight;
       _event_weight_Btagup     *= DYweight; 
       _event_weight_Btagdo     *= DYweight;
@@ -529,7 +558,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       FillLevelHistograms(Stop_02_SRs_Tag,   pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
     }
     
-    if (_njet<1) {
+    if (_njet<1 && fabs(dphill)<112.5) {
+      //if (MET.Et()>140.) {
+      //if (fabs(dphill)<2.5) cout << "Dminor  " << dphill << endl;
+      //else cout << "Dmayor  " << dphill << endl;
+      //}
       //if (cos(dphill)>-0.95) { 
       FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_NoJet,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
