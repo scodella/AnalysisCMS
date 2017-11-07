@@ -497,7 +497,9 @@ void HistogramReader::Draw(TString hname,
 
   // Standard Model processes legend
   //----------------------------------------------------------------------------
-  Int_t nrow = (_mchist.size() >= 11) ? 5 : 4;
+  
+  //Int_t nrow = (!_datahist=NULL && _mchist.size() >= 11) ? 5 : 4;
+  Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
 
   for (int i=0; i<_mchist.size(); i++)
     {
@@ -632,7 +634,91 @@ void HistogramReader::Draw(TString hname,
   else if (_drawsignificance)
     {
       // Barbara's stuff
+      pad2->cd();
+      // Just for three first signal points  you use in addSignal function
+      TH1D* signf0  = (TH1D*)_signalhist[0] ->Clone("S0_sqrt(B)");
+      TH1D* signf1  = (TH1D*)_signalhist[1] ->Clone("S1_sqrt(B)");
+      TH1D* signf2  = (TH1D*)_signalhist[2] ->Clone("S2_sqrt(B)");
+
+      for (Int_t ibin=1; ibin<=signf0->GetNbinsX(); ibin++) {
+       //signals
+       Float_t SignalValue0 = _signalhist[0]->GetBinContent(ibin);
+       Float_t SignalError0 = _signalhist[0]->GetBinError  (ibin);
+
+       Float_t SignalValue1 = _signalhist[1]->GetBinContent(ibin);
+       Float_t SignalError1 = _signalhist[1]->GetBinError  (ibin);
+
+       Float_t SignalValue2 = _signalhist[2]->GetBinContent(ibin);
+       Float_t SignalError2 = _signalhist[2]->GetBinError (ibin);
+    
+       //all mc
+       Float_t mcValue = _allmchist->GetBinContent(ibin);
+       Float_t mcError = _allmchist->GetBinError (ibin);
+
+       //significance S/sqrt(B)
+       Float_t signfVal0         = 999;
+       Float_t signfErr0         = 999;
+ 
+       Float_t signfVal1         = 999;
+       Float_t signfErr1         = 999;
+
+       Float_t signfVal2         = 999;
+       Float_t signfErr2         = 999;
+
+       if (mcValue > 0)
+        {
+         //double a = 1 + SignalValue0/mcValue;
+         //signfVal0 = sqrt(2*(SignalValue0 + mcValue)*TMath::Log(a) - 2*SignalValue0);
+         signfVal0 = SignalValue0 / mcValue;
+         signfErr0 = signfVal0 * sqrt( (SignalError0*SignalError0)/(SignalValue0*SignalValue0) + (mcError*mcError)/(mcValue*mcValue)); 
+
+         //double b = 1 + SignalValue1/mcValue; 
+         //signfVal1 = sqrt(2*(SignalValue1 + mcValue)*TMath::Log(b) - 2*SignalValue1);
+         signfVal1 = SignalValue1 /  mcValue;
+         signfErr1 = signfVal1 * sqrt( (SignalError1*SignalError1)/(SignalValue1*SignalValue1) + (mcError*mcError)/(mcValue*mcValue));
+
+         //double c = 1 + SignalValue2/mcValue;
+         //signfVal2 = sqrt(2*(SignalValue2 + mcValue)*TMath::Log(c) - 2*SignalValue2);
+         signfVal2 = SignalValue2 / mcValue;
+         signfErr2 = signfVal2 * sqrt( (SignalError2*SignalError2)/(SignalValue2*SignalValue2) + (mcError*mcError)/(mcValue*mcValue));
+         }
+
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal0  << "    " << "error  =  " << signfErr0 << std::endl;     
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal1  << "    " << "error  =  " << signfErr1 << std::endl;     
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal2  << "    " << "error  =  " << signfErr2 << std::endl;     
+
+       signf0 -> SetBinContent(ibin, signfVal0);
+       if (!signfVal0 == 0) signf0 -> SetBinError  (ibin, signfErr0);
+
+       signf1 -> SetBinContent(ibin, signfVal1);
+       if (!signfVal1 == 0) signf1 -> SetBinError  (ibin, signfErr1);
+
+       signf2 -> SetBinContent(ibin, signfVal2);
+       if (!signfVal2 == 0) signf2 -> SetBinError  (ibin, signfErr2);
     }
+    //draw significance
+    signf0->SetTitle("");
+
+    //draw the bin label
+    if (hname.Contains("SR_MT2Met"))
+      { int ibin1 = 0; 
+        for (int i = 0; i<3;i++)
+         { for (int j =0; j<7; j++) 
+           { int ivalue = 20*(j+1); ibin1 = ibin1+1; TString iValue; iValue += ivalue; signf0 -> GetXaxis()->SetBinLabel(ibin1, "  " + iValue); 
+           }
+         }
+      }
+    
+    signf0->Draw("ep");
+
+    signf0->GetXaxis()->SetRangeUser(xmin, xmax);
+    signf0->GetYaxis()->SetRangeUser(0.0, 1.2);
+  
+    signf1->Draw("ep,same");
+    signf2->Draw("ep,same");
+
+    SetAxis(signf0, xtitle, "S / B", 1.4, 0.75);    
+ }
 
 
   //----------------------------------------------------------------------------
