@@ -1,0 +1,1998 @@
+#include "HistogramReader.h"
+#include <fstream>
+#include <iostream>
+
+
+using namespace std;
+
+
+//------------------------------------------------------------------------------
+// HistogramReader
+//------------------------------------------------------------------------------
+HistogramReader::HistogramReader(const TString& inputdir,
+				 const TString& outputdir) :
+
+  _inputdir     (inputdir),
+  _outputdir    (outputdir),
+  _stackoption  ("nostack,hist"),
+  _title        ("inclusive"),
+  _luminosity_fb(-1),
+  _datanorm     (false),
+  _drawratio    (false),
+  _drawBinSigf  (false),
+  _drawyield    (false),
+  _minitreebased(false), //Used only to address the files of systematic folders
+  _publicstyle  (false),
+  _savepdf      (false),
+  _savepng      (true),
+  _yieldTex     (true)
+{
+  _mcfile.clear();
+  _mccolor.clear();
+  _mclabel.clear();
+  _mcscale.clear();
+
+  _datafile  = NULL;
+  _datahist  = NULL;
+  _allmchist = NULL;
+
+  TH1::SetDefaultSumw2();
+}
+
+
+//------------------------------------------------------------------------------
+// AddData
+//------------------------------------------------------------------------------
+void HistogramReader::AddData(const TString& filename,
+			      const TString& label,
+			      Color_t        color)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddData] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _datacolor    = color;
+  _datafile     = file;
+  _datafilename = filename;
+  _datalabel    = label;
+}
+
+
+//------------------------------------------------------------------------------
+// AddProcess
+//------------------------------------------------------------------------------
+void HistogramReader::AddProcess(const TString& filename,
+				 const TString& label,
+				 Color_t        color,
+				 Int_t          kind,
+				 Float_t        scale)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddProcess] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _mccolor.push_back(color);
+  _mcfile.push_back(file);
+  _mcfilename.push_back(filename); 
+  _mclabel.push_back(label);
+  _mcscale.push_back(scale);
+  
+  if (scale > 0. && scale != 1.)
+    printf("\n [HistogramReader::AddProcess] Process %s will be scaled by %.2f\n\n", label.Data(), scale);
+
+  if (kind == roc_signal)
+    {
+      _roc_signalfile.push_back(file);
+      _roc_signalscale.push_back(scale);
+    }
+  else if (kind == roc_background)
+    {
+      _roc_backgroundfile.push_back(file);
+      _roc_backgroundscale.push_back(scale);
+    }
+}
+
+
+//------------------------------------------------------------------------------
+// AddSignal
+//------------------------------------------------------------------------------
+void HistogramReader::AddSignal(const TString& filename,
+				const TString& label,
+				Color_t        color,
+				Int_t          kind,
+				Float_t        scale)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+  
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddSignal] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _signalcolor.push_back(color);
+  _signalfile.push_back(file);
+  _signalfilename.push_back(filename);
+  _signallabel.push_back(label);
+  _signalscale.push_back(scale);
+
+  if (scale > 0. && scale != 1.)
+    printf("\n [HistogramReader::AddSignal] Process %s will be scaled by %.2f\n\n", label.Data(), scale);
+
+  if (kind == roc_signal)
+    {
+      _roc_signalfile.push_back(file);
+      _roc_signalscale.push_back(scale);
+    }
+  else if (kind == roc_background)
+    {
+      _roc_backgroundfile.push_back(file);
+      _roc_backgroundscale.push_back(scale);
+    }
+}
+
+
+//------------------------------------------------------------------------------
+// AddSystematic
+//------------------------------------------------------------------------------
+void HistogramReader::AddSystematic(TString analysis, TString systematic, TString mycut)
+{
+ // For Stop analysis:
+ // BtagFSdo  Btagdo  Fakedo  Fastsimdo  Idisodo     Idisoeleup  Idisomuup  Isrnjetdo  JESdo       JESup       METdo       METup       PDFdo  Pileupdo  Q2do  Recodo  Topptdo  Triggerdo  nominal
+ // BtagFSup  Btagup  Fakeup  Fastsimup  Idisoeledo  Idisomudo   Idisoup    Isrnjetup  JESdoNoISR  JESupNoISR  METdoNoISR  METupNoISR  PDFup  Pileupup  Q2up  Recoup  Topptup  Triggerup  theory
+  _mycut    = mycut;
+  _analysis = analysis;
+  _systematics.push_back(systematic);
+}
+
+
+//------------------------------------------------------------------------------
+// Draw
+//------------------------------------------------------------------------------
+void HistogramReader::Draw(TString hname,
+			   TString xtitle,
+			   Int_t   ngroup,
+			   Int_t   precision,
+			   TString units,
+			   Bool_t  setlogy,
+			   Bool_t  moveoverflow,
+			   Float_t xmin,
+			   Float_t xmax,
+			   Float_t ymin,
+			   Float_t ymax)
+{
+  TString cname = hname;
+
+  if (_stackoption.Contains("nostack")) cname += "_nostack";
+
+  if (setlogy) cname += "_log";
+
+  _writeyields = (hname.Contains("_evolution")) ? true : false;
+
+  if (_writeyields)
+    {
+      _yields_table.open(_outputdir + "/" + cname + ".txt");
+
+      _writelabels = true;
+    }
+
+
+  TCanvas* canvas = NULL;
+
+  TPad* pad1 = NULL;
+  TPad* pad2 = NULL;
+
+  if (_drawratio && _datafile)
+    {
+      canvas = new TCanvas(cname, cname, 550, 720);
+
+      pad1 = new TPad("pad1", "pad1", 0, 0.3, 1, 1.0);
+      pad2 = new TPad("pad2", "pad2", 0, 0.0, 1, 0.3);
+
+      pad1->SetTopMargin   (0.08);
+      pad1->SetBottomMargin(0.02);
+      pad1->Draw();
+
+      pad2->SetTopMargin   (0.08);
+      pad2->SetBottomMargin(0.35);
+      pad2->Draw();
+    }
+ 
+  else if (_drawBinSigf)
+    {
+      canvas = new TCanvas(cname, cname, 550, 720);
+
+      pad1 = new TPad("pad1", "pad1", 0, 0.3, 1, 1.0);
+      pad2 = new TPad("pad2", "pad2", 0, 0.0, 1, 0.3);
+
+      pad1->SetTopMargin   (0.08);
+      pad1->SetBottomMargin(0.02);
+      pad1->Draw();
+
+      pad2->SetTopMargin   (0.08);
+      pad2->SetBottomMargin(0.35);
+      pad2->SetGridx(); 
+      pad2->SetGridy();
+      pad2->Draw();
+    }
+
+  else
+    {
+      canvas = new TCanvas(cname, cname, 550, 600);
+
+      pad1 = new TPad("pad1", "pad1", 0, 0, 1, 1);
+
+      pad1->Draw();
+    }
+
+  
+  //----------------------------------------------------------------------------
+  // pad1
+  //----------------------------------------------------------------------------
+  pad1->cd();
+  
+  pad1->SetLogy(setlogy);
+
+
+  // Stack processes
+  //----------------------------------------------------------------------------
+  _mchist.clear();
+
+  THStack* mcstack = new THStack(hname + "_mcstack", hname + "_mcstack");
+
+  for (UInt_t i=0; i<_mcfile.size(); i++) {
+
+    _mcfile[i]->cd();
+
+    TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
+
+    _mchist.push_back((TH1D*)dummy->Clone());
+
+    if (_luminosity_fb > 0 && _mcscale[i] > -999) _mchist[i]->Scale(_luminosity_fb);
+
+    if (_mcscale[i] > 0) _mchist[i]->Scale(_mcscale[i]);
+
+    SetHistogram(_mchist[i], _mccolor[i], 1001, kDot, kSolid, 0, ngroup, moveoverflow, xmin, xmax);
+    
+    mcstack->Add(_mchist[i]);
+  }
+
+
+  // Stack signals
+  //----------------------------------------------------------------------------
+  _signalhist.clear();
+
+  THStack* signalstack = new THStack(hname + "_signalstack", hname + "_signalstack");
+
+  for (UInt_t i=0; i<_signalfile.size(); i++) {
+
+    _signalfile[i]->cd();
+
+    TH1D* dummy = (TH1D*)_signalfile[i]->Get(hname);
+
+    _signalhist.push_back((TH1D*)dummy->Clone());
+
+    if (_luminosity_fb > 0 && _signalscale[i] > -999) _signalhist[i]->Scale(_luminosity_fb);
+
+    if (_signalscale[i] > 0) _signalhist[i]->Scale(_signalscale[i]);
+
+    SetHistogram(_signalhist[i], _signalcolor[i], 0, kDot, kSolid, 3, ngroup, moveoverflow, xmin, xmax);
+    
+    signalstack->Add(_signalhist[i]);
+  }
+
+
+  // Get the data
+  //----------------------------------------------------------------------------
+  if (_datafile)
+    {
+      _datafile->cd();
+
+      TH1D* dummy = (TH1D*)_datafile->Get(hname);
+
+      _datahist = (TH1D*)dummy->Clone();
+      
+      SetHistogram(_datahist, kBlack, 0, kFullCircle, kSolid, 1, ngroup, moveoverflow, xmin, xmax);
+    }
+
+
+  // Normalize MC to data
+  //----------------------------------------------------------------------------
+  if (_datahist && _datanorm)
+    {
+      Float_t mcnorm   = Yield((TH1D*)(mcstack->GetStack()->Last()));
+      Float_t datanorm = Yield(_datahist);
+
+      for (UInt_t i=0; i<_mchist.size(); i++)
+	{
+	  _mchist[i]->Scale(datanorm / mcnorm);
+	}
+
+      mcstack->Modified();
+    }
+
+
+  // hfirst will contain the axis settings
+  //----------------------------------------------------------------------------
+  TH1D* hfirst = (TH1D*)_mchist[0]->Clone("hfirst");
+
+  hfirst->Reset();
+
+  hfirst->SetTitle("");
+
+
+  // All MC
+  //----------------------------------------------------------------------------
+  _allmchist = (TH1D*)_mchist[0]->Clone("allmchist");
+
+  _allmchist->SetName(_mchist[0]->GetName());
+
+  // Possible modification (how to deal with systematic uncertainties?)
+  //  _allmchist = (TH1D*)(mcstack->GetStack()->Last());
+
+  for (Int_t ibin=0; ibin<=_allmchist->GetNbinsX(); ibin++) {
+
+    Float_t binValue = 0.;
+    Float_t binError = 0.;
+
+    for (UInt_t i=0; i<_mchist.size(); i++) {
+
+      Float_t binContent   = _mchist[i]->GetBinContent(ibin);
+      Float_t binStatError = _mchist[i]->GetBinError(ibin);
+      Float_t binSystError = 0;  // To be updated
+      
+      binValue += binContent;
+      binError += (binStatError * binStatError);
+      binError += (binSystError * binSystError);
+    }
+    
+    binError = sqrt(binError);
+
+    _allmchist->SetBinContent(ibin, binValue);
+    _allmchist->SetBinError  (ibin, binError);
+  }
+
+  _allmclabel = "stat";
+
+  _allmchist->SetFillColor  (kGray+1);
+  _allmchist->SetFillStyle  (   3345);
+  _allmchist->SetLineColor  (kGray+1);
+  _allmchist->SetMarkerColor(kGray+1);
+  _allmchist->SetMarkerSize (      0);
+
+
+  // Include systematics with TGraphAsymmErrors
+  //----------------------------------------------------------------------------
+  if (_systematics.size() > 0)  IncludeSystematics(hname);
+
+  // Draw
+  //----------------------------------------------------------------------------
+  hfirst->Draw();
+
+  mcstack->Draw(_stackoption + ",same");
+
+  //if (_systematics.size() > 0 ) _gr->Draw("CF");  
+  //if (_systematics.size() > 0 ) _gr->Draw("3");  
+  //if (_systematics.size() > 0 ) _gr->Draw("P0");  
+
+
+
+  if (_systematics.size() > 0 ) {
+
+    _ErrorGr->Draw("e2,same");  
+  }
+  else {
+
+    if (!_stackoption.Contains("nostack")) _allmchist->Draw("e2,same");
+  }
+
+  if (_signalfile.size() > 0) signalstack->Draw("nostack,hist,same");
+
+  if (_datahist) _datahist->Draw("ep,same");
+
+
+  // Set xtitle and ytitle
+  //----------------------------------------------------------------------------
+  TString ytitle = Form("events / %s.%df", "%", precision);
+
+  ytitle = Form(ytitle.Data(), hfirst->GetBinWidth(0));
+
+  if (!units.Contains("NULL")) {
+    xtitle = Form("%s [%s]", xtitle.Data(), units.Data());
+    ytitle = Form("%s %s",   ytitle.Data(), units.Data());
+  }
+
+
+  // Adjust xaxis and yaxis
+  //----------------------------------------------------------------------------
+  hfirst->GetXaxis()->SetRangeUser(xmin, xmax);
+
+  Float_t theMin = 0.0;
+
+  Float_t theMax = (_datahist) ? GetMaximum(_datahist, xmin, xmax) : 0.0;
+
+  Float_t theMaxMC = GetMaximum(_allmchist, xmin, xmax);
+
+  if (_stackoption.Contains("nostack"))
+    {
+      for (UInt_t i=0; i<_mcfile.size(); i++)
+	{
+	  Float_t mchist_i_max = GetMaximum(_mchist[i], xmin, xmax, false);
+
+	  if (mchist_i_max > theMaxMC) theMaxMC = mchist_i_max;
+	}
+    }
+
+  if (theMaxMC > theMax) theMax = theMaxMC;
+
+  Float_t theMaxSignal = 0.0;
+
+  if (_signalfile.size() > 0)
+    {
+      for (UInt_t i=0; i<_signalfile.size(); i++)
+	{
+	  Float_t signalhist_i_max = GetMaximum(_signalhist[i], xmin, xmax, false);
+
+	  if (signalhist_i_max > theMaxSignal) theMaxSignal = signalhist_i_max;
+	}
+    }
+
+  if (theMaxSignal > theMax) theMax = theMaxSignal;
+
+  if (pad1->GetLogy())
+    {
+      theMin = 1e-5;
+      theMax = TMath::Power(10, TMath::Log10(theMax) + 6);
+    }
+  else if (!_stackoption.Contains("nostack"))
+    {
+      theMax *= 1.7;
+    }
+
+  hfirst->SetMinimum(theMin);
+  hfirst->SetMaximum(theMax);
+
+  if (ymin != -999) hfirst->SetMinimum(ymin);
+  if (ymax != -999) hfirst->SetMaximum(ymax);
+
+  //if (_stackoption.Contains("nostack")) {  hfirst->SetMinimum(0.00001); hfirst->SetMaximum(10000.0); }
+
+  // Legend
+  //----------------------------------------------------------------------------
+  Float_t x0     = 0.220;                         // x position of the data on the top left
+  Float_t y0     = 0.843;                         // y position of the data on the top left
+  Float_t xdelta = (_drawyield) ? 0.228 : 0.170;  // x width between columns
+  Float_t ydelta = 0.050;                         // y width between rows
+  Int_t   nx     = 0;                             // column number
+  Int_t   ny     = 0;                             // row    number
+
+  TString opt = (_stackoption.Contains("nostack")) ? "l" : "f";
+
+
+  // Data legend
+  //----------------------------------------------------------------------------
+  if (_datahist)
+    {
+      DrawLegend(x0, y0, _datahist, _datalabel.Data(), "lp");
+      ny++;
+    }
+
+
+  // All MC legend
+  //----------------------------------------------------------------------------
+  if (!_stackoption.Contains("nostack"))
+    {
+      DrawLegend(x0, y0 - ny*ydelta, _allmchist, _allmclabel.Data(), opt);
+      ny++;
+    }
+
+
+  // Standard Model processes legend
+  //----------------------------------------------------------------------------
+  Int_t nrow = (_mchist.size() > 10) ? 5 : 4;
+
+  for (int i=0; i<_mchist.size(); i++)
+    {
+      if (ny == nrow)
+	{
+	  ny = 0;
+	  nx++;
+	}
+
+      DrawLegend(x0 + nx*xdelta, y0 - ny*ydelta, _mchist[i], _mclabel[i].Data(), opt);
+      ny++;
+    }
+
+
+  // Search signals legend
+  //----------------------------------------------------------------------------
+  for (int i=0; i<_signalhist.size(); i++)
+    {
+      DrawLegend(x0 + nx*xdelta, y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
+      ny++;
+    }
+
+
+  // Titles
+  //----------------------------------------------------------------------------
+  Float_t xprelim;
+  if (_drawratio && _datafile) { xprelim = 0.288;}
+  else if (_drawBinSigf) { xprelim = 0.288;}
+  else { xprelim = 0.300;}
+
+  if (_title.EqualTo("inclusive"))
+    {
+      DrawLatex(61, 0.190,   0.945, 0.050, 11, "CMS");
+      DrawLatex(52, xprelim, 0.945, 0.030, 11, "Preliminary");
+    }
+  else
+    {
+      DrawLatex(42, 0.190, 0.945, 0.050, 11, _title);
+    }
+
+  if (_luminosity_fb > 0)
+    DrawLatex(42, 0.940, 0.945, 0.050, 31, Form("%.3f fb^{-1} (13TeV)", _luminosity_fb));
+  else
+    DrawLatex(42, 0.940, 0.945, 0.050, 31, "(13TeV)");
+
+  SetAxis(hfirst, xtitle, ytitle, 1.5, 1.8);
+  if (hname.Contains("SR_MT2Met"))
+   {
+   // Special cosmetics
+   // 
+    // set splitting lines
+        // done to be used with mc && signal, not with data
+    double xline1 = hfirst -> GetBinLowEdge(8);  double xline2 = hfirst -> GetBinLowEdge(15);  
+    double yline = theMaxSignal + theMaxMC ;
+         // this can be simplified with DrawLine function: https://root.cern.ch/doc/master/classTLine.html#a25778bcb26868e136825dbe836aa9c66
+    //if (_stackoption.Contains("nostack")) yline = 1.5;
+    canvas ->Update();
+    TLine* line1 = new TLine ( xline1, 0.0, xline1, yline ); TLine* line2 = new TLine ( xline2, 0.0, xline2, yline );
+    line1 -> SetLineColor(kBlack);line2 -> SetLineColor(kBlack);
+    line1->Draw();line2->Draw();
+    
+    // set latex information
+    TLatex* tl1 = new TLatex(0, yline, "SR1"); TLatex* tl2 = new TLatex(xline1, yline, "SR2"); TLatex* tl3 = new TLatex(xline2, yline, "SR3");
+    tl1 -> Draw(); tl2 -> Draw(); tl3 -> Draw();
+    // set bin legend  
+    hfirst -> GetXaxis()->SetBinLabel(1, "20");  hfirst -> GetXaxis()->SetBinLabel(4,  "80");   hfirst -> GetXaxis()->SetBinLabel(7, "140");  //SR1
+    hfirst -> GetXaxis()->SetBinLabel(8, "20");  hfirst -> GetXaxis()->SetBinLabel(11, "80");   hfirst -> GetXaxis()->SetBinLabel(14,"140"); //SR2
+    hfirst -> GetXaxis()->SetBinLabel(15,"20");  hfirst -> GetXaxis()->SetBinLabel(18, "80");   hfirst -> GetXaxis()->SetBinLabel(21,"140"); //SR3
+
+    int ibin1 = 0; for (int i = 0; i<3;i++){ for (int j =0; j<7; j++) { int ivalue = 20*(j+1); ibin1 = ibin1+1; TString iValue; iValue += ivalue; hfirst -> GetXaxis()->SetBinLabel(ibin1, "  " + iValue); }}
+ 
+   }
+
+  //----------------------------------------------------------------------------
+  // pad2
+  //----------------------------------------------------------------------------
+  if (_drawratio && _datafile)
+    {
+      pad2->cd();
+
+
+      TH1D* ratio       = (TH1D*)_datahist ->Clone("ratio");
+      TH1D* uncertainty = (TH1D*)_allmchist->Clone("uncertainty");
+
+      for (Int_t ibin=1; ibin<=ratio->GetNbinsX(); ibin++) {
+
+	Float_t dtValue = _datahist->GetBinContent(ibin);
+	Float_t dtError = _datahist->GetBinError  (ibin);
+
+	Float_t mcValue = _allmchist->GetBinContent(ibin);
+	Float_t mcError = _allmchist->GetBinError  (ibin);
+
+	Float_t ratioVal         = 999;
+	Float_t ratioErr         = 999;
+	Float_t uncertaintyError = 999;
+
+	if (mcValue > 0)
+	  {
+	    ratioVal         = dtValue / mcValue;
+	    ratioErr         = dtError / mcValue;
+	    uncertaintyError = ratioVal * mcError / mcValue;
+	  }
+	
+	ratio->SetBinContent(ibin, ratioVal);
+	ratio->SetBinError  (ibin, ratioErr);
+	
+	uncertainty->SetBinContent(ibin, 1.);
+	uncertainty->SetBinError  (ibin, uncertaintyError);
+      }
+
+      ratio->SetTitle("");
+
+      ratio->Draw("ep");
+
+      ratio->GetXaxis()->SetRangeUser(xmin, xmax);
+      ratio->GetYaxis()->SetRangeUser(0.85, 1.3);
+
+      uncertainty->Draw("e2,same");
+
+      ratio->Draw("ep,same");
+
+      SetAxis(ratio, xtitle, "data / MC", 1.4, 0.75);
+    }
+  
+  else if (_drawBinSigf )
+  {
+    pad2->cd();
+
+    // Just for three signal, the first ones you use in addSignal function
+    TH1D* signf0       = (TH1D*)_signalhist[0] ->Clone("S0_sqrt(B)");
+    TH1D* signf1       = (TH1D*)_signalhist[1] ->Clone("S1_sqrt(B)");
+    TH1D* signf2       = (TH1D*)_signalhist[2] ->Clone("S2_sqrt(B)");
+
+    for (Int_t ibin=1; ibin<=signf0->GetNbinsX(); ibin++) {
+
+      //signals
+      Float_t SignalValue0 = _signalhist[0]->GetBinContent(ibin);
+      Float_t SignalError0 = _signalhist[0]->GetBinError  (ibin);
+
+      Float_t SignalValue1 = _signalhist[1]->GetBinContent(ibin);
+      Float_t SignalError1 = _signalhist[1]->GetBinError  (ibin);
+
+      Float_t SignalValue2 = _signalhist[2]->GetBinContent(ibin);
+      Float_t SignalError2 = _signalhist[2]->GetBinError  (ibin);
+
+      //all mc
+      Float_t mcValue = _allmchist->GetBinContent(ibin);
+      Float_t mcError = _allmchist->GetBinError  (ibin);
+
+      //significance S/sqrt(B)
+      Float_t signfVal0         = 999;
+      Float_t signfErr0         = 999;
+
+      Float_t signfVal1         = 999;
+      Float_t signfErr1         = 999;
+
+      Float_t signfVal2         = 999;
+      Float_t signfErr2         = 999;
+
+      if (mcValue > 0)
+        {
+          //double a = 1 + SignalValue0/mcValue;
+          //signfVal0 = sqrt(2*(SignalValue0 + mcValue)*TMath::Log(a) - 2*SignalValue0);
+          signfVal0 = SignalValue0 / mcValue;
+          signfErr0 = signfVal0 * sqrt( (SignalError0*SignalError0)/(SignalValue0*SignalValue0) + (mcError*mcError)/(mcValue*mcValue));
+
+          //double b = 1 + SignalValue1/mcValue; 
+          //signfVal1 = sqrt(2*(SignalValue1 + mcValue)*TMath::Log(b) - 2*SignalValue1);
+          signfVal1 = SignalValue1 /  mcValue;
+          signfErr1 = signfVal1 * sqrt( (SignalError1*SignalError1)/(SignalValue1*SignalValue1) + (mcError*mcError)/(mcValue*mcValue));
+
+          //double c = 1 + SignalValue2/mcValue;
+          //signfVal2 = sqrt(2*(SignalValue2 + mcValue)*TMath::Log(c) - 2*SignalValue2);
+          signfVal2 = SignalValue2 / mcValue;
+          signfErr2 = signfVal2 * sqrt( (SignalError2*SignalError2)/(SignalValue2*SignalValue2) + (mcError*mcError)/(mcValue*mcValue));
+        }
+   
+      //std::cout << "bin number :   " << ibin << "    "   << "SignalValue =    " << SignalValue << "     " <<  "mcValue =   " << mcValue << "  " << "sqrt(mcValue)  =   " << sqrt(mcValue) << "    " << "signfVal  =  " << signfVal << std::endl;     
+      std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal0  << "    " << "error  =  " << signfErr0 << std::endl;     
+      std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal1  << "    " << "error  =  " << signfErr1 << std::endl;     
+      std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal2  << "    " << "error  =  " << signfErr2 << std::endl;     
+
+      signf0 -> SetBinContent(ibin, signfVal0);
+      if (!signfVal0 == 0) signf0 -> SetBinError  (ibin, signfErr0);
+
+      signf1 -> SetBinContent(ibin, signfVal1);
+      if (!signfVal1 == 0) signf1 -> SetBinError  (ibin, signfErr1);
+
+      signf2 -> SetBinContent(ibin, signfVal2);
+      if (!signfVal2 == 0) signf2 -> SetBinError  (ibin, signfErr2);
+    }
+
+    //draw significance
+    signf0->SetTitle("");
+    
+    //draw the bin label
+ if (hname.Contains("SR_MT2Met")){ 
+    //signf0 -> GetXaxis()->SetBinLabel(7, "140");  //SR1
+    //signf0 -> GetXaxis()->SetBinLabel(14,"140"); //SR2
+    //signf0 -> GetXaxis()->SetBinLabel(21,"140"); //SR3
+    
+    int ibin1 = 0; for (int i = 0; i<3;i++){ for (int j =0; j<7; j++) { int ivalue = 20*(j+1); ibin1 = ibin1+1; TString iValue; iValue += ivalue; signf0 -> GetXaxis()->SetBinLabel(ibin1, "  " + iValue); }}
+
+  }
+    signf0->Draw("ep");
+
+    signf0->GetXaxis()->SetRangeUser(xmin, xmax);
+    signf0->GetYaxis()->SetRangeUser(0.0, 1.2);
+
+   
+    signf1->Draw("ep,same");
+    signf2->Draw("ep,same");
+
+    SetAxis(signf0, xtitle, "S / B", 1.4, 0.75);
+
+
+  }
+
+  //----------------------------------------------------------------------------
+  // Save it
+  //----------------------------------------------------------------------------
+  canvas->cd();
+
+  if (_savepdf) canvas->SaveAs(_outputdir + cname + ".pdf");
+  if (_savepng) canvas->SaveAs(_outputdir + cname + ".png");
+  if (hname.Contains("SR_MT2Met")) canvas->SaveAs(_outputdir + cname + ".C");  
+
+  if (_writeyields)
+    {
+      _yields_table << std::endl;
+      
+      _yields_table.close();
+    }
+}
+
+
+//------------------------------------------------------------------------------
+// CrossSection
+//------------------------------------------------------------------------------
+void HistogramReader::CrossSection(TString level,
+				   TString channel,
+				   TString process,
+				   Float_t branchingratio,
+				   TString signal1_filename,
+				   Float_t signal1_xs,
+				   Float_t signal1_ngen,
+				   TString signal2_filename,
+				   Float_t signal2_xs,
+				   Float_t signal2_ngen)
+{
+  if (_luminosity_fb < 0)
+    {
+      printf("\n [HistogramReader::CrossSection] Warning: reading negative luminosity\n\n");
+    }
+
+
+  // Get the signal (example qqWW)
+  //----------------------------------------------------------------------------
+  TFile* signal1_file = new TFile(_inputdir + "/" + signal1_filename + ".root");
+
+  float signal1_counterLum = Yield((TH1D*)signal1_file->Get(level + "/h_counterLum_" + channel));
+  float signal1_counterRaw = Yield((TH1D*)signal1_file->Get(level + "/h_counterRaw_" + channel));
+
+  float counterSignal = signal1_counterLum * _luminosity_fb;
+
+  float efficiency = signal1_counterRaw / signal1_ngen;
+
+
+  // Get the second signal (example ggWW)
+  //----------------------------------------------------------------------------
+  if (!signal2_filename.Contains("NULL"))
+    {
+      TFile* signal2_file = new TFile(_inputdir + "/" + signal2_filename + ".root");
+
+      float signal2_counterLum = Yield((TH1D*)signal2_file->Get(level + "/h_counterLum_" + channel));
+      float signal2_counterRaw = Yield((TH1D*)signal2_file->Get(level + "/h_counterRaw_" + channel));
+
+      counterSignal += (signal2_counterLum * _luminosity_fb);
+
+      float signal1_fraction = signal1_xs / (signal1_xs + signal2_xs);
+      float signal2_fraction = 1. - signal1_fraction;
+
+      float signal1_efficiency = signal1_counterRaw / signal1_ngen;
+      float signal2_efficiency = signal2_counterRaw / signal2_ngen;
+
+      efficiency = signal1_fraction*signal1_efficiency + signal2_fraction*signal2_efficiency;
+    }
+
+
+  // Get the backgrounds
+  //----------------------------------------------------------------------------
+  float counterBackground = 0;
+
+  for (UInt_t i=0; i<_mcfile.size(); i++) {
+
+    if (_mclabel[i].EqualTo(process)) continue;
+
+    _mcfile[i]->cd();
+
+    TH1D* dummy = (TH1D*)_mcfile[i]->Get(level + "/h_counterLum_" + channel);
+
+    float counterDummy = Yield(dummy);
+
+    if (_luminosity_fb > 0 && _mcscale[i] > -999) counterDummy *= _luminosity_fb;
+
+    if (_mcscale[i] > 0) counterDummy *= _mcscale[i];
+
+    counterBackground += counterDummy;
+  }
+
+
+  // Get the data
+  //----------------------------------------------------------------------------
+  if (_datafile)
+    {
+      _datafile->cd();
+
+      TH1D* dummy = (TH1D*)_datafile->Get(level + "/h_counterLum_" + channel);
+
+      _datahist = (TH1D*)dummy->Clone();      
+    }
+
+  float counterData = Yield(_datahist);
+
+
+  // Cross-section calculation
+  //----------------------------------------------------------------------------  
+  float xs = (counterData - counterBackground) / (1e3 * _luminosity_fb * efficiency * branchingratio);
+  float mu = (counterData - counterBackground) / (counterSignal);
+
+
+  // Statistical error
+  //----------------------------------------------------------------------------  
+  float xsErrorStat = sqrt(counterData) / (1e3 * _luminosity_fb * efficiency * branchingratio);
+  float muErrorStat = sqrt(counterData) / (counterSignal); 
+
+ 
+  // Print
+  //----------------------------------------------------------------------------  
+  printf("      channel = %s\n", channel.Data());
+  printf("        ndata = %.0f\n", counterData);
+  printf("         nbkg = %.2f\n", counterBackground);
+  printf(" ndata - nbkg = %.2f\n", counterData - counterBackground);
+  printf("      nsignal = %.2f\n", counterSignal);
+  printf("           mu = (ndata - nbkg) / nsignal = %.2f +- %.2f (stat) +- %.2f (lumi)\n", mu, muErrorStat, mu * lumi_error_percent / 1e2);
+  printf("         lumi = %.0f pb\n", 1e3 * _luminosity_fb);
+  printf("           br = %f\n", branchingratio);
+  printf("          eff = %.4f\n", efficiency);
+  printf("           xs = (ndata - nbkg) / (lumi * eff * br) = %.2f +- %.2f (stat) +- %.2f (lumi) pb\n\n", xs, xsErrorStat, xs * lumi_error_percent / 1e2);
+}
+
+
+//-----------------------------------------------------------------------------
+// DrawLatex 
+//------------------------------------------------------------------------------
+void HistogramReader::DrawLatex(Font_t      tfont,
+				Float_t     x,
+				Float_t     y,
+				Float_t     tsize,
+				Short_t     align,
+				const char* text,
+				Bool_t      setndc)
+{
+  TLatex* tl = new TLatex(x, y, text);
+
+  tl->SetNDC      (setndc);
+  tl->SetTextAlign( align);
+  tl->SetTextFont ( tfont);
+  tl->SetTextSize ( tsize);
+
+  tl->Draw("same");
+}
+
+
+//------------------------------------------------------------------------------
+// DrawLegend
+//------------------------------------------------------------------------------
+TLegend* HistogramReader::DrawLegend(Float_t x1,
+				     Float_t y1,
+				     TH1*    hist,
+				     TString label,
+				     TString option,
+				     Bool_t  drawyield,
+				     Float_t tsize,
+				     Float_t xoffset,
+				     Float_t yoffset)
+{
+  drawyield &= (_drawyield && !_publicstyle);
+
+  TLegend* legend = new TLegend(x1,
+				y1,
+				x1 + xoffset,
+				y1 + yoffset);
+  
+  legend->SetBorderSize(    0);
+  legend->SetFillColor (    0);
+  legend->SetTextAlign (   12);
+  legend->SetTextFont  (   42);
+  legend->SetTextSize  (tsize);
+
+  TString final_label = Form(" %s", label.Data());
+
+  if (drawyield)
+    final_label = Form("%s (%.0f)", final_label.Data(), hist->Integral());//  changed from Integral(-1,-1)
+
+  if (Yield(hist) < 0)
+    printf("\n [HistogramReader::DrawLegend] Warning: %s %s yield = %f\n\n",
+	   label.Data(),
+	   hist->GetName(),
+	   hist -> Integral());// changed from Integral(-1,-1)
+
+
+ /*  std::cout << "-------------------------------------------------------------------\n" << std::endl; 
+
+   Int_t numbbins = hist->GetNbinsX();
+   float n = hist->Integral();
+   std::cout << "proccess   " << final_label.Data() << "    numbbins    " <<  numbbins << "   integral   " <<   n << std::endl;  
+
+   std::cout << "-------------------------------------------------------------------\n" << std::endl; 
+*/
+  legend->AddEntry(hist, final_label.Data(), option.Data());
+  legend->Draw();
+
+  WriteYields(hist, label);
+
+  return legend;
+}
+
+
+//------------------------------------------------------------------------------
+// GetMaximum
+//------------------------------------------------------------------------------
+Float_t HistogramReader::GetMaximum(TH1*    hist,
+				    Float_t xmin,
+				    Float_t xmax,
+				    Bool_t  binError)
+{
+  UInt_t nbins = hist->GetNbinsX();
+
+  TAxis* axis = (TAxis*)hist->GetXaxis();
+  
+  Int_t firstBin = (xmin != -999) ? axis->FindBin(xmin) : 1;
+  Int_t lastBin  = (xmax != -999) ? axis->FindBin(xmax) : nbins;
+
+  Float_t hmax = 0;
+
+  for (Int_t i=firstBin; i<=lastBin; i++) {
+
+    Float_t binHeight = hist->GetBinContent(i);
+
+    if (binError) binHeight += hist->GetBinError(i);
+
+    if (binHeight > hmax) hmax = binHeight;
+  }
+
+  return hmax;
+}
+
+
+//------------------------------------------------------------------------------
+// MoveOverflows
+//
+// For all histogram types: nbins, xlow, xup
+//
+//   bin = 0;       underflow bin
+//   bin = 1;       first bin with low-edge xlow INCLUDED
+//   bin = nbins;   last bin with upper-edge xup EXCLUDED
+//   bin = nbins+1; overflow bin
+//
+//------------------------------------------------------------------------------
+void HistogramReader::MoveOverflows(TH1*    hist,
+				    Float_t xmin,
+				    Float_t xmax)
+{
+  int nentries = hist->GetEntries();
+  int nbins    = hist->GetNbinsX();
+  
+  TAxis* xaxis = (TAxis*)hist->GetXaxis();
+
+
+  // Underflow
+  //----------------------------------------------------------------------------
+  if (xmin != -999)
+    {
+      Int_t   firstBin = -1;
+      Float_t firstVal = 0;
+      Float_t firstErr = 0;
+      
+      for (Int_t i=0; i<=nbins+1; i++)
+	{
+	  if (xaxis->GetBinLowEdge(i) < xmin)
+	    {
+	      firstVal += hist->GetBinContent(i);
+	      firstErr += (hist->GetBinError(i)*hist->GetBinError(i));
+	      hist->SetBinContent(i, 0);
+	      hist->SetBinError  (i, 0);
+	    }
+	  else if (firstBin == -1)
+	    {
+	      firstVal += hist->GetBinContent(i);
+	      firstErr += (hist->GetBinError(i)*hist->GetBinError(i));
+	      firstBin = i;
+	    }
+	}
+
+      firstErr = sqrt(firstErr);
+  
+      hist->SetBinContent(firstBin, firstVal);
+      hist->SetBinError  (firstBin, firstErr);
+    }
+
+
+  // Overflow
+  //----------------------------------------------------------------------------
+  if (xmax != -999)
+    {
+      Int_t   lastBin = -1;
+      Float_t lastVal = 0;
+      Float_t lastErr = 0;
+      
+      for (Int_t i=nbins+1; i>=0; i--)
+	{
+	  Float_t lowEdge = xaxis->GetBinLowEdge(i);
+      
+	  if (lowEdge >= xmax)
+	    {
+	      lastVal += hist->GetBinContent(i);
+	      lastErr += (hist->GetBinError(i)*hist->GetBinError(i));
+	      hist->SetBinContent(i, 0);
+	      hist->SetBinError  (i, 0);
+	    }
+	  else if (lastBin == -1)
+	    {
+	      lastVal += hist->GetBinContent(i);
+	      lastErr += (hist->GetBinError(i)*hist->GetBinError(i));
+	      lastBin = i;
+	    }
+	}
+
+      lastErr = sqrt(lastErr);
+  
+      hist->SetBinContent(lastBin, lastVal);
+      hist->SetBinError  (lastBin, lastErr);
+    }
+
+  hist->SetEntries(nentries);
+}
+
+
+//------------------------------------------------------------------------------
+// SetAxis
+//------------------------------------------------------------------------------
+void HistogramReader::SetAxis(TH1*    hist,
+			      TString xtitle,
+			      TString ytitle,
+			      Float_t xoffset,
+			      Float_t yoffset)
+{
+  gPad->cd();
+  gPad->Update();
+
+  // See https://root.cern.ch/doc/master/classTAttText.html#T4
+  Float_t padw = gPad->XtoPixel(gPad->GetX2());
+  Float_t padh = gPad->YtoPixel(gPad->GetY1());
+
+  Float_t size = (padw < padh) ? padw : padh;
+
+  size = 20. / size;  // Like this label size is always 20 pixels
+  
+  TAxis* xaxis = (TAxis*)hist->GetXaxis();
+  TAxis* yaxis = (TAxis*)hist->GetYaxis();
+
+  xaxis->SetTitleOffset(xoffset);
+  yaxis->SetTitleOffset(yoffset);
+
+  //  xaxis->SetLabelOffset(5.*xaxis->GetLabelOffset());  // It works for Juan
+  //  yaxis->SetLabelOffset(3.*yaxis->GetLabelOffset());  // It works for Juan
+
+  xaxis->SetLabelSize(size);
+  yaxis->SetLabelSize(size);
+  xaxis->SetTitleSize(size);
+  yaxis->SetTitleSize(size);
+
+  xaxis->SetTitle(xtitle);
+  yaxis->SetTitle(ytitle);
+
+  yaxis->CenterTitle();
+
+  gPad->GetFrame()->DrawClone();
+  gPad->RedrawAxis();
+}
+
+
+//------------------------------------------------------------------------------
+// SetHistogram
+//------------------------------------------------------------------------------
+void HistogramReader::SetHistogram(TH1*     hist,
+				   Color_t  color,
+				   Style_t  fstyle,
+				   Style_t  mstyle,
+				   Style_t  lstyle,
+				   Width_t  lwidth,
+				   Int_t    ngroup,
+				   Bool_t   moveoverflow,
+				   Float_t& xmin,
+				   Float_t& xmax)
+{
+  if (!hist)
+    {
+      printf("\n [HistogramReader::SetHistogram] Error: histogram does not exist\n\n");
+      return;
+    }
+
+  if (xmin == -999) xmin = hist->GetXaxis()->GetXmin();
+  if (xmax == -999) xmax = hist->GetXaxis()->GetXmax();
+
+  hist->SetFillColor(color );
+  hist->SetFillStyle(fstyle);
+
+  hist->SetLineColor(color );
+  hist->SetLineStyle(lstyle);
+  hist->SetLineWidth(lwidth);
+
+  hist->SetMarkerColor(color );
+  hist->SetMarkerStyle(mstyle);
+
+  if (_stackoption.Contains("nostack") && Yield(hist) > 0)
+    {
+      hist->SetFillStyle(0);
+      hist->SetLineWidth(2);
+      TString hname = hist->GetName();
+
+        if (hname.Contains("SR_MT2Met"))
+        {
+        int n =  hist -> GetNbinsX();
+        for (int ibin = 1; ibin <= n; ibin++ ){
+
+        float BinContent = hist->GetBinContent(ibin);
+
+        int firstbin; if (ibin<=7) firstbin = 1; else if (ibin<=14) firstbin = 8; else if (ibin<=21) firstbin = 15;
+
+        int lastbin; if (ibin<=7) lastbin = 7; else if (ibin<=14) lastbin = 14; else if (ibin<=21) lastbin = 21;
+     
+        float SRIntegral = hist->Integral(firstbin,lastbin);
+
+        hist->SetBinContent(ibin, BinContent/SRIntegral);
+        }
+      }   
+     else 
+       {
+         hist->Scale(1. / Yield(hist));
+       }
+    
+    }
+
+  // Rebin and move overflow bins
+  //----------------------------------------------------------------------------
+  if (ngroup > 0) hist->Rebin(ngroup);
+  
+  if (moveoverflow) MoveOverflows(hist, xmin, xmax);
+}
+
+
+//------------------------------------------------------------------------------
+// Yield
+//------------------------------------------------------------------------------
+Float_t HistogramReader::Yield(TH1* hist)
+{
+  if (!hist) return 0;
+
+
+  Int_t nbins = hist->GetNbinsX();
+
+ 
+  return hist->Integral(); // Change from Integral (-1,-1);
+}
+
+
+//------------------------------------------------------------------------------
+// Error
+//------------------------------------------------------------------------------
+Float_t HistogramReader::Error(TH1* hist)
+{
+  if (!hist) return 0;
+
+  Float_t hist_error = sqrt(hist->GetSumw2()->GetSum());
+
+  return hist_error;
+}
+
+
+//------------------------------------------------------------------------------
+// EventsByCut
+//------------------------------------------------------------------------------
+void HistogramReader::EventsByCut(TFile*  file,
+				  TString analysis,
+				  TString hname)
+{
+  // Check if the evolution histogram already exists
+  TH1D* test_hist = (TH1D*)file->Get(analysis + "/" + hname + "_evolution");
+
+  if (test_hist) return;
+
+
+  // Get the number of bins
+  Int_t nbins = 0;
+  
+  for (Int_t i=0; i<ncut; i++)
+    {
+      if (!scut[i].Contains(analysis + "/")) continue;
+
+      nbins++;
+    }
+
+
+  // Create and fill the evolution histogram
+  file->cd(analysis);
+
+  TH1D* hist = new TH1D(hname + "_evolution", "", nbins, -0.5, nbins-0.5);
+
+  for (Int_t i=0, bin=0; i<ncut; i++)
+    {
+      if (!scut[i].Contains(analysis + "/")) continue;
+
+      TH1D* dummy = (TH1D*)file->Get(scut[i] + "/" + hname);
+
+      bin++;
+
+      hist->SetBinContent(bin, Yield(dummy));
+      hist->SetBinError  (bin, Error(dummy));
+
+
+      // Change the evolution histogram x-axis labels
+      TString tok, icut;
+
+      Ssiz_t from = 0;
+
+      while (scut[i].Tokenize(tok, from, "_")) icut = tok;
+
+      hist->GetXaxis()->SetBinLabel(bin, icut);
+    }
+
+
+  // Write the evolution histogram
+  hist->Write();
+  file->cd();
+}
+
+
+//------------------------------------------------------------------------------
+// LoopEventsByCut
+//------------------------------------------------------------------------------
+void HistogramReader::LoopEventsByCut(TString analysis, TString hname)
+{
+  if (_datafile) EventsByCut(_datafile, analysis, hname);
+
+  for (UInt_t i=0; i<_mcfile.size(); i++) EventsByCut(_mcfile[i], analysis, hname);
+
+  for (UInt_t i=0; i<_signalfile.size(); i++) EventsByCut(_signalfile[i], analysis, hname);
+}
+
+
+//------------------------------------------------------------------------------
+// EventsByChannel
+//------------------------------------------------------------------------------
+void HistogramReader::EventsByChannel(TFile*  file,
+				      TString level)
+{
+  // Check if the evolution histogram already exists
+  TH1D* test_hist = (TH1D*)file->Get(level + "/h_counterLum_evolution");
+
+  if (test_hist) return;
+
+
+  // Get the number of bins
+  Int_t firstchannel = (level.Contains("WZ/")) ? eee : ee;
+  Int_t lastchannel  = (level.Contains("WZ/")) ? lll : ll;
+  
+  Int_t nbins = 0;
+  
+  for (Int_t i=firstchannel; i<=lastchannel; i++) nbins++;
+
+
+  // Create and fill the evolution histogram
+  file->cd(level);
+
+  TH1D* hist = new TH1D("h_counterLum_evolution", "", nbins, -0.5, nbins-0.5);
+
+  for (Int_t i=firstchannel, bin=0; i<=lastchannel; i++)
+    {
+      TH1D* dummy = (TH1D*)file->Get(level + "/h_counterLum_" + schannel[i]);
+
+      bin++;
+
+      hist->SetBinContent(bin, Yield(dummy));
+      hist->SetBinError  (bin, Error(dummy));
+
+      hist->GetXaxis()->SetBinLabel(bin, lchannel[i]);
+    }
+
+
+  // Write the evolution histogram
+  hist->Write();
+  file->cd();
+}
+
+
+//------------------------------------------------------------------------------
+// LoopEventsByChannel
+//------------------------------------------------------------------------------
+void HistogramReader::LoopEventsByChannel(TString level)
+{
+  if (_datafile) EventsByChannel(_datafile, level);
+
+  for (UInt_t i=0; i<_mcfile.size(); i++) EventsByChannel(_mcfile[i], level);
+
+  for (UInt_t i=0; i<_signalfile.size(); i++) EventsByChannel(_signalfile[i], level);
+}
+
+
+//------------------------------------------------------------------------------
+// GetBestScoreX
+//------------------------------------------------------------------------------
+Float_t HistogramReader::GetBestScoreX(TH1*    sig_hist,
+				       TH1*    bkg_hist,
+				       TString fom)
+{
+  Int_t nbins = sig_hist->GetNbinsX();
+
+  Float_t score_value = 0;
+  Float_t score_x     = 0;
+  Float_t sig_total   = Yield(sig_hist);
+
+
+  // For The Punzi Effect
+  // http://arxiv.org/pdf/physics/0308063v2.pdf
+  Float_t a = 5.;
+  Float_t b = 1.645;  // Corresponds to a p-value equal to 0.05
+
+
+  for (UInt_t k=0; k<nbins+1; k++) {
+
+    Float_t sig_yield = sig_hist->Integral(k, nbins+1);
+    Float_t bkg_yield = bkg_hist->Integral(k, nbins+1);
+
+    Float_t sig_eff = (sig_total > 0.) ? sig_yield / sig_total : -999;
+
+    if (sig_yield > 0. && bkg_yield > 0.)
+      {
+	Float_t score = -999;
+
+	if (fom.EqualTo("S / #sqrt{B}"))   score = sig_yield / sqrt(bkg_yield);
+	if (fom.EqualTo("S / #sqrt{S+B}")) score = sig_yield / sqrt(sig_yield + bkg_yield);
+	if (fom.EqualTo("S / B"))          score = sig_yield / bkg_yield;
+	if (fom.EqualTo("Punzi Eq.6"))     score =   sig_eff / (b*b + 2*a*sqrt(bkg_yield) + b*sqrt(b*b + 4*a*sqrt(b) + 4*bkg_yield)); 
+	if (fom.EqualTo("Punzi Eq.7"))     score =   sig_eff / (a/2 + sqrt(bkg_yield));
+
+	if (score > score_value)
+	  {
+	    score_value = score;
+	    score_x     = sig_hist->GetBinCenter(k);
+	  }
+      }
+  }
+
+
+  printf("\n [HistogramReader::GetBestScoreX] x = %.2f (%.2f < x < %.2f) has the best %s (%f)\n\n",
+  	 score_x,
+  	 sig_hist->GetXaxis()->GetXmin(),
+  	 sig_hist->GetXaxis()->GetXmax(),
+   	 fom.Data(),
+  	 score_value);
+
+
+  return score_x;
+}
+
+
+//------------------------------------------------------------------------------
+// GetBestSignalScoreX
+//------------------------------------------------------------------------------
+Float_t HistogramReader::GetBestSignalScoreX(TString hname,
+					     TString fom,
+					     Int_t   ngroup)
+{
+  printf("\n [HistogramReader::GetBestSignalScoreX] Warning: reading only the first signal\n");
+
+
+  // Get the signals
+  //----------------------------------------------------------------------------
+  _signalhist.clear();
+
+  for (UInt_t i=0; i<_signalfile.size(); i++) {
+
+    _signalfile[i]->cd();
+
+    TH1D* dummy = (TH1D*)_signalfile[i]->Get(hname);
+
+    _signalhist.push_back((TH1D*)dummy->Clone());
+
+    if (_luminosity_fb > 0) _signalhist[i]->Scale(_luminosity_fb);
+
+    if (ngroup > 0) _signalhist[i]->Rebin(ngroup);
+  }
+
+  
+  // Get the backgrounds
+  //----------------------------------------------------------------------------
+  _mchist.clear();
+
+  THStack* mcstack = new THStack(hname + "_mcstack", hname + "_mcstack");
+
+  for (UInt_t i=0; i<_mcfile.size(); i++) {
+
+    _mcfile[i]->cd();
+
+    TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
+
+    _mchist.push_back((TH1D*)dummy->Clone());
+
+    if (_luminosity_fb > 0 && _mcscale[i] > -999) _mchist[i]->Scale(_luminosity_fb);
+
+    if (_mcscale[i] > 0) _mchist[i]->Scale(_mcscale[i]);
+
+    if (ngroup > 0) _mchist[i]->Rebin(ngroup);
+
+    mcstack->Add(_mchist[i]);
+  }
+
+
+  // Get the best score
+  //----------------------------------------------------------------------------
+  TH1D* backgroundhist = (TH1D*)(mcstack->GetStack()->Last());
+
+  return GetBestScoreX(_signalhist[0], backgroundhist, fom);
+}
+
+
+//------------------------------------------------------------------------------
+// WriteYields
+//------------------------------------------------------------------------------
+void HistogramReader::WriteYields(TH1*    hist,
+				  TString label)
+{
+  TString hname = hist->GetName();
+
+  if (!_writeyields) return;
+
+  if (_writelabels)
+    {
+      _writelabels = false;
+
+      _yields_table << Form("\n %14s", " ");
+        
+      for (int i=1; i<=hist->GetNbinsX(); i++) {
+
+	TString binlabel = (TString)hist->GetXaxis()->GetBinLabel(i);
+	    
+	_yields_table << Form(" | %-32s", binlabel.Data());
+      }
+
+      _yields_table << Form("\n");
+    }
+
+  _yields_table << Form(" %14s", label.Data());
+
+  for (int i=1; i<=hist->GetNbinsX(); i++) {
+
+    float process_yield = hist->GetBinContent(i);
+    float process_error = sqrt(hist->GetSumw2()->At(i));
+
+    if (label.EqualTo("data"))
+      {
+	_yields_table << Form(" | %8.0f %14s", process_yield, " ");
+      }
+    else
+      {
+	_yields_table << Form(" | %11.2f +/- %7.2f", process_yield, process_error);
+      }
+
+    int denominator = (hname.Contains("counterLum_evolution")) ? hist->GetNbinsX() : 1;
+
+    float process_percent = 1e2 * process_yield / hist->GetBinContent(denominator);
+
+    _yields_table << Form(" (%5.1f%s)", process_percent, "%");
+  }
+
+  _yields_table << Form("\n");
+}
+
+
+//------------------------------------------------------------------------------
+// Roc
+//------------------------------------------------------------------------------
+void HistogramReader::Roc(TString hname,
+			  TString xtitle,
+			  Int_t   npoints,
+			  TString units,
+			  Float_t xmin,
+			  Float_t xmax,
+			  TString fom)
+{
+  // Get the signal
+  //----------------------------------------------------------------------------
+  THStack* stack_sig = new THStack(hname + "_stack_sig", hname + "_stack_sig");
+
+  for (int i=0; i<_roc_signalfile.size(); ++i)
+    {
+      _roc_signalfile[i]->cd();
+
+      TH1D* dummy = (TH1D*)(_roc_signalfile[i]->Get(hname))->Clone();
+
+      if (_luminosity_fb > 0 && _roc_signalscale[i] > -999) dummy->Scale(_luminosity_fb);
+      
+      stack_sig->Add(dummy);
+    }
+
+  TH1D* hSig = (TH1D*)(stack_sig->GetStack()->Last());
+
+
+  // Get the backgrounds
+  //----------------------------------------------------------------------------
+  THStack* stack_bkg = new THStack(hname + "_stack_bkg", hname + "_stack_bkg");
+
+  for (int j=0; j<_roc_backgroundfile.size(); ++j)
+    {
+      _roc_backgroundfile[j]->cd();
+
+      TH1D* dummy = (TH1D*)(_roc_backgroundfile[j]->Get(hname))->Clone();
+
+      if (_luminosity_fb > 0 && _roc_backgroundscale[j] > -999) dummy->Scale(_luminosity_fb);
+
+      stack_bkg->Add(dummy);
+    }
+
+  TH1D* hBkg = (TH1D*)(stack_bkg->GetStack()->Last());
+
+
+  // For The Punzi Effect
+  // http://arxiv.org/pdf/physics/0308063v2.pdf
+  Float_t a = 5.;
+  Float_t b = 1.645;  // Corresponds to a p-value equal to 0.05
+
+
+  // Compute ROC and significance
+  //----------------------------------------------------------------------------
+  float step = (xmax - xmin) / npoints;
+
+  TGraph* rocGraph_min = new TGraph();
+  TGraph* rocGraph_max = new TGraph();
+  TGraph* sigGraph_min = new TGraph();
+  TGraph* sigGraph_max = new TGraph();
+
+  Float_t score_value_min = 0;
+  Float_t score_value_max = 0;
+  Float_t score_x_min     = 0;
+  Float_t score_x_max     = 0;
+
+  Float_t sigEff_score_x_min = -999;
+  Float_t bkgEff_score_x_min = -999;
+  Float_t sigEff_score_x_max = -999;
+  Float_t bkgEff_score_x_max = -999;
+
+  Float_t sigTotal = hSig->Integral(-1, -1);
+  Float_t bkgTotal = hBkg->Integral(-1, -1);
+
+  for (int s=0; s<=npoints; ++s) {
+
+    Float_t sigYield_min = 0;
+    Float_t sigYield_max = 0;
+    Float_t bkgYield_min = 0;
+    Float_t bkgYield_max = 0;
+
+    sigYield_max += hSig->Integral(-1, hSig->FindBin(xmin + s*step));
+    bkgYield_max += hBkg->Integral(-1, hBkg->FindBin(xmin + s*step));
+
+    sigYield_min += hSig->Integral(hSig->FindBin(xmin + s*step), -1);
+    bkgYield_min += hBkg->Integral(hBkg->FindBin(xmin + s*step), -1);
+
+    Float_t sigEff_max = (sigTotal != 0) ? sigYield_max / sigTotal : -999;
+    Float_t bkgEff_max = (bkgTotal != 0) ? bkgYield_max / bkgTotal : -999;
+
+    Float_t sigEff_min = (sigTotal != 0) ? sigYield_min / sigTotal : -999;
+    Float_t bkgEff_min = (bkgTotal != 0) ? bkgYield_min / bkgTotal : -999;
+
+    Float_t score_min = -999;
+
+    if (sigYield_min > 0. && bkgYield_min > 0.)
+      {
+        if (fom.EqualTo("S / #sqrt{B}"))   score_min = sigYield_min / sqrt(bkgYield_min);  
+        if (fom.EqualTo("S / #sqrt{S+B}")) score_min = sigYield_min / sqrt(bkgYield_min + sigYield_min);
+        if (fom.EqualTo("S / B"))          score_min = sigYield_min / bkgYield_min;
+        if (fom.EqualTo("Punzi Eq.6"))     score_min =   sigEff_min / (b*b + 2*a*sqrt(bkgYield_min) + b*sqrt(b*b + 4*a*sqrt(b) + 4*bkgYield_min));
+        if (fom.EqualTo("Punzi Eq.7"))     score_min =   sigEff_min / (a/2 + sqrt(bkgYield_min));
+      }
+
+    Float_t score_max = -999;
+
+    if (sigYield_max > 0. && bkgYield_max > 0.)
+      {
+        if (fom.EqualTo("S / #sqrt{B}"))   score_max = sigYield_max / sqrt(bkgYield_max);
+        if (fom.EqualTo("S / #sqrt{S+B}")) score_max = sigYield_max / sqrt(bkgYield_max + sigYield_max);
+        if (fom.EqualTo("S / B"))          score_max = sigYield_max / bkgYield_max;
+        if (fom.EqualTo("Punzi Eq.6"))     score_max =   sigEff_max / (b*b + 2*a*sqrt(bkgYield_max) + b*sqrt(b*b + 4*a*sqrt(b) + 4*bkgYield_max));
+        if (fom.EqualTo("Punzi Eq.7"))     score_max =   sigEff_max / (a/2 + sqrt(bkgYield_max));
+      }
+
+    if (score_min > score_value_min) {
+      score_value_min    = score_min;
+      score_x_min        = xmin + s*step;
+      sigEff_score_x_min = sigEff_min;
+      bkgEff_score_x_min = bkgEff_min;
+    }
+
+    if (score_max > score_value_max) {
+      score_value_max    = score_max;
+      score_x_max        = xmin + s*step;
+      sigEff_score_x_max = sigEff_max;
+      bkgEff_score_x_max = bkgEff_max;
+    }
+
+    rocGraph_min->SetPoint(s, sigEff_min, 1 - bkgEff_min);
+    rocGraph_max->SetPoint(s, sigEff_max, 1 - bkgEff_max);
+
+    sigGraph_min->SetPoint(s, xmin + s*step, score_min);
+    sigGraph_max->SetPoint(s, xmin + s*step, score_max);
+  }
+
+
+  printf("\n");
+  printf(" [HistogramReader::Roc] Reading %s from %.2f to %.2f\n\n", hname.Data(), xmin, xmax);
+  printf(" The best %s (%f) corresponds to x > %7.2f %s (S_eff = %6.2f\%, B_eff = %6.2f\%)\n",
+	 fom.Data(),
+	 score_value_min,
+	 score_x_min,
+	 units.Data(),
+	 1e2 * sigEff_score_x_min,
+	 1e2 * bkgEff_score_x_min);
+  printf(" The best %s (%f) corresponds to x < %7.2f %s (S_eff = %6.2f\%, B_eff = %6.2f\%)\n",
+	 fom.Data(),
+	 score_value_max,
+	 score_x_max,
+	 units.Data(),
+	 1e2 * sigEff_score_x_max,
+	 1e2 * bkgEff_score_x_max);
+  printf("\n");
+  
+
+  // Draw and save ROC
+  //----------------------------------------------------------------------------
+  Color_t color_min = kRed+1;
+  Color_t color_max = kBlack;
+
+  Style_t style_min = kFullCircle;
+  Style_t style_max = kOpenCircle;
+
+  TCanvas* rocCanvas = new TCanvas(hname + " ROC", hname + " ROC");
+
+  rocGraph_min->SetMarkerColor(color_min);
+  rocGraph_min->SetMarkerStyle(style_min);
+  rocGraph_min->SetMarkerSize(0.5);
+
+  rocGraph_max->SetMarkerColor(color_max);
+  rocGraph_max->SetMarkerStyle(style_max);
+  rocGraph_max->SetMarkerSize(0.5);
+
+  rocGraph_min->Draw("ap");
+  rocGraph_max->Draw("psame");
+
+  rocGraph_min->GetXaxis()->SetRangeUser(0, 1);
+  rocGraph_min->GetYaxis()->SetRangeUser(0, 1);
+
+  DrawLatex(42, 0.190, 0.945, 0.050, 11, _title);
+
+  SetAxis(rocGraph_min->GetHistogram(), xtitle + " signal efficiency", xtitle + " background rejection", 1.5, 1.8);
+
+  if (_savepdf) rocCanvas->SaveAs(_outputdir + hname + "_ROC.pdf");
+  if (_savepng) rocCanvas->SaveAs(_outputdir + hname + "_ROC.png");
+
+
+  // Draw and save significance
+  //----------------------------------------------------------------------------
+  TCanvas *sigCanvas = new TCanvas(hname + " significance", hname + " significance");
+
+  TString myxtitle = (!units.Contains("NULL")) ? xtitle + " [" + units + "]" : xtitle;
+
+  sigGraph_min->SetMarkerColor(color_min);
+  sigGraph_min->SetMarkerStyle(style_min);
+  sigGraph_min->SetMarkerSize(0.5);
+
+  sigGraph_max->SetMarkerColor(color_max);
+  sigGraph_max->SetMarkerStyle(style_max);
+  sigGraph_max->SetMarkerSize(0.5);
+
+  sigGraph_min->Draw("ap");
+  sigGraph_max->Draw("psame");
+
+  Float_t ymax = (score_value_min > score_value_max) ? score_value_min : score_value_max;
+
+  ymax *= 1.5;
+
+  sigGraph_min->GetXaxis()->SetRangeUser(xmin, xmax);
+  sigGraph_min->GetYaxis()->SetRangeUser(   0, ymax);
+
+  DrawLatex(42, 0.190, 0.945, 0.050, 11, _title);
+
+  TH1F* dummy_min = new TH1F("dummy_min", "", 1, 0, 1);
+  TH1F* dummy_max = new TH1F("dummy_max", "", 1, 0, 1);
+
+  dummy_min->SetLineColor  (color_min);
+  dummy_min->SetMarkerColor(color_min);
+  dummy_min->SetMarkerStyle(style_min);
+
+  dummy_max->SetLineColor  (color_max);
+  dummy_max->SetMarkerColor(color_max);
+  dummy_max->SetMarkerStyle(style_max);
+
+  DrawLegend(0.22, 0.84, dummy_min, Form("%s > x", xtitle.Data()), "lp", false);
+  DrawLegend(0.22, 0.77, dummy_max, Form("%s < x", xtitle.Data()), "lp", false);
+
+  SetAxis(sigGraph_min->GetHistogram(), myxtitle, fom, 1.5, 2.1);
+
+  if (_savepdf) sigCanvas->SaveAs(_outputdir + hname + "_significance.pdf");
+  if (_savepng) sigCanvas->SaveAs(_outputdir + hname + "_significance.png");
+
+  dummy_min->Delete();
+  dummy_max->Delete();
+}
+
+
+// -----------------------------------------------------------------------------
+// IncludeSystematics
+//------------------------------------------------------------------------------
+void HistogramReader::IncludeSystematics(TString hname)
+{
+  int nsystematics = _systematics.size(); 
+  int nbins        = _mchist[0]->GetNbinsX();
+  int nprocess     = _mchist.size();
+   
+  // Table variables
+  float yieldTab      [nprocess][nbins];
+  float errStatTab    [nprocess][nbins];
+  float errsystTab_do [nprocess][nsystematics][nbins]; 
+  float errsystTab_up [nprocess][nsystematics][nbins]; 
+  for (int i=0; i < nsystematics; i++){for (int j=1; j<=nbins; j++){ for (int k=0; k <nprocess; k++){ yieldTab[k][j] = 0; errStatTab[k][j] = 0; errsystTab_do[k][i][j] = 0; errsystTab_up[k][i][j] = 0;}}}
+  // TGraphAssymetriErrors variables
+  float errSystDo     [nsystematics][nbins];
+  float errSystUp     [nsystematics][nbins]; 
+  for (int i=0; i < nsystematics; i++)
+   {
+    for (int j=1; j<=nbins; j++)
+     {
+      errSystDo [i][j] = 0;      
+      errSystUp [i][j] = 0;      
+     }
+   }
+  
+
+   // Loop over all systematics and processes
+   //----------------------------------------------------------------------------
+   for (int isyst=0; isyst<nsystematics; isyst++) 
+    {
+     // Print systematic name 
+     printf( "                                                         \n");  
+     printf( "                                                         \n");  
+     printf( "systematic name %s \n", _systematics.at(isyst).Data() );
+     printf( "----------------------------------\n"); 
+
+     for (int kproce=0; kproce<nprocess; kproce++) 
+      {
+       if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
+      
+       TFile* myfile0;
+       TFile* myfile1;
+       TFile* myfile2;
+
+       if (_minitreebased) // This is for ttdm
+	{
+         if (isyst%2 != 0) continue; //Only takes the first one systematic_up(down).root as reference
+         myfile0 = new TFile(_inputdir + "/" + _mcfilename.at(kproce)                            + ".root", "read"); // Just be compatible with the call TH1D dummy0
+	 myfile1 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + _systematics.at(isyst)   + ".root", "read");
+	 myfile2 = new TFile(_inputdir + "/" + _mcfilename.at(kproce) + _systematics.at(isyst+1) + ".root", "read");
+	}
+       else
+        {
+          myfile0 = new TFile(_inputdir                                                          + "/" + _mcfilename.at(kproce)   + ".root", "read");//nominal
+          myfile1 = new TFile(_inputdir + "/../../" + _systematics.at(isyst) + "up/" + _analysis + "/" + _mcfilename.at(kproce)   + ".root", "read");//up
+          myfile2 = new TFile(_inputdir + "/../../" + _systematics.at(isyst) + "do/" + _analysis + "/" + _mcfilename.at(kproce)   + ".root", "read");//down
+        }
+    
+       TH1D* dummy0 = (TH1D*)myfile0->Get( hname );//nominal
+       TH1D* dummy1 = (TH1D*)myfile1->Get( hname );//up
+       TH1D* dummy2 = (TH1D*)myfile2->Get( hname );//down      
+ 
+       if (_luminosity_fb > 0 && _mcscale[kproce] > -999)
+        {
+          dummy0->Scale(_luminosity_fb);
+          dummy1->Scale(_luminosity_fb);
+          dummy2->Scale(_luminosity_fb);
+        }
+		
+       if (_mcscale[kproce] > 0)
+	{
+          dummy0->Scale(_mcscale[kproce]);
+          dummy1->Scale(_mcscale[kproce]);
+          dummy2->Scale(_mcscale[kproce]);
+        }
+
+       // Print Process name       
+       printf( "                                                         \n");  
+       printf("process name %s\n", _mcfilename.at(kproce).Data()); 
+       printf( "                                                         \n");  
+       
+       // Loop over all bins (Underflow is not included)
+       //--------------------------------------------------------------------  
+       for (int ibin=1; ibin<=nbins; ibin++) 
+        {
+         errSystUp [isyst][ibin] += (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
+         errSystDo [isyst][ibin] += (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)); 
+         
+         yieldTab     [kproce][ibin] = dummy0->GetBinContent(ibin); 
+         errStatTab   [kproce][ibin] = dummy0->GetSumw2()->At(ibin);
+         errsystTab_up[kproce][isyst][ibin] = dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin); 
+         errsystTab_do[kproce][isyst][ibin] = dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin); 
+         // Print Bin Information per process       
+         printf( "Print Bin Information per process \n");
+         printf( "                                                         \n");  
+         printf( " bin number  = %i\n", ibin );  
+         printf( "                                                         \n");  
+         printf( " nominal     = %f\n", dummy0->GetBinContent(ibin));             
+         printf( " SF+ errUp   = %f\n", dummy1->GetBinContent(ibin));             
+         printf( " SF+ errDo   = %f\n", dummy2->GetBinContent(ibin));             
+         // Print Systematic Error per process
+         printf( "Print Systematic Error per process \n");
+         printf( "                                                         \n");  
+         printf( " ErrsystUp  = %.5f\n", (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) );
+         printf( " ErrsystDo  = %.5f\n", (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) );       
+         printf( " rel_ErrsystUp  = %.5f  %\n", (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) / dummy0->GetBinContent(ibin) );
+         printf( " rel_ErrsystDo  = %.5f  %\n", (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)) / dummy0->GetBinContent(ibin) );       
+        
+         // 
+
+        } 
+
+ 
+       myfile0->Close();
+       myfile1->Close();
+       myfile2->Close();
+     
+     }
+   }
+
+   std::ofstream inFile("Yields_" + _mycut +".tex",std::ios::out);
+   // Process | nbins = 7;    
+   inFile << "\\begin{tabular}{|c|c|c|c|c|c|c|c|}" << endl;
+   inFile << "\\hline" << endl;
+   inFile << _mycut << endl;
+   //Yield & stat_error & systematic_error & total_error" << endl;
+   inFile << "\\hline" << endl;
+   inFile << "ibin &";
+   for (int ibin=1; ibin<=nbins; ibin++)
+    {
+     inFile <<  ibin << "&";
+    }
+   inFile << "\\hline" << endl;
+   for (int kproce=0; kproce<nprocess; kproce++)
+    { 
+     inFile <<  _mcfilename.at(kproce).Data() << "&";     
+     
+     for (int ibin=1; ibin<=nbins; ibin++)
+      {
+       inFile << yieldTab [kproce][ibin] <<  "\\pm" << "&" << errStatTab   [kproce][ibin] << "\\pm" << "&" ; 
+       float errSyst = 0; 
+       for (int isyst=0; isyst<nsystematics; isyst++) 
+        { 
+         errSyst +=((fabs(errsystTab_up[kproce][isyst][ibin]) + fabs(errsystTab_do[kproce][isyst][ibin]))/2 )*((fabs(errsystTab_up[kproce][isyst][ibin]) + fabs(errsystTab_do[kproce][isyst][ibin]))/2 );
+        }
+       inFile << sqrt (errSyst)<< endl;
+      }   
+    inFile << "\\hline" << endl;
+    }
+    inFile.close();
+ 
+   // Create the TGraphAsymmErrors
+   // ------------------------------
+   float x       [nbins];
+   float y       [nbins];
+   float exl     [nbins];
+   float eyl     [nbins];
+   float exh     [nbins];
+   float eyh     [nbins];
+   float errStat [nbins];
+   float errLumi [nbins];
+   float errTrig [nbins];
+ 
+   printf( "--------------------- Printing Errors ----------------------------\n" ); 
+   
+   for (int  ibin=1; ibin<=nbins; ibin++)
+     {
+       errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
+       x       [ibin] = _allmchist ->GetXaxis()->GetBinCenter(ibin);
+       y       [ibin] = _allmchist ->GetBinContent(ibin);
+       errLumi [ibin] =  y[ibin] * lumi_error_percent/1e2;
+       errTrig [ibin] =  y[ibin] * 1/1e2;
+       exl     [ibin] = (_allmchist -> GetXaxis() -> GetBinWidth(ibin))/2;
+       exh     [ibin] = exl[ibin];
+   
+       //Print Stat and flat errors per bin
+       printf( "bin number = %i\n", ibin );  
+       printf( "                                                              \n");  
+       printf( "--------------------- Flat errors ----------------------------\n" ); 
+       printf( "---------------------------------------------------------\n");  
+       printf( "                                                              \n");  
+       printf( "errStat = %f\n", errStat [ibin] ); 
+       printf( "errLumi = %f\n", errLumi [ibin] );
+       printf( "errTrig = %f\n", errTrig [ibin] );
+       printf( "rel_errStat = %f %\n", errStat [ibin] / y [ibin] ); 
+       printf( "rel_errLumi = %f %\n", errLumi [ibin] / y [ibin]);
+       printf( "rel_errTrig = %f %\n", errTrig [ibin] / y [ibin]);
+       printf( "                                                              \n");  
+       printf( "--------------------------------------------------------\n" ); 
+ 
+ 
+       float systUp2  = 0;
+       float systDo2  = 0;
+       float systSym2 = 0;
+
+       for (int isyst =0; isyst< nsystematics; isyst++)
+         {
+          
+          if ( errSystUp [isyst][ibin] * errSystDo [isyst][ibin] > 0 ) 
+            {
+              printf( "WARNING! errSystUp and errSystDo have the same sign!\n") ; 
+              printf( "The systematic is %s, the bin is %i \n\n", _systematics.at(isyst).Data(), ibin);         
+              printf( "errSystUp = %f\n errSystDo = %f\n", errSystUp [isyst][ibin], errSystDo [isyst][ibin]); 
+            }
+
+          // Assymetric errors
+          if ( errSystUp [isyst][ibin] < 0 && errSystDo [isyst][ibin] > 0 )
+            {
+             float midErrUp = errSystUp [isyst][ibin]; 
+             float midErrDo = errSystDo[isyst][ibin]; 
+             errSystUp [isyst][ibin] = midErrDo; 
+             errSystDo [isyst][ibin] = midErrUp;
+            }
+
+          systUp2  += errSystUp [isyst][ibin] * errSystUp [isyst][ibin];    
+          systDo2  += errSystDo [isyst][ibin] * errSystDo [isyst][ibin];
+          // Symmetric errors
+          //systSym2 += sqrt( (errSystUp [isyst][ibin] + errSystDo [isyst][ibin]) * (errSystUp [isyst][ibin] + errSystDo [isyst][ibin]) )  / 2 ;   
+          
+          // Print Systematic Total Errors (sum over all processe---s)          
+          printf( "                                                        \n");  
+          printf( "----  %s  Systematic Total Error\n", _systematics.at(isyst).Data());  
+//          printf( "systematic name %s \n", _systematics.at(isyst).Data() ); 
+          printf( "                                                        \n");  
+          printf( "ErrsystUp  = %.5f\n", errSystUp [isyst][ibin] );           
+          printf( "ErrsystDo  = %.5f\n", errSystDo [isyst][ibin] );
+          printf( "rel_ErrsystUp  = %.5f  %\n", errSystUp [isyst][ibin] / y [ibin] );
+          printf( "rel_ErrsystDo  = %.5f  %\n", errSystDo [isyst][ibin] / y [ibin] );       
+          printf( "ErrsystSym = %.5f\n", fabs(errSystUp [isyst][ibin])/2 + fabs(errSystDo [isyst][ibin])/2 );
+          printf( "----------------------------------------------------------\n");  
+          printf( "                                                        \n");  
+         
+         }
+
+        eyl [ibin] = sqrt( errStat[ibin] * errStat[ibin] + errLumi[ibin]*errLumi[ibin] + systDo2);
+        eyh [ibin] = sqrt( errStat[ibin] * errStat[ibin] + errLumi[ibin]*errLumi[ibin] + systUp2);
+        
+        //Print Total Error per bin    
+        printf( "----------------------- Total Error -------------------\n"); 
+        printf( "err_up   = %.5f\n", eyh [ibin] );   
+        printf( "err_down = %.5f\n", eyl [ibin] );   
+        printf( "rel_err_down = %.5f %\n", eyl [ibin] / y [ibin] );   
+        printf( "rel_err_up   = %.5f %\n", eyh [ibin] / y [ibin]);   
+        printf( "----------------------------------------------------------\n");  
+        printf( "                                                        \n");  
+
+ 
+     }
+
+    _ErrorGr = new TGraphAsymmErrors(nbins,x,y,exl,exh,eyl,eyh);
+
+    _ErrorGr->SetMarkerColor(kGray+1);
+    _ErrorGr->SetMarkerSize (      0);
+    _ErrorGr->SetLineColor  (kGray+1);
+    _ErrorGr->SetFillColor  (kGray+1);
+    _ErrorGr->SetFillStyle  (   3345);
+
+
+}
+
