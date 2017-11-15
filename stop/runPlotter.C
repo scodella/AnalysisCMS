@@ -9,17 +9,10 @@ const Bool_t dosystematics = false;
 const Bool_t postfitplots = false;
 
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
-//const TString inputdir  = "../minitrees/rootfiles/WZtoWW_veto/";
 const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
-//const TString inputdir  = "../minitrees/rootfiles/ZpeakDYcorrections/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsTestAddBkg/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfitasimov/";
 
 const TString outputdir = "figure_05Paper/";
-//const TString outputdir = "figures_TableTest/";
-//const TString outputdir = "figures_WZtoWW_vetoNewCut2_CheckVeto2_Mt2ll/";
-//const TString outputdir = "figures_WZtoWW_vetoNewCut2_ZVeto/";
-//const TString outputdir = "figures_WW_Mimic/";
 
 const TString signal = "T2tt";
 //const TString signal = "TChi";
@@ -89,22 +82,6 @@ void runPlotter(TString level,
       //plotter.SetDrawSignificance(true);
     }
   
-<<<<<<< HEAD
-  float SF_ttZ = 1., SF_ZMet = 1., SF_DY = 1.;
-  if (level.Contains("_SR") || level.Contains("_VRggg")) {// && inputdir.Contains("DYcorr"))) {
-    SF_ttZ = 1.44; 
-    if (!postfitplots && !inputdir.Contains("Zpeakz") && !inputdir.Contains("ZZ")) {
-      if (level.Contains("NoJet")) {
-	SF_ZMet = 0.74; // +/- 0.14
-	SF_DY   = 1.;//4.06; // 2.39
-      } else if (level.Contains("Tag")) {
-	SF_ZMet = 1.05;// +/- 0.20 
-	SF_DY   = 1.;//1.58; // 2.39
-      } else if (level.Contains("Veto")) {
-	SF_ZMet = 1.05;// +/- 0.17
-	SF_DY   = 1.;//1.58; // 2.39
-      } 
-=======
   float SF_ttZ = 1., SF_ZMet = 1., SF_DY = 1., SF_WZ = 1.;
   if (!postfitplots) {
     if (level.Contains("_SR") || level.Contains("_VRggg")) {// && inputdir.Contains("DYcorr"))) {
@@ -115,10 +92,9 @@ void runPlotter(TString level,
 	} else if (level.Contains("NoTag")) {
 	  SF_ZMet = 1.21;// +/- 0.17 
 	} else { 
-	  SF_ZMet = 1.06;// +/- 0.12
+	  SF_ZMet = 1.05;// +/- 0.12
 	} 
       }
->>>>>>> upstream/master
     }
   }
 
@@ -130,26 +106,15 @@ void runPlotter(TString level,
 
   // Add processes
   //----------------------------------------------------------------------------
-<<<<<<< HEAD
-  //plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
- /* if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ")) 
   //plotter.AddProcess("03_VZ",        "VZ (#rightarrow 2l)",       color_VZ,  roc_background, SF_ZMet);
   //plotter.AddProcess("11_Wg",        "W#gamma",  color_Wg);
+  //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
+  //plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
   //plotter.AddProcess("15_WgStar",    "W#gamma*", color_WgStar);
-  //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background, SF_DY);
-    //plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
-    //plotter.AddProcess("02_WZTo3LNu_toWW",  "WZ (#rightarrow 3l)toWW",       color_WZTo3LNu,  roc_background);
-    plotter.AddProcess("03_ZZTo2l",        "ZZ (#rightarrow 2l)",       color_VZ,  roc_background, SF_ZMet);
-    plotter.AddProcess("14_ZZTo4l",        "ZZ (#rightarrow 4l)",       49,        roc_background, SF_ZMet);
-    plotter.AddProcess("02_WZTo3LNu_toWW_NoZVeto",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, 0.97);
-    plotter.AddProcess("02_WZTo3LNu_toWW",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, 0.97);
-    */
     plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
     plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background );//, SF_ttZ);
     plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
     plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l)",       color_VZ,  roc_background); //, SF_ZMet);
-    //plotter.AddProcess("15_VZ",        "VZ",       color_VZ,  roc_background); //, SF_ZMet);
-    //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
     plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background); //, SF_ZMet);
     plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
     //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
@@ -158,33 +123,17 @@ void runPlotter(TString level,
     plotter.AddProcess("05_ST",        "tW",       color_ST);
     plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
   
-=======
-  ////plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
-  //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
-  plotter.AddProcess("15_VZ3V",      "VVV + VZ",      color_VVV);
   if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ") || inputdir.Contains("/ttZ")) { 
     plotter.AddProcess("14_ZZTo4L",        "ZZ (#rightarrow 4l)",       color_ZZ4L,  roc_background);
     ////plotter.AddProcess("14a_ZZTo4L",        "qqZZ (#rightarrow 4l)",       49,  roc_background);// 1.256/1.212);
     ////plotter.AddProcess("14b_ZZTo4L",        "ggZZ (#rightarrow 4l)",       48,  roc_background);
     ////plotter.AddProcess("14c_ZZTo4L",        "H#rightarrow ZZ",       47,  roc_background);
   }
-  //plotter.AddProcess("03_VZ",        "VZ (#rightarrow 2l)",       color_VZ,  roc_background);
   if (!inputdir.Contains("/ZZ")) plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
   ////plotter.AddProcess("03a_ZZ",        "qqZZ (#rightarrow 2l2#nu)",       48,  roc_background);
   ////plotter.AddProcess("03b_ZZ",        "ggZZ (#rightarrow 2l2#nu)",       47,  roc_background);
-  //plotter.AddProcess("15_VZ",        "VZ (#rightarrow 2l2q)",       color_VZ2L2Q,  roc_background);
-  //plotter.AddProcess("11_Wg",        "W#gamma",  color_Wg);
-  //plotter.AddProcess("15_WgStar",    "W#gamma*", color_WgStar);
-  plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
-  plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
-  plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
-  plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, SF_WZ);
-  plotter.AddProcess("06_WW",        "WW",       color_WW);
-  plotter.AddProcess("05_ST",        "tW",       color_ST);
-  plotter.AddProcess("07_ZJetsHT" + DYCorr,     "Z+jets",   color_ZJets,  roc_background);//, 0.683211799801126896);
->>>>>>> upstream/master
   if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);
-//  plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
+  //plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
   //else plotter.AddProcess("TTJets", "#bar{t}t",       color_TTTo2L2Nu);
   //if (inputdir.Contains("SS")) plotter.AddProcess("WJetsToLNu", "WJets",      color_WJets);
 
@@ -192,46 +141,16 @@ void runPlotter(TString level,
   if (postfitplots) plotter.AddPostfit("99_TotalBackground", "post-fit", kRed+2);
 
   if (signal=="T2tt") {
-<<<<<<< HEAD
   
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=175)",2);
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",3);
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=263)",6);
-      //plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=250, m_{#tilde{#chi}^{0}_{1}}=125)",4);
-      //plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
-     /* plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
-=======
-
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
->>>>>>> upstream/master
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,175)",kRed);
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,263)",kOrange);
-      plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,125)",kBlue);
-      plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (450,325)",kCyan);
-      */
-      // Tabla Paper
-
-      //plotter.AddSignal("T2tt_mStop-150to250_Sm150_Xm25", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=150, m_{#tilde{#chi}^{0}_{1}}=25)",4);
-      //plotter.AddSignal("T2tt_mStop-250to350_Sm275_Xm150", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=275, m_{#tilde{#chi}^{0}_{1}}=150)",4);
-      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",6);
-      //plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
-
-      //plotter.AddSignal("TChiSlepExt_Xm350_Xm225",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (350,225)",  2);
-      //plotter.AddSignal("TChiSlep_Xm350_Xm225",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (350,225)",  2);
-      //plotter.AddSignal("TChiSWW_Xm350_Xm225",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (350,225)",  2);
-      //plotter.AddSignal("T2bW_Sm350_Xm225",    "#tilde{t}#rightarrow bW (350,225)",  2);
-
-
 
   } else if (signal=="TChi") {
 
       plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
       plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
       plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (800,400)", kOrange);
-      //plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
-      //plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
-
-      
   }
   
   if (inputdir.Contains("rootfiles/nominalX")) {
