@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
-const Bool_t dosystematics = true;
+const Bool_t dosystematics = false;
 const Bool_t postfitplots = false;
 
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
@@ -84,8 +84,8 @@ void runPlotter(TString level,
   else
     {
       plotter.SetLuminosity(lumi, postfitplots);
-      //plotter.SetDrawRatio (true);
-      plotter.SetDrawSignificance(true);
+      plotter.SetDrawRatio (true);
+      //plotter.SetDrawSignificance(true);
     }
   
   float SF_ttZ = 1., SF_ZMet = 1., SF_DY = 1.;
@@ -132,7 +132,8 @@ void runPlotter(TString level,
     //plotter.AddProcess("15_VZ",        "VZ",       color_VZ,  roc_background); //, SF_ZMet);
     //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
     plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background); //, SF_ZMet);
-    plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
+    plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
+    //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
     plotter.AddProcess("02_WZTo3LNu",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background); //, 0.97);
     plotter.AddProcess("06_WW",        "WW",       color_WW);
     plotter.AddProcess("05_ST",        "tW",       color_ST);
@@ -145,9 +146,9 @@ void runPlotter(TString level,
 
   if (signal=="T2tt") {
   
-      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=175)",2);
-      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",3);
-      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=263)",6);
+      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=175)",2);
+      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",3);
+      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=263)",6);
       //plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=250, m_{#tilde{#chi}^{0}_{1}}=125)",4);
       //plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
      /* plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
@@ -159,9 +160,9 @@ void runPlotter(TString level,
       // Tabla Paper
 
       //plotter.AddSignal("T2tt_mStop-150to250_Sm150_Xm25", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=150, m_{#tilde{#chi}^{0}_{1}}=25)",4);
-      plotter.AddSignal("T2tt_mStop-250to350_Sm275_Xm150", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=275, m_{#tilde{#chi}^{0}_{1}}=150)",4);
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",6);
-      plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
+      //plotter.AddSignal("T2tt_mStop-250to350_Sm275_Xm150", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=275, m_{#tilde{#chi}^{0}_{1}}=150)",4);
+      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=350, m_{#tilde{#chi}^{0}_{1}}=225)",6);
+      //plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t}#rightarrow t#tilde{#chi}^{0}_{1} (m_{#tilde{t}}=450, m_{#tilde{#chi}^{0}_{1}}=325)",7);
 
       //plotter.AddSignal("TChiSlepExt_Xm350_Xm225",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (350,225)",  2);
       //plotter.AddSignal("TChiSlep_Xm350_Xm225",  "#tilde{#chi}^{#pm}#rightarrow #tilde{l}#tilde{#nu} (350,225)",  2);
@@ -178,8 +179,8 @@ void runPlotter(TString level,
       plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
       plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
       plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (800,400)", kOrange);
-      plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
-      plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
+      //plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
+      //plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
 
       
   }
@@ -263,7 +264,7 @@ void runPlotter(TString level,
   
   // Draw distributions
   //----------------------------------------------------------------------------
-  if (!option.Contains("nostack")) plotter.SetDrawYield(true);
+  if (!option.Contains("nostack")) plotter.SetDrawYield(false);
 
   float m2l_xmin   = (level.Contains("WZ")) ?  60 :   0;  // [GeV]
   float m2l_xmax   = (level.Contains("WZ")) ? 120 : 300;  // [GeV]
