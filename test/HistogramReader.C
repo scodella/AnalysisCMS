@@ -28,9 +28,13 @@ HistogramReader::HistogramReader(const TString& inputdir,
   _mclabel.clear();
   _mcscale.clear();
 
-  _datafile  = NULL;
-  _datahist  = NULL;
-  _allmchist = NULL;
+  _datafile   = NULL;
+  _datahist   = NULL;
+  _allmchist  = NULL;
+  _prefitfile = NULL;
+  _prefithist = NULL;
+  _postfitfile = NULL;
+  _postfithist = NULL;
 
   TH1::SetDefaultSumw2();
 }
@@ -57,6 +61,54 @@ void HistogramReader::AddData(const TString& filename,
   _datafile     = file;
   _datafilename = filename;
   _datalabel    = label;
+}
+
+
+//------------------------------------------------------------------------------
+// AddPrefit
+//------------------------------------------------------------------------------
+void HistogramReader::AddPrefit(const TString& filename,
+				const TString& label,
+				Color_t        color)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+ 
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddPrefit] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _prefitcolor    = color;
+  _prefitfile     = file;
+  _prefitfilename = filename;
+  _prefitlabel    = label;
+}
+
+
+//------------------------------------------------------------------------------
+// AddPostfit
+//------------------------------------------------------------------------------
+void HistogramReader::AddPostfit(const TString& filename,
+				 const TString& label,
+				 Color_t        color)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+ 
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddPostfit] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _postfitcolor    = color;
+  _postfitfile     = file;
+  _postfitfilename = filename;
+  _postfitlabel    = label;
 }
 
 
@@ -305,6 +357,46 @@ void HistogramReader::Draw(TString hname,
     }
 
 
+  // Get the prefit
+  //----------------------------------------------------------------------------
+  if (_prefitfile && !hname.Contains("prefit"))
+    {
+      _prefitfile->cd();
+
+      TString prefithname = hname; 
+      prefithname.ReplaceAll("fit_b_", "prefit_");
+      prefithname.ReplaceAll("fit_s_", "prefit_");
+      TH1D* dummy = (TH1D*)_prefitfile->Get(prefithname);
+      
+      _prefithist = (TH1D*)dummy->Clone();
+      
+      if (_luminosity_fb) _prefithist->Scale(_luminosity_fb);
+      
+      SetHistogram(_prefithist, _prefitcolor, 0, kDot, 7, 4, ngroup, moveoverflow, xmin, xmax);
+    }
+  if (hname.Contains("prefit")) _prefithist = NULL;
+
+
+  // Get the postfit
+  //----------------------------------------------------------------------------
+  if (_postfitfile && !hname.Contains("prefit"))
+    {
+      _postfitfile->cd();
+
+      TString postfithname = hname; 
+      if (hname.Contains("fit_s_")) postfithname.ReplaceAll("fit_s_", "fit_b_");
+      if (hname.Contains("fit_b_")) postfithname.ReplaceAll("fit_b_", "fit_s_");
+      TH1D* dummy = (TH1D*)_postfitfile->Get(postfithname);
+      
+      _postfithist = (TH1D*)dummy->Clone();
+      
+      if (_luminosity_fb) _postfithist->Scale(_luminosity_fb);
+      
+      SetHistogram(_postfithist, _postfitcolor, 0, kDot, 7, 4, ngroup, moveoverflow, xmin, xmax);
+    }
+  if (hname.Contains("prefit")) _postfithist = NULL;
+
+
   // Normalize MC to data
   //----------------------------------------------------------------------------
   if (_datahist && _datanorm)
@@ -394,9 +486,15 @@ void HistogramReader::Draw(TString hname,
     if (!_stackoption.Contains("nostack")) _allmchist->Draw("e2,same");
   }
 
+  if (_prefitfile && !hname.Contains("prefit")) _prefithist->Draw("hist,][,same");
+  if (_postfitfile && !hname.Contains("prefit")) _postfithist->Draw("hist,][,same");
+
   if (_signalfile.size() > 0) signalstack->Draw("nostack,hist,same");
 
-  if (_datahist) _datahist->Draw("ep,same");
+  if (_datahist) {   
+    _datahist->SetBinErrorOption(TH1::kPoisson);
+    _datahist->Draw("ep,same");
+  }
 
 
   // Set xtitle and ytitle
@@ -467,6 +565,7 @@ void HistogramReader::Draw(TString hname,
 
   // Legend
   //----------------------------------------------------------------------------
+  Float_t tsize  = 0.030;                         // text size
   Float_t x0     = 0.220;                         // x position of the data on the top left
   Float_t y0     = 0.843;                         // y position of the data on the top left
   Float_t xdelta = (_drawyield) ? 0.228 : 0.228;//0.170;  // x width between columns
@@ -495,11 +594,34 @@ void HistogramReader::Draw(TString hname,
     }
 
 
+  // Prefit legend
+  //----------------------------------------------------------------------------
+  if (_prefithist)
+    {
+      DrawLegend(x0 + nx*xdelta, y0 - ny*ydelta, _prefithist, _prefitlabel.Data(), "l", true, tsize);
+      ny++;
+    }
+
+
+  // Postfit legend
+  //----------------------------------------------------------------------------
+  if (_postfithist)
+    {
+      TString addLeg = (hname.Contains("fit_s_")) ? "fit only-b" : "fit b+s"; 
+      DrawLegend(x0 + nx*xdelta, y0 - ny*ydelta, _postfithist, addLeg, "l", true, tsize);
+      ny++;
+    }
+
+
   // Standard Model processes legend
   //----------------------------------------------------------------------------
   
   //Int_t nrow = (!_datahist=NULL && _mchist.size() >= 11) ? 5 : 4;
-  Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
+  //Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
+  int addRow = 0;
+  if (_prefithist) addRow++;
+  if (_postfithist) addRow++;
+  Int_t nrow = (_mchist.size()+addRow >= 11) ? 5 : 4;
 
   for (int i=0; i<_mchist.size(); i++)
     {
@@ -544,7 +666,7 @@ void HistogramReader::Draw(TString hname,
     }
 
   if (_luminosity_fb > 0)
-    DrawLatex(42, 0.940, 0.945, 0.050, 31, Form("%.3f fb^{-1} (13TeV)", _lumilegend_fb));
+    DrawLatex(42, 0.940, 0.945, 0.050, 31, Form("%.1f fb^{-1} (13TeV)", _lumilegend_fb));
   else
     DrawLatex(42, 0.940, 0.945, 0.050, 31, "(13TeV)");
 
@@ -560,14 +682,12 @@ void HistogramReader::Draw(TString hname,
     _allmchist->SetName("MC");
     _allmchist->Write(); 
     for (UInt_t i=0; i<_mcfile.size(); i++) {
-      if (_mcfilename[i].Contains("07")) {
-	_mcfile[i]->cd();
-	TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
-	dummy->Scale(_luminosity_fb);
-	dummy->SetName("DY");
-	OUT->cd();
-	dummy->Write();
-      }
+      _mcfile[i]->cd();
+      TH1D* dummy = (TH1D*)_mcfile[i]->Get(hname);
+      dummy->Scale(_luminosity_fb);
+      dummy->SetName(_mclabel[i].Data());
+      OUT->cd();
+      dummy->Write();
     }
     OUT->Close();
   }   
@@ -587,6 +707,8 @@ void HistogramReader::Draw(TString hname,
 
       TH1D* ratio = _datahist ? (TH1D*)_datahist->Clone("ratio") : (TH1D*)_allmchist->Clone("ratio");
       TH1D* uncertainty = (TH1D*)_allmchist->Clone("uncertainty");
+      TH1D* prefitratio = (_prefithist) ? (TH1D*)_prefithist->Clone("prefitratio") : NULL;
+      TH1D* postfitratio = (_postfithist) ? (TH1D*)_postfithist->Clone("postfitratio") : NULL;
        
       float mcrenormalization = 1.;
       //if (_datahist && (hname.Contains("h_njet20") || hname.Contains("h_njet30"))) 
@@ -616,6 +738,29 @@ void HistogramReader::Draw(TString hname,
 	
 	uncertainty->SetBinContent(ibin, 1.);
 	uncertainty->SetBinError  (ibin, uncertaintyError);
+
+
+	// Prefit part
+	//----------------------------------------------------------------------
+	if (_prefithist)
+	  {
+	    Float_t prefitValue = _prefithist->GetBinContent(ibin);
+
+	    Float_t prefitratioVal = (prefitValue > 0) ? dtValue / prefitValue : -999;
+
+	    prefitratio->SetBinContent(ibin, prefitratioVal);
+	  }
+
+	// Postfit part
+	//----------------------------------------------------------------------
+	if (_postfithist)
+	  {
+	    Float_t postfitValue = _postfithist->GetBinContent(ibin);
+
+	    Float_t postfitratioVal = (postfitValue > 0) ? dtValue / postfitValue : -999;
+
+	    postfitratio->SetBinContent(ibin, postfitratioVal);
+	  }
       }
 
       ratio->SetTitle("");
@@ -628,6 +773,9 @@ void HistogramReader::Draw(TString hname,
       uncertainty->Draw("e2,same");
       
       ratio->Draw("ep,same");
+
+      if (_prefithist) prefitratio->Draw("hist,][,same");
+      if (_postfithist) postfitratio->Draw("hist,][,same");
  
       SetAxis(ratio, xtitle, "data / MC", 1.4, 0.75);
     }
@@ -821,7 +969,7 @@ void HistogramReader::CrossSection(TString level,
 
       TH1D* dummy = (TH1D*)_datafile->Get(level + "/h_counterLum_" + channel);
 
-      _datahist = (TH1D*)dummy->Clone();      
+      _datahist = (TH1D*)dummy->Clone();
     }
 
   float counterData = Yield(_datahist);
@@ -1246,6 +1394,8 @@ void HistogramReader::LoopEventsByCut(TString analysis, TString hname)
   for (UInt_t i=0; i<_mcfile.size(); i++) EventsByCut(_mcfile[i], analysis, hname);
 
   for (UInt_t i=0; i<_signalfile.size(); i++) EventsByCut(_signalfile[i], analysis, hname);
+
+  if (_prefitfile) EventsByCut(_prefitfile, analysis, hname);
 }
 
 
@@ -1304,6 +1454,8 @@ void HistogramReader::LoopEventsByChannel(TString level)
   for (UInt_t i=0; i<_mcfile.size(); i++) EventsByChannel(_mcfile[i], level);
 
   for (UInt_t i=0; i<_signalfile.size(); i++) EventsByChannel(_signalfile[i], level);
+
+  if (_prefitfile) EventsByChannel(_prefitfile, level);
 }
 
 
@@ -1775,10 +1927,10 @@ void HistogramReader::Roc(TString hname,
   }
 }*/ 
 
-TH1D* SumSRHistograms(TFile*  file, TString HistogramName) {
+TH1D* SumSRHistograms(TFile*  file, TString HistogramName, TString _inputdir = "") {
 
   TH1D *SumHisto;
-  if ((!HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_"))) {
+  if ((!HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_")) || _inputdir.Contains("Postfit")) {
      SumHisto = (TH1D*) file->Get(HistogramName);
   } else if (HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_")) {
     HistogramName.ReplaceAll("_Veto", "_NoTag");
@@ -1828,7 +1980,7 @@ TH1D* HistogramReader::GetHistogram(TFile*  file, TString HistogramName) {
   
   TH1D* ThisHisto;
   if (!HistogramName.Contains("_sf") || _inputdir.Contains("Postfit")) {
-    ThisHisto = SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
+    ThisHisto = SumSRHistograms(file, HistogramName, _inputdir);//(TH1D*) file->Get(HistogramName);
   } else {
     HistogramName.ReplaceAll("_sf", "_ee");
     ThisHisto =  SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
@@ -1860,7 +2012,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = false, _doPaperTable = true;
+  bool _verbose = false, _dotable = true, _dotablebkg = false, _doPaperTable = true;
 
   float StatZero = 1.84102;
 
@@ -1872,7 +2024,9 @@ void HistogramReader::IncludeSystematics(TString hname)
   // Table variables
   float yieldTab      [nprocess][nbins+1];
   float errBackTab_do [nprocess][nbins+1]; 
-  float errBackTab_up [nprocess][nbins+1];  
+  float errBackTab_up [nprocess][nbins+1];
+  float errBackSystTab_do [nprocess][nsystematics][nbins+1]; 
+  float errBackSystTab_up [nprocess][nsystematics][nbins+1];  
   bool FirstSystematic[nprocess];
   bool _isPostfit = false;
   for (int k=0; k <nprocess; k++){
@@ -1881,6 +2035,10 @@ void HistogramReader::IncludeSystematics(TString hname)
       yieldTab[k][j] = 0;
       errBackTab_do[k][j] = 0; 
       errBackTab_up[k][j] = 0;
+      for (int i=0; i < nsystematics; i++) {
+	errBackSystTab_do[k][i][j] = 0; 
+	errBackSystTab_up[k][i][j] = 0;
+      }
     }
   }
   // TGraphAssymetriErrors variables
@@ -1930,6 +2088,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
        if (_systematics.at(isyst)=="ZZSF" && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="DYSF" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
+       if (_systematics.at(isyst)=="normDY" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
        if (_systematics.at(isyst)=="ZZnojet" && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="ZZshape" && _mcfilename.at(kproce)!="03_ZZ") continue;
        if (_systematics.at(isyst)=="DYnojet" && (!_mcfilename.at(kproce).Contains("07_ZJets") || !hname.Contains("NoJet"))) continue;
@@ -1958,16 +2117,16 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 FirstSystematic[kproce] = false;
        }
 
-       if (_systematics.at(isyst) == "Postfit") {
-	 _isPostfit = true;
-	 myfile0->Close();
-	 continue; 
-       }
+       //if (_systematics.at(isyst) == "Postfit") {
+       // _isPostfit = true;
+       //myfile0->Close();
+       //continue; 
+       //}
 
-       if (_systematics.at(isyst) == "Statistics") {
+       if (_systematics.at(isyst) == "Statistics" || _systematics.at(isyst) == "Postfit") {
 	 for (int ibin=1; ibin<=nbins; ibin++) {
 	   float StatUncert2 = dummy0->GetSumw2()->At(ibin);
-	   if (StatUncert2<0.0001) {
+	   if (_systematics.at(isyst)=="Statistics" && StatUncert2<0.0001) {
 	     bool ApplyZeroStat = true;
 	     if (_mcfilename.at(kproce).Contains("07_ZJets")) {
 	       ApplyZeroStat = false;
@@ -1981,9 +2140,12 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   }
 	   errBackTab_up[kproce][ibin] += StatUncert2;
 	   errBackTab_do[kproce][ibin] += StatUncert2;
+	   errBackSystTab_up[kproce][isyst][ibin] = sqrt(StatUncert2);
+	   errBackSystTab_do[kproce][isyst][ibin] = sqrt(StatUncert2);
 	   errSystUp [isyst][ibin] += StatUncert2;
 	   errSystDo [isyst][ibin] += StatUncert2;
 	 }
+	 if (_systematics.at(isyst)=="Postfit") _isPostfit = true;
 	 myfile0->Close();
 	 continue;
        }
@@ -1993,6 +2155,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   float LumiBinError = yieldTab[kproce][ibin]*lumi_error_percent/1e2;
 	   errBackTab_up [kproce][ibin] += LumiBinError*LumiBinError;
 	   errBackTab_do [kproce][ibin] += LumiBinError*LumiBinError;
+	   errBackSystTab_up[kproce][isyst][ibin] = +LumiBinError;
+	   errBackSystTab_do[kproce][isyst][ibin] = -LumiBinError;
 	   errSystUp [isyst][ibin] += LumiBinError;
 	   errSystDo [isyst][ibin] += -LumiBinError;
 	 }
@@ -2005,6 +2169,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   float TrigBinError = yieldTab[kproce][ibin]*2./1e2;
 	   errBackTab_up [kproce][ibin] += TrigBinError*TrigBinError;
 	   errBackTab_do [kproce][ibin] += TrigBinError*TrigBinError;
+	   errBackSystTab_up[kproce][isyst][ibin] = +TrigBinError;
+	   errBackSystTab_do[kproce][isyst][ibin] = -TrigBinError;
 	   errSystUp [isyst][ibin] += TrigBinError;
 	   errSystDo [isyst][ibin] += -TrigBinError;
 	 }
@@ -2022,6 +2188,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   float absError = relError*yieldTab[kproce][ibin]; 
 	   errBackTab_up [kproce][ibin] += absError*absError;
 	   errBackTab_do [kproce][ibin] += absError*absError;
+	   errBackSystTab_up[kproce][isyst][ibin] = +absError;
+	   errBackSystTab_do[kproce][isyst][ibin] = -absError;
 	   errSystUp [isyst][ibin] += absError;
 	   errSystDo [isyst][ibin] += -absError;
 	 }
@@ -2034,7 +2202,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 if (_mcscale[kproce] > 0 || _systematics.at(isyst)=="DYnojet") {
 	   float errSF;
 	   if (_systematics.at(isyst)=="ttZSF") errSF = 0.36;
-	   else if (_systematics.at(isyst)=="WZSF") errSF = 0.08;
+	   else if (_systematics.at(isyst)=="WZSF") errSF = 0.09;
 	   else if (_systematics.at(isyst)=="ZZSF") {
 	     if (hname.Contains("NoJet")) errSF = 0.19;
 	     else if (hname.Contains("NoTag")) errSF = 0.17;
@@ -2047,6 +2215,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	     float errNorm = dummy0->GetBinContent(ibin)*relErr; 
 	     errBackTab_up [kproce][ibin] += errNorm*errNorm;
 	     errBackTab_do [kproce][ibin] += errNorm*errNorm;
+	     errBackSystTab_up[kproce][isyst][ibin] = +errNorm;
+	     errBackSystTab_do[kproce][isyst][ibin] = -errNorm;
 	     errSystUp [isyst][ibin] += errNorm;
 	     errSystDo [isyst][ibin] += -errNorm;
 	   }
@@ -2057,8 +2227,9 @@ void HistogramReader::IncludeSystematics(TString hname)
 
        if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
-	   _systematics.at(isyst)=="normVVV") {
-	 float relErr = 0.5;
+	   _systematics.at(isyst)=="normVVV" || _systematics.at(isyst)=="normDY") {
+	 float relErr = 0.50;
+	 if (_systematics.at(isyst)=="normDY" && !hname.Contains("NoJet")) relErr = 0.32;
 	 if (_systematics.at(isyst)=="normWZ") relErr = 0.05;
 	 if (_systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	     _systematics.at(isyst)=="normTW") relErr = 0.1;
@@ -2066,6 +2237,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   float errNorm = dummy0->GetBinContent(ibin)*relErr; 
 	   errBackTab_up [kproce][ibin] += errNorm*errNorm;
 	   errBackTab_do [kproce][ibin] += errNorm*errNorm;
+	   errBackSystTab_up[kproce][isyst][ibin] = +errNorm;
+	   errBackSystTab_do[kproce][isyst][ibin] = -errNorm;
 	   errSystUp [isyst][ibin] += errNorm;
 	   errSystDo [isyst][ibin] += -errNorm;
 	 }
@@ -2136,6 +2309,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 }
          errBackTab_up[kproce][ibin] += ErrUp*ErrUp;
          errBackTab_do[kproce][ibin] += ErrDo*ErrDo;
+	 errBackSystTab_up[kproce][isyst][ibin] = ErrUp;
+	 errBackSystTab_do[kproce][isyst][ibin] = ErrDo;
 
 	 if (_verbose) { 
 	   // Print Bin Information per process       
@@ -2207,7 +2382,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 
      for (int isyst=0; isyst<nsystematics; isyst++) {
 
-       if (_systematics.at(isyst) == "Postfit") continue; 
+       //if (_systematics.at(isyst) == "Postfit") continue; 
        if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Fake") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF") continue;
@@ -2219,13 +2394,15 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   _systematics.at(isyst)=="DYshape" || _systematics.at(isyst)=="ZZshape") continue;
        if (_systematics.at(isyst)=="normWZ" || _systematics.at(isyst)=="normWW" || _systematics.at(isyst)=="normTtbar" || 
 	   _systematics.at(isyst)=="normTW" || _systematics.at(isyst)=="normTTW" || _systematics.at(isyst)=="normHWW" || 
-	   _systematics.at(isyst)=="normVVV") continue;
+	   _systematics.at(isyst)=="normVVV" || _systematics.at(isyst)=="normDY") continue;
 
-       if ( _systematics.at(isyst) == "Statistics") {
+       if ( _systematics.at(isyst) == "Statistics" || _systematics.at(isyst) == "Postfit") {
 	 if (!_doMetFastSim) {
 	   for (int ibin = 1; ibin<=nbins; ibin++) {
 	     float StatUncert2 = dummy0->GetSumw2()->At(ibin);
-	     if (StatUncert2<0.0001 && dummy0->GetEntries()>0) StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	     if (_systematics.at(isyst) == "Statistics")
+	       if (StatUncert2<0.0001 && dummy0->GetEntries()>0.) 
+		 StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	     errSignUp [kproce][ibin] += StatUncert2;
 	     errSignDo [kproce][ibin] += StatUncert2;
 	   }
@@ -2354,10 +2531,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 
    for (int  ibin=1; ibin<=nbins; ibin++)
      {
-       if (!_isPostfit)
-	 errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
-       else 
-	 errStat [ibin] = dummySM->GetBinError(ibin);
+       errStat [ibin] = sqrt(_allmchist ->GetSumw2()->At(ibin));
        x       [ibin] = _allmchist ->GetXaxis()->GetBinCenter(ibin);
        y       [ibin] = _allmchist ->GetBinContent(ibin);
        errLumi [ibin] =  y[ibin] * lumi_error_percent/1e2;
@@ -2449,9 +2623,14 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (!AddTrigger) errTrig[ibin] = 0.;
        //eyl [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
        //eyh [ibin] = sqrt( errStat[ibin]*errStat[ibin] + errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
-       eyl [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
-       eyh [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
-        
+       if (_isPostfit) {
+	 eyl [ibin] = dummySM->GetBinError(ibin);
+	 eyh [ibin] = dummySM->GetBinError(ibin);
+       } else {
+	 eyl [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systDo2);
+	 eyh [ibin] = sqrt( errLumi[ibin]*errLumi[ibin] + errTrig[ibin]*errTrig[ibin] + systUp2);
+       }
+
        if (_verbose) {
 	 //Print Total Error per bin    
 	 printf( "----------------------- Total Error -------------------\n"); 
@@ -2483,6 +2662,12 @@ void HistogramReader::IncludeSystematics(TString hname)
    // Do expanded tables for Analysis Note 
    if (_dotable  && hname.Contains("h_MT2ll")) {
      gSystem->mkdir("Tables/", kTRUE);     
+     
+     //float intData = _datahist->Integral();
+     //float intDY = 0.; for (int ibin=1; ibin<nbins; ibin++) intDY += yieldTab[9][ibin];
+     //float intSM = 0.; for (int ibin=1; ibin<nbins; ibin++) intSM += y[ibin];
+     //float norDY =  (intData - (intSM - intDY))/intDY;
+
      TString TableFlag = hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
      std::ofstream inFile("Tables/Yields" + TableFlag + ".tex",std::ios::out);
      // Process | nbins = 7;    
@@ -2522,17 +2707,29 @@ void HistogramReader::IncludeSystematics(TString hname)
        inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
      }
      inFile << " \\\\" << endl;
+     if (_postfithist) {
+       TString addLeg = (hname.Contains("fit_s_")) ? " (only-b) " : "(fit b+s) ";
+       inFile << "SM Processes " << addLeg;
+       for (int ibin=1; ibin<=nbins; ibin++) {
+	 float ThisYield = _postfithist->GetBinContent(ibin);
+	 float ThisError = _postfithist->GetBinError(ibin);
+	 FormatTableYields(&ThisYield, &ThisError);
+	 inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
+       }
+       inFile << " \\\\" << endl;
+     }
      inFile << " \\hline" << endl;
-     /*
-     inFile << " Data ";
-     for (int ibin=1; ibin<=nbins; ibin++)
-       if (_datahist)
-	 inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
-       else
-	 inFile << " & $" << "blind" << "$";
-     inFile << " \\\\" << endl;
-     inFile << " \\hline" << endl;
-     */
+     if (_datahist) {
+       inFile << " Data ";
+       for (int ibin=1; ibin<=nbins; ibin++)
+	 if (_datahist)
+	   inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
+           //inFile << " & $" << (_datahist->GetBinContent(ibin)-(y[ibin]-yieldTab[9][ibin]))/yieldTab[9][ibin]/norDY << "$";
+	 else
+	   inFile << " & $" << "blind" << "$";
+       inFile << " \\\\" << endl;
+       inFile << " \\hline" << endl;
+     }
      for (int kproce=0; kproce<nsignals; kproce++) {
        TString ThisLabel = _signallabel[kproce].Data();
        ThisLabel.ReplaceAll("m_{#tilde{t}}=", "");
@@ -2554,6 +2751,88 @@ void HistogramReader::IncludeSystematics(TString hname)
      
      inFile.close();
    }
+
+   if (_dotablebkg && hname.Contains("h_MT2ll")) {
+
+     for (int kproce=0; kproce<nprocess; kproce++) {      
+       if (_mcfilename.at(kproce)=="06_WW" || _mcfilename.at(kproce)=="04_TTTo2L2Nu") {
+	 
+	 TString TableFlag = (_mcfilename.at(kproce)=="06_WW") ? "_WW" : "_ttbar"; 
+	 TableFlag += hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
+	 std::ofstream inFile("./Tables/Syst" + TableFlag + ".tex",std::ios::out);
+	 // Process | nbins = 7;    
+	 
+	 //inFile << "\\begin{table}[htb]" << endl;
+	 inFile << "\\tiny" << endl;
+	 inFile << "\\begin{center}" << endl;
+	 inFile << "\\begin{tabular}{|l|ccccccc|}" << endl;
+	 inFile << "\\hline" << endl;
+	 //Yield & stat_error & systematic_error & total_error" << endl;
+	 inFile << "\\hline" << endl;
+	 //inFile << "$M_{T2}(ll})$ bin &";
+	 inFile << "\\mtll bin &";
+	 for (int ibin=1; ibin<nbins; ibin++) 
+	   inFile <<  (ibin-1)*20 <<"-"<< ibin*20 << "~\\GeV & ";
+	 inFile << "$\\ge$ " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
+	 inFile << "\\hline" << endl;
+	 
+	 for (int isyst=0; isyst<nsystematics; isyst++) {
+	   
+	   if (_analysis == "Stop" && _systematics.at(isyst) == "Toppt" && _mcfilename.at(kproce) != "04_TTTo2L2Nu") continue;
+	   if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
+	   if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"    && _mcfilename.at(kproce)=="05_ST") continue;
+	   if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
+				       _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim" ||
+				       _systematics.at(isyst)=="Isrnjet")) continue;
+	   if (_systematics.at(isyst).Contains("MT2ll") && !hname.Contains("h_MT2ll")) continue;
+	   if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
+	   if (_systematics.at(isyst)=="MT2llWW" && _mcfilename.at(kproce)!="06_WW") continue;
+	   if (_systematics.at(isyst)=="ttZSF" && _mcfilename.at(kproce)!="10_TTZ") continue;
+	   if (_systematics.at(isyst)=="ZZSF" && _mcfilename.at(kproce)!="03_ZZ") continue;
+	   if (_systematics.at(isyst)=="DYSF" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
+	   if (_systematics.at(isyst)=="normDY" && !_mcfilename.at(kproce).Contains("07_ZJets")) continue;
+	   if (_systematics.at(isyst)=="ZZnojet" && _mcfilename.at(kproce)!="03_ZZ") continue;
+	   if (_systematics.at(isyst)=="ZZshape" && _mcfilename.at(kproce)!="03_ZZ") continue;
+	   if (_systematics.at(isyst)=="DYnojet" && (!_mcfilename.at(kproce).Contains("07_ZJets") || !hname.Contains("NoJet"))) continue;
+	   if (_systematics.at(isyst)=="DYshape" && (!_mcfilename.at(kproce).Contains("07_ZJets") || hname.Contains("NoJet"))) continue;
+	   if (_systematics.at(isyst)=="ZMETjet" && !_mcfilename.at(kproce).Contains("07_ZJets") && _mcfilename.at(kproce)!="03_ZZ") continue;
+	   if (_systematics.at(isyst)=="normWZ" && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
+	   if (_systematics.at(isyst)=="WZSF"   && _mcfilename.at(kproce)!="02_WZTo3LNu") continue;
+	   if (_systematics.at(isyst)=="normWW" && _mcfilename.at(kproce)!="06_WW") continue;
+	   if (_systematics.at(isyst)=="normTtbar" && _mcfilename.at(kproce)!="04_TTTo2L2Nu") continue;
+	   if (_systematics.at(isyst)=="normTW" && _mcfilename.at(kproce)!="05_ST") continue;
+	   if (_systematics.at(isyst)=="normTTW" && _mcfilename.at(kproce)!="09_TTW") continue;
+	   if (_systematics.at(isyst)=="normHWW" && _mcfilename.at(kproce)!="11_HWW") continue;
+	   if (_systematics.at(isyst)=="normVVV" && _mcfilename.at(kproce)!="13_VVV") continue;
+	   
+	   inFile << _systematics.at(isyst);
+	   for (int ibin=1; ibin<=nbins; ibin++) {
+	     float ThisYield = yieldTab[kproce][ibin];
+	     float ThisError = (fabs(errBackSystTab_up[kproce][isyst][ibin])+fabs(errBackSystTab_do[kproce][isyst][ibin]))/2.;
+	     FormatTableYields(&ThisYield, &ThisError);
+	     //inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
+	     inFile << " &  $" << ThisError << "$";
+	   }
+	   inFile << " \\\\" << endl;
+	 }
+	 inFile << " \\hline" << endl;
+	 for (int ibin=1; ibin<=nbins; ibin++) {
+	   float ThisYield = yieldTab[kproce][ibin];
+	   float ThisError = (sqrt(errBackTab_up[kproce][ibin])+sqrt(errBackTab_do[kproce][ibin]))/2.;
+	   FormatTableYields(&ThisYield, &ThisError);
+	   inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
+	 }
+	 inFile << " \\\\" << endl;
+	 inFile << " \\hline\\hline" << endl;
+	 inFile << "\\end{tabular}" << endl;
+	 inFile << "\\end{center}" << endl;
+	 //inFile << "\\end{table}" << endl;
+	 inFile.close();
+	 
+       }
+     }
+
+   } 
    
    // -------------------------------
    // Do reduced tables for the Paper 
