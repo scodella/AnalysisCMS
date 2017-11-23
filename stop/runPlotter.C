@@ -3,11 +3,12 @@
 
 // Constants
 //------------------------------------------------------------------------------
-const Bool_t datadriven    = false;
-const Bool_t allplots      = false;
-const Bool_t dosystematics = true;
-const Bool_t postfitplots  = false;
-const Bool_t applySF       = false;
+const Bool_t datadriven = false;
+const Bool_t allplots  = false;
+const Bool_t dosystematics = false;
+const Bool_t postfitplots = false;
+const Bool_t paperstyle = true;
+const Bool_t regionlegend = true;
 
 const TString inputdir  = "rootfiles/nominal/";
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
@@ -17,9 +18,11 @@ const TString inputdir  = "rootfiles/nominal/";
 
 const TString outputdir = "figures_ValidationRegion_Systematics/";
 
-const TString signal = "";
-//const TString signal = "T2tt";
+//const TString signal = "";
+const TString signal = "T2tt";
 //const TString signal = "TChi";
+//=======
+//const TString inputdir  = "../minitrees/rootfiles/nominal/";
 
 const TString sl  = "#font[12]{l}";
 const TString sll = "#font[12]{ll}";
@@ -73,7 +76,11 @@ void runPlotter(TString level,
 
   plotter.SetStackOption(option);
   plotter.SetPublicStyle(false);
-  plotter.SetSavePdf    (false);
+  if (paperstyle) {
+    plotter.SetSavePdf(true); 
+    //plotter.SetIsPreliminary(false);
+  }
+  if (regionlegend) plotter.SetDrawRegionLegend(true);
 
   if (option.Contains("nostack"))
     {
@@ -82,7 +89,7 @@ void runPlotter(TString level,
   else
     {
       plotter.SetLuminosity(lumi, postfitplots);
-      plotter.SetDrawRatio (true);
+      plotter.SetDrawRatio (false);
       //plotter.SetDrawSignificance(true);
     }
   
@@ -106,6 +113,7 @@ void runPlotter(TString level,
   plotter.AddData("01_Data", "data", color_Data);
 
   TString DYCorr = "_DYcorr";
+  if (!level.Contains("_SR")) DYCorr = "";
 
   // Add processes
   //----------------------------------------------------------------------------
@@ -114,28 +122,28 @@ void runPlotter(TString level,
   //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
   //plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
   //plotter.AddProcess("15_WgStar",    "W#gamma*", color_WgStar);
-    plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
-    plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
-    plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
-    plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background);
-    plotter.AddProcess("07_ZJetsHT" + DYCorr, "Z+jets", color_ZJets, roc_background);
-    //plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
-    //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
-    plotter.AddProcess("02_WZTo3LNu",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, 0.97);
-    plotter.AddProcess("06_WW",        "WW",       color_WW);
-    plotter.AddProcess("05_ST",        "tW",       color_ST);
-    plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
-  
+  plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background);
   if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ") || inputdir.Contains("/ttZ")) { 
     plotter.AddProcess("14_ZZTo4L",        "ZZ (#rightarrow 4l)",       color_ZZ4L,  roc_background);
     ////plotter.AddProcess("14a_ZZTo4L",        "qqZZ (#rightarrow 4l)",       49,  roc_background);// 1.256/1.212);
     ////plotter.AddProcess("14b_ZZTo4L",        "ggZZ (#rightarrow 4l)",       48,  roc_background);
     ////plotter.AddProcess("14c_ZZTo4L",        "H#rightarrow ZZ",       47,  roc_background);
-  }
+   }
   if (!inputdir.Contains("/ZZ")) plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
+  plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
+  plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
+  plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
+  plotter.AddProcess("02_WZTo3LNu",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, 0.97);
+  plotter.AddProcess("06_WW",        "WW",       color_WW);
+  plotter.AddProcess("05_ST",        "tW",       color_ST);
+  plotter.AddProcess("07_ZJetsHT" + DYCorr, "Z+jets", color_ZJets, roc_background);
+  if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);
+  //plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
+  //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
+  plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
+  
   ////plotter.AddProcess("03a_ZZ",        "qqZZ (#rightarrow 2l2#nu)",       48,  roc_background);
   ////plotter.AddProcess("03b_ZZ",        "ggZZ (#rightarrow 2l2#nu)",       47,  roc_background);
-  if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);
   //plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
   //else plotter.AddProcess("TTJets", "#bar{t}t",       color_TTTo2L2Nu);
   //if (inputdir.Contains("SS")) plotter.AddProcess("WJetsToLNu", "WJets",      color_WJets);
@@ -254,6 +262,7 @@ void runPlotter(TString level,
   // Draw distributions
   //----------------------------------------------------------------------------
   if (!option.Contains("nostack")) plotter.SetDrawYield(true);
+  if (paperstyle) plotter.SetDrawYield(false);
 
   float m2l_xmin   = (level.Contains("WZ")) ?  60 :   0;  // [GeV]
   float m2l_xmax   = (level.Contains("WZ")) ? 120 : 300;  // [GeV]
@@ -337,7 +346,7 @@ void runPlotter(TString level,
 	  //plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
 	  if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	  if (dosystematics) continue;
-	  //continue;
+	  continue;
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
 	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
 	  //plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  scale, true, 0,  400);

@@ -18,6 +18,8 @@ HistogramReader::HistogramReader(const TString& inputdir,
   _drawratio       (false),
   _drawsignificance(false),
   _drawyield       (false),
+  _drawregionlegend(false),
+  _ispreliminary   (true),
   _minitreebased   (false),
   _publicstyle     (false),
   _savepdf         (false),
@@ -392,7 +394,7 @@ void HistogramReader::Draw(TString hname,
       
       if (_luminosity_fb) _postfithist->Scale(_luminosity_fb);
       
-      SetHistogram(_postfithist, _postfitcolor, 0, kDot, 7, 4, ngroup, moveoverflow, xmin, xmax);
+      SetHistogram(_postfithist, _postfitcolor, 0, kDot, 3, 4, ngroup, moveoverflow, xmin, xmax);
     }
   if (hname.Contains("prefit")) _postfithist = NULL;
 
@@ -548,6 +550,7 @@ void HistogramReader::Draw(TString hname,
   if (pad1->GetLogy())
     {
       theMin = 1e-2; // 1e-5
+      int maxOrder = 4;
       theMax = TMath::Power(10, TMath::Log10(theMax) + 4); // 6);
     }
   else if (!_stackoption.Contains("nostack"))
@@ -565,14 +568,14 @@ void HistogramReader::Draw(TString hname,
 
   // Legend
   //----------------------------------------------------------------------------
-  Float_t tsize  = 0.030;                         // text size
-  Float_t x0     = 0.220;                         // x position of the data on the top left
-  Float_t y0     = 0.843;                         // y position of the data on the top left
-  Float_t xdelta = (_drawyield) ? 0.228 : 0.228;//0.170;  // x width between columns
-  Float_t ydelta = 0.050;                         // y width between rows
-  Int_t   nx     = 0;                             // column number
-  Int_t   ny     = 0;                             // row    number
-
+  Float_t tsize  = 0.030;                               // text size
+  Float_t x0     = 0.220;                               // x position of the data on the top left
+  Float_t y0     = (_drawregionlegend) ? 0.793 : 0.843; // y position of the data on the top left
+  Float_t xdelta = (_drawyield) ? 0.228 : 0.195;//0.170;// x width between columns
+  Float_t ydelta = 0.050;                               // y width between rows
+  Int_t   nx     = 0;                                   // column number
+  Int_t   ny     = 0;                                   // row    number
+ 
   TString opt = (_stackoption.Contains("nostack")) ? "l" : "f";
 
 
@@ -622,7 +625,8 @@ void HistogramReader::Draw(TString hname,
   if (_prefithist) addRow++;
   if (_postfithist) addRow++;
   Int_t nrow = (_mchist.size()+addRow >= 11) ? 5 : 4;
-
+  if (!_drawyield) nrow = ceil((_mchist.size()+addRow+2)/4.);
+  
   for (int i=0; i<_mchist.size(); i++)
     {
       if (ny == nrow)
@@ -650,15 +654,35 @@ void HistogramReader::Draw(TString hname,
       ny++;
     }
 
+  // Legend for region
+  if (_drawregionlegend) {
+    TString dummyTitle = hname;
+    int firstUnderscore = dummyTitle.First("_");
+    dummyTitle.Remove(0, firstUnderscore+1);
+    firstUnderscore = dummyTitle.First("_");
+    TString regionTitle = dummyTitle;
+    regionTitle.Remove(firstUnderscore, 100);
+    dummyTitle.Remove(0, firstUnderscore);
+    if (dummyTitle.Contains("_Veto/")) regionTitle += " Veto ";
+    else if (dummyTitle.Contains("_NoTag/")) regionTitle += " Veto+Jets ";
+    else if (dummyTitle.Contains("_NoJet/")) regionTitle += " Veto+0Jet ";
+    else regionTitle += " Tag ";
+    if (dummyTitle.Contains("_ee")) regionTitle += " (ee channel) ";
+    else if (dummyTitle.Contains("_mm")) regionTitle += " (#mu#mu channel) ";
+    else if (dummyTitle.Contains("_sf")) regionTitle += " (ee+#mu#mu channels) ";
+    else if (dummyTitle.Contains("_em")) regionTitle += " (e#mu channel) ";
+    //else if (dummyTitle.Contains("_ll")) regionTitle += " (all channels) ";
+    DrawLatex(42, x0+0.007, 0.863, 0.040, 11, regionTitle);
+  }
 
   // Titles
   //----------------------------------------------------------------------------
   Float_t xprelim = ((_drawratio /*&& _datafile*/) || _drawsignificance) ? 0.288 : 0.300;
 
-  if (_title.EqualTo("inclusive"))
+  if (_title.EqualTo("inclusive") || _drawregionlegend)
     {
       DrawLatex(61, 0.190,   0.945, 0.050, 11, "CMS");
-      DrawLatex(52, xprelim, 0.945, 0.030, 11, "Preliminary");
+      if (_ispreliminary) DrawLatex(52, xprelim, 0.945, 0.030, 11, "Preliminary");
     }
   else
     {
