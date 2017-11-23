@@ -5,8 +5,10 @@
 //------------------------------------------------------------------------------
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
-const Bool_t dosystematics = true;
+const Bool_t dosystematics = false;
 const Bool_t postfitplots = false;
+const Bool_t paperstyle = true;
+const Bool_t regionlegend = true;
 
 //const TString inputdir  = "../minitrees/rootfilesOct17/Zpeak_ptll/";
 const TString inputdir  = "../minitrees/rootfiles/nominal/";
@@ -17,9 +19,10 @@ const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles/WZtoWWveto/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitC/MassPointChiSlep_Xm500_Xm200/Postfit/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitC/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/";
+//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
 const TString outputdir = "figures/";
 
-const TString signal = "";
+const TString signal = "T2tt";
 
 const TString sl  = "#font[12]{l}";
 const TString sll = "#font[12]{ll}";
@@ -73,7 +76,11 @@ void runPlotter(TString level,
 
   plotter.SetStackOption(option);
   plotter.SetPublicStyle(false);
-  plotter.SetSavePdf    (false);
+  if (paperstyle) {
+    plotter.SetSavePdf(true); 
+    //plotter.SetIsPreliminary(false);
+  }
+  if (regionlegend) plotter.SetDrawRegionLegend(true);
 
   if (option.Contains("nostack"))
     {
@@ -106,6 +113,7 @@ void runPlotter(TString level,
   plotter.AddData("01_Data", "data", color_Data);
 
   TString DYCorr = "_DYcorr";
+  if (!level.Contains("_SR")) DYCorr = "";
 
   // Add processes
   //----------------------------------------------------------------------------
@@ -244,6 +252,7 @@ void runPlotter(TString level,
   // Draw distributions
   //----------------------------------------------------------------------------
   if (!option.Contains("nostack")) plotter.SetDrawYield(true);
+  if (paperstyle) plotter.SetDrawYield(false);
 
   float m2l_xmin   = (level.Contains("WZ")) ?  60 :   0;  // [GeV]
   float m2l_xmax   = (level.Contains("WZ")) ? 120 : 300;  // [GeV]
@@ -309,7 +318,7 @@ void runPlotter(TString level,
 	  //plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
 	  if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	  if (dosystematics) continue;
-	  //continue;
+	  continue;
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
 	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
 	  std::cout << "D"<<std::endl;

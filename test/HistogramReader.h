@@ -155,6 +155,10 @@ class HistogramReader
   void     SetSavePdf         (Bool_t         savepdf) {_savepdf = savepdf;}
 
   void     SetSavePng         (Bool_t         savepng) {_savepng = savepng;}
+
+  void     SetDrawRegionLegend(Bool_t         drawregionlegend) {_drawregionlegend = drawregionlegend;}
+
+  void     SetIsPreliminary   (Bool_t         ispreliminary) {_ispreliminary = ispreliminary;}
   
   Float_t  Yield              (TH1*           hist);
 
@@ -199,6 +203,8 @@ class HistogramReader
   Bool_t                _drawratio;
   Bool_t                _drawsignificance;
   Bool_t                _drawyield;
+  Bool_t                _drawregionlegend;
+  Bool_t                _ispreliminary;
   Bool_t                _publicstyle;
   Bool_t                _savepdf;
   Bool_t                _savepng;
