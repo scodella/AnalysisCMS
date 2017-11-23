@@ -3,18 +3,22 @@
 
 // Constants
 //------------------------------------------------------------------------------
-const Bool_t datadriven = false;
-const Bool_t allplots  = false;
-const Bool_t dosystematics = false;
-const Bool_t postfitplots = false;
+const Bool_t datadriven    = false;
+const Bool_t allplots      = false;
+const Bool_t dosystematics = true;
+const Bool_t postfitplots  = false;
+const Bool_t applySF       = false;
 
+const TString inputdir  = "rootfiles/nominal/";
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
-const TString inputdir  = "../minitrees/rootfiles/nominal/";
+//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
+//const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
 
-const TString outputdir = "figure_05Paper/";
+const TString outputdir = "figures_ValidationRegion_Systematics/";
 
-const TString signal = "T2tt";
+const TString signal = "";
+//const TString signal = "T2tt";
 //const TString signal = "TChi";
 
 const TString sl  = "#font[12]{l}";
@@ -92,12 +96,11 @@ void runPlotter(TString level,
 	} else if (level.Contains("NoTag")) {
 	  SF_ZMet = 1.21;// +/- 0.17 
 	} else { 
-	  SF_ZMet = 1.05;// +/- 0.12
+	  SF_ZMet = 1.06;// +/- 0.12
 	} 
       }
     }
   }
-
   // Get the data
   //----------------------------------------------------------------------------
   plotter.AddData("01_Data", "data", color_Data);
@@ -112,13 +115,13 @@ void runPlotter(TString level,
   //plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
   //plotter.AddProcess("15_WgStar",    "W#gamma*", color_WgStar);
     plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
-    plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background );//, SF_ttZ);
+    plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
     plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
-    plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l)",       color_VZ,  roc_background); //, SF_ZMet);
-    plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background); //, SF_ZMet);
-    plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
+    plotter.AddProcess("15_VZ3V",        "VVV+VZ",       color_VVV,  roc_background);
+    plotter.AddProcess("07_ZJetsHT" + DYCorr, "Z+jets", color_ZJets, roc_background);
+    //plotter.AddProcess("07_ZJetsHT",     "Z+jets",   color_ZJets,  roc_background);
     //plotter.AddProcess("07_ZJetsHT_DYcorr",     "Z+jets",   color_ZJets,  roc_background);
-    plotter.AddProcess("02_WZTo3LNu",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background); //, 0.97);
+    plotter.AddProcess("02_WZTo3LNu",  "WZtoWW (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, 0.97);
     plotter.AddProcess("06_WW",        "WW",       color_WW);
     plotter.AddProcess("05_ST",        "tW",       color_ST);
     plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
@@ -151,8 +154,12 @@ void runPlotter(TString level,
       plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
       plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
       plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (800,400)", kOrange);
-  }
   
+  } else if (signal==""){
+      
+    printf("No signal");  
+  }
+    
   if (inputdir.Contains("rootfiles/nominalX")) {
 
     // Draw events by cut
@@ -203,41 +210,50 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "MT2llTop");
       plotter.AddSystematic("Stop", "MT2llWW");
       plotter.AddSystematic("Stop", "Fake");
+      std::cout << "1" << std::endl;
       plotter.AddSystematic("Stop", "Idiso");
+      std::cout << "2" << std::endl;
       plotter.AddSystematic("Stop", "JES");
+      std::cout << "3" << std::endl;
       plotter.AddSystematic("Stop", "MET");
-      plotter.AddSystematic("Stop", "PDF");
-      plotter.AddSystematic("Stop", "Q2");
+      std::cout << "4" << std::endl;
+      //plotter.AddSystematic("Stop", "PDF");
+      std::cout << "5" << std::endl;
+      //plotter.AddSystematic("Stop", "Q2");
+      std::cout << "6" << std::endl;
       plotter.AddSystematic("Stop", "Reco");
+      std::cout << "7" << std::endl;
       plotter.AddSystematic("Stop", "Toppt");
+      std::cout << "8" << std::endl;
       plotter.AddSystematic("Stop", "Isrnjet");
-      plotter.AddSystematic("Stop", "Metfastsim");
+      std::cout << "9" << std::endl;
+      //plotter.AddSystematic("Stop", "Metfastsim");
       plotter.AddSystematic("Stop", "Pileup");
-      plotter.AddSystematic("Stop", "Fastsim");
-      plotter.AddSystematic("Stop", "BtagFS");
-      plotter.AddSystematic("Stop", "Btag");
+      //plotter.AddSystematic("Stop", "Fastsim");
+      //plotter.AddSystematic("Stop", "BtagFS");
+   /*   plotter.AddSystematic("Stop", "Btag");
       plotter.AddSystematic("Stop", "Btaglight");
-      plotter.AddSystematic("Stop", "ttZSF");
-      plotter.AddSystematic("Stop", "WZSF");
-      plotter.AddSystematic("Stop", "ZZSF");
-      plotter.AddSystematic("Stop", "ZZshape");
+      //plotter.AddSystematic("Stop", "ttZSF");
+      //plotter.AddSystematic("Stop", "WZSF");
+      //plotter.AddSystematic("Stop", "ZZSF");
+      //plotter.AddSystematic("Stop", "ZZshape");
       ////plotter.AddSystematic("Stop", "DYSF");
-      plotter.AddSystematic("Stop", "DYshape");
-      plotter.AddSystematic("Stop", "DYnojet");
+      //plotter.AddSystematic("Stop", "DYshape");
+      //plotter.AddSystematic("Stop", "DYnojet");
       ////plotter.AddSystematic("Stop", "normWZ");
       ////plotter.AddSystematic("Stop", "normWW");
       ///plotter.AddSystematic("Stop", "normTtbar");
       ///plotter.AddSystematic("Stop", "normTW");
-      plotter.AddSystematic("Stop", "normDY");
+      //plotter.AddSystematic("Stop", "normDY");
       ///plotter.AddSystematic("Stop", "normTTW");
       ///plotter.AddSystematic("Stop", "normHWW");
       ///plotter.AddSystematic("Stop", "normVVV");
-    }
+   */ }
   }
   
   // Draw distributions
   //----------------------------------------------------------------------------
-  if (!option.Contains("nostack")) plotter.SetDrawYield(false);
+  if (!option.Contains("nostack")) plotter.SetDrawYield(true);
 
   float m2l_xmin   = (level.Contains("WZ")) ?  60 :   0;  // [GeV]
   float m2l_xmax   = (level.Contains("WZ")) ? 120 : 300;  // [GeV]
@@ -255,6 +271,7 @@ void runPlotter(TString level,
 
       for (int i=firstchannel; i<=lastchannel+1; i++)
 	{
+        //  if (i != lastchannel) continue;
 	  TString suffix = (i <= lastchannel) ? "_" + schannel[i] : "_sf";
 
 	  TString title = (i < lastchannel) ? lchannel[i] : "inclusive";
@@ -323,7 +340,7 @@ void runPlotter(TString level,
 	  //continue;
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
 	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
-	  plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  scale, true, 0,  400);
+	  //plotter.Draw(prefix + "MET"     + suffix, sm,                                  1, 0, "GeV",  scale, true, 0,  400);
 	  //continue;
 	  if (inputdir.Contains("../rootfiles/nominalX")) {
 	    plotter.Draw(prefix + "mt2ll"   + suffix, "M_{T2}(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);
