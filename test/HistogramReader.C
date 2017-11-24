@@ -368,7 +368,7 @@ void HistogramReader::Draw(TString hname,
       TString prefithname = hname; 
       prefithname.ReplaceAll("fit_b_", "prefit_");
       prefithname.ReplaceAll("fit_s_", "prefit_");
-      TH1D* dummy = (TH1D*)_prefitfile->Get(prefithname);
+      TH1D* dummy = GetHistogram(_prefitfile, prefithname);
       
       _prefithist = (TH1D*)dummy->Clone();
       
@@ -388,7 +388,7 @@ void HistogramReader::Draw(TString hname,
       TString postfithname = hname; 
       if (hname.Contains("fit_s_")) postfithname.ReplaceAll("fit_s_", "fit_b_");
       if (hname.Contains("fit_b_")) postfithname.ReplaceAll("fit_b_", "fit_s_");
-      TH1D* dummy = (TH1D*)_postfitfile->Get(postfithname);
+      TH1D* dummy = GetHistogram(_postfitfile, postfithname);
       
       _postfithist = (TH1D*)dummy->Clone();
       
@@ -551,7 +551,10 @@ void HistogramReader::Draw(TString hname,
     {
       theMin = 1e-2; // 1e-5
       int maxOrder = 4;
-      theMax = TMath::Power(10, TMath::Log10(theMax) + 4); // 6);
+      if (_signalfilename.size()>1 && hname.Contains("Tag/")) maxOrder = 5;
+      if (_signalfilename.size()<1) maxOrder--;
+      if (_drawyield) maxOrder++;
+      theMax = TMath::Power(10, TMath::Log10(theMax) + maxOrder); // 6);
     }
   else if (!_stackoption.Contains("nostack"))
     {
@@ -639,6 +642,7 @@ void HistogramReader::Draw(TString hname,
   // Search signals legend
   //----------------------------------------------------------------------------
   nx = 0; ny = nrow;
+  float xScale = (_drawyield) ? 1.6 : 1.8;
   for (int i=0; i<_signalhist.size(); i++)
     {
       if (ny == nrow+3)
@@ -646,7 +650,7 @@ void HistogramReader::Draw(TString hname,
 	  ny =  nrow;
 	  nx++;
 	}
-      DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
+      DrawLegend(x0 + nx*(xdelta*xScale), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       ny++;
     }
 
@@ -658,10 +662,14 @@ void HistogramReader::Draw(TString hname,
     firstUnderscore = dummyTitle.First("_");
     TString regionTitle = dummyTitle;
     regionTitle.Remove(firstUnderscore, 100);
+    if (regionTitle=="SRs") regionTitle = "#font[50]{p}_{T}^{miss}>140 GeV  ";
+    if (regionTitle=="VR1") regionTitle = "100<#font[50]{p}_{T}^{miss}<140 GeV  ";
+    if (hname.Contains("isr") && _drawyield) regionTitle += "isr";
     dummyTitle.Remove(0, firstUnderscore);
     if (dummyTitle.Contains("_Veto/")) regionTitle += " Veto ";
     else if (dummyTitle.Contains("_NoTag/")) regionTitle += " Veto+Jets ";
     else if (dummyTitle.Contains("_NoJet/")) regionTitle += " Veto+0Jet ";
+    else if (dummyTitle.Contains("_Tag2Jet/")) regionTitle += " Tag+2Jets ";
     else regionTitle += " Tag ";
     if (dummyTitle.Contains("_ee")) regionTitle += " (ee channel) ";
     else if (dummyTitle.Contains("_mm")) regionTitle += " (#mu#mu channel) ";
@@ -1868,6 +1876,7 @@ TH1D* SumSRHistograms(TFile*  file, TString HistogramName, TString _inputdir = "
   TH1D *SumHisto;
   if ((!HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_")) || _inputdir.Contains("Postfit")) {
      SumHisto = (TH1D*) file->Get(HistogramName);
+     SumHisto->SetDirectory(0);
   } else if (HistogramName.Contains("_Veto") && !HistogramName.Contains("_SRs_")) {
     HistogramName.ReplaceAll("_Veto", "_NoTag");
     SumHisto = (TH1D*) file->Get(HistogramName);
@@ -1915,13 +1924,19 @@ TH1D* SumSRHistograms(TFile*  file, TString HistogramName, TString _inputdir = "
 TH1D* HistogramReader::GetHistogram(TFile*  file, TString HistogramName) {
   
   TH1D* ThisHisto;
-  if (!HistogramName.Contains("_sf") || _inputdir.Contains("Postfit")) {
-    ThisHisto = SumSRHistograms(file, HistogramName, _inputdir);//(TH1D*) file->Get(HistogramName);
+  if (_inputdir.Contains("Postfit") && HistogramName.Contains("_ll")) {
+    HistogramName.ReplaceAll("_ll", "_sf");
+    ThisHisto =  SumSRHistograms(file, HistogramName, _inputdir);
+    HistogramName.ReplaceAll("_sf", "_em");
+    TH1D* ThisHisto2 =  SumSRHistograms(file, HistogramName, _inputdir);
+    ThisHisto->Add(ThisHisto2);
+  } else if (!HistogramName.Contains("_sf") || _inputdir.Contains("Postfit")) {
+    ThisHisto = SumSRHistograms(file, HistogramName, _inputdir);
   } else {
     HistogramName.ReplaceAll("_sf", "_ee");
-    ThisHisto =  SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
+    ThisHisto =  SumSRHistograms(file, HistogramName);
     HistogramName.ReplaceAll("_ee", "_mm");
-    TH1D* ThisHisto2 =  SumSRHistograms(file, HistogramName);//(TH1D*) file->Get(HistogramName);
+    TH1D* ThisHisto2 =  SumSRHistograms(file, HistogramName);
     ThisHisto->Add(ThisHisto2);
   }
   return ThisHisto;
@@ -1947,7 +1962,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true, _dotablebkg = false;
+  bool _verbose = false, _dotable = false, _dotablebkg = false;
 
   float StatZero = 1.84102;
 
