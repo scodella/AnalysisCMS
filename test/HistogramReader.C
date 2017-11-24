@@ -263,6 +263,7 @@ void HistogramReader::Draw(TString hname,
     }
   else
     {
+      //canvas = new TCanvas(cname, cname, 550, 740);
       canvas = new TCanvas(cname, cname, 550, 600);
 
       pad1 = new TPad("pad1", "pad1", 0, 0, 1, 1);
@@ -650,6 +651,7 @@ void HistogramReader::Draw(TString hname,
 	  ny =  nrow;
 	  nx++;
 	}
+      //DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       ny++;
     }
