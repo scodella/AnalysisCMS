@@ -263,11 +263,12 @@ void HistogramReader::Draw(TString hname,
     }
   else
     {
-      //canvas = new TCanvas(cname, cname, 550, 740);
       canvas = new TCanvas(cname, cname, 550, 600);
-
       pad1 = new TPad("pad1", "pad1", 0, 0, 1, 1);
-
+      //canvas = new TCanvas(cname, cname, 550, 720);
+      //pad1 = new TPad("pad1", "pad1", 0, 0.3, 1, 1.0);
+      //pad1->SetTopMargin   (0.08);
+      //pad1->SetBottomMargin(0.02);
       pad1->Draw();
     }
 
@@ -551,8 +552,8 @@ void HistogramReader::Draw(TString hname,
   if (pad1->GetLogy())
     {
       theMin = 1e-2; // 1e-5
-      int maxOrder = 4;
-      if (_signalfilename.size()>1 && hname.Contains("Tag/")) maxOrder = 5;
+      int maxOrder = 6;
+      if (_signalfilename.size()>1 && hname.Contains("Tag/")) maxOrder = 6;
       if (_signalfilename.size()<1) maxOrder--;
       if (_drawyield) maxOrder++;
       theMax = TMath::Power(10, TMath::Log10(theMax) + maxOrder); // 6);
@@ -567,6 +568,7 @@ void HistogramReader::Draw(TString hname,
 
   if (ymin != -999) hfirst->SetMinimum(ymin);
   if (ymax != -999) hfirst->SetMaximum(ymax);
+  
 
   //hfirst ->SetMaximum(0.1);
 

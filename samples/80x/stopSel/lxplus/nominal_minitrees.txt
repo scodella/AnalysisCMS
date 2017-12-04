@@ -64,14 +64,18 @@
 #/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/WZTo2L2Q__part1.root 1
 #/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/WZTo2L2Q__part2.root 1
 #/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/WZTo2L2Q__part3.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2bW.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-150to250.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-250to350.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-350to400.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-400to1200.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlep.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlepExt.root 1
-/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiWW.root 1
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2bW.root 1
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-150to250.root 1
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-250to350.root 1
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-350to400.root 1 350 175
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-350to400.root 1 350 263
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-350to400.root 1
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/T2tt_mStop-400to1200.root 1
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlep.root 1 200  1 
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlep.root 1 500 200
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlep.root 1 800 400
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiSlepExt.root 1
+#/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/TChiWW.root 1
 
 
 
