@@ -15,6 +15,7 @@
 #include <TSystem.h>
 #include <TTree.h>
 #include <TSpline.h>
+#include <TRandom3.h>
 
 
 enum {Loose, Tight};
@@ -172,6 +173,7 @@ class AnalysisCMS : public AnalysisBase
 
   void        GetScaleAndResolution(); 
 
+  TRandom3* rand_;
 
   // Data members
   //----------------------------------------------------------------------------
@@ -216,6 +218,7 @@ class AnalysisCMS : public AnalysisBase
   bool                   _systematic_fastsim_up;
   bool                   _systematic_toppt;
   bool                   _applytopptreweighting;
+
 
   TString                _analysis;
   TString                _dataperiod;

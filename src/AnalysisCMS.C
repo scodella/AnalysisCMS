@@ -13,7 +13,7 @@ AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
 {
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::AnalysisCMS]\n");
 
-  _verbosity = 0;  // Set it to 1 for debugging
+  _verbosity = 1;  // Set it to 1 for debugging
 
   _ismc                  = true;
   _saveminitree          = false;
@@ -47,26 +47,72 @@ bool AnalysisCMS::PassTrigger()
 {
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::PassTrigger]\n");
 
-  if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
+ // if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
 
   //bool passtrgmc = (std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || (std_vector_trigger->at(11) || std_vector_trigger->at(13)) ||
   //(std_vector_trigger->at(42) || std_vector_trigger->at(43)) || (std_vector_trigger->at(0)  || std_vector_trigger->at(56)) ||
   //(std_vector_trigger->at(46));
   //return passtrgmc;
 
-  if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
-  else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
-  else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
-  else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
-  else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
-  else if (_sample.Contains("MET")) {
-    int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
-    for(int a = 0; a < 18; a++) {
-      if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
-    }
-    return false;
+     
+
+  
+  if (_ismc){
+
+   // MC trigged for "Full2016"
+   bool passtrgmc;
+   //Print Warning
+   int MCtrigger[11] = {6,8,11,13,44,45,46,57,93,97,112};
+   for (int a=0; a<11; a++){
+     if (std_vector_trigger->at(MCtrigger[a]) <0) {
+       printf ("  WARNING:  this trigger is not present in this mC sample %int, MCtrigger[a]");
+       return false; 
+     }
+   }
+   // Pass the trigger selection
+   rand_ = new TRandom3(0);
+   //throw die
+   float coin = rand_->Uniform(1.);   
+   float lumiEra = _luminosity*coin; 
+   if (lumiEra < 18.0) bool passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || 
+                                         (std_vector_trigger->at(11) || std_vector_trigger->at(13))||
+                                         (std_vector_trigger->at(44) || std_vector_trigger->at(45))||
+                                         std_vector_trigger ->at(46) ||
+                                         (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+ 
+  if (18.0 < lumiEra < 28.0)  bool passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+                                                (std_vector_trigger->at(11) || std_vector_trigger->at(13))|| 
+                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+                                                std_vector_trigger ->at(46) ||                               
+                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+
+  if (28.0 < lumiEra < 36.0)  bool passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+                                                (std_vector_trigger->at(10) || std_vector_trigger->at(12))|| 
+                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+                                                std_vector_trigger ->at(46) ||                               
+                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+
+
+  return passtrgmc;
+
+
+  }else{  
+
+   if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
+   else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
+   else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
+   else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
+   else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
+   else if (_sample.Contains("MET")) {
+     int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
+     for(int a = 0; a < 18; a++) {
+       if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+     }
+     return false;
+   }
+   else                                         return true;
   }
-  else                                         return true;
+   
 }
 
 
@@ -645,6 +691,7 @@ void AnalysisCMS::ApplyWeights()
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
       
+  //_event_weight *= (sf_btag * sf_trigger * sf_idiso * sf_reco * sf_fastsim);
   _event_weight *= (sf_btag * sf_trigger * sf_idiso * sf_reco * sf_fastsim);
 
   if (_verbosity > 0)
