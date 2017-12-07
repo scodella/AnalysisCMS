@@ -5,24 +5,29 @@
 //------------------------------------------------------------------------------
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
-const Bool_t dosystematics = false;
+const Bool_t dosystematics = true;
 const Bool_t postfitplots = false;
-const Bool_t paperstyle = true;
+const Bool_t paperstyle = false;
 const Bool_t regionlegend = true;
+const Bool_t relativeratio = true;
 
 //const TString inputdir  = "../minitrees/rootfilesOct17/Zpeak_ptll/";
-const TString inputdir  = "../minitrees/rootfiles/nominal/";
+const TString inputdir  = "../minitrees/rootfilesOct17/nominal/";
+//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
+//const TString inputdir  = "../minitrees/rootfiles/WZtoWWptcut20_veto/";
+//const TString inputdir  = "../rootfiles/fake/";
+//const TString inputdir  = "../rootfiles/SS/";
 //const TString inputdir  = "../rootfiles/nominalFullStatus/";
 //const TString inputdir  = "../minitrees/rootfiles3R/ZpeakkfM/";
 //const TString inputdir  = "../minitrees/rootfiles3R/ZZkfM/";
 //const TString inputdir  = "../minitrees/rootfiles/ZpeakDYcorrections/";
 //const TString inputdir  = "../minitrees/rootfiles/WZtoWWveto/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitC/MassPointChiSlep_Xm500_Xm200/Postfit/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitC/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/";
-//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
+//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitC/MassPointChiSlep_Xm500_Xm200/Postfit/";
+
 const TString outputdir = "figures/";
 
-const TString signal = "T2tt";
+const TString signal = "TChi";
 
 const TString sl  = "#font[12]{l}";
 const TString sll = "#font[12]{ll}";
@@ -90,10 +95,11 @@ void runPlotter(TString level,
     {
       plotter.SetLuminosity(lumi, postfitplots);
       plotter.SetDrawRatio (true);
+      plotter.SetDrawRatioRel (relativeratio);
     }
   
   float SF_ttZ = 1., SF_ZMet = 1., SF_DY = 1., SF_WZ = 1.;
-  if (!postfitplots) {
+  if (!postfitplots && !inputdir.Contains("fake") && !inputdir.Contains("SS")) {
     if (level.Contains("_SR") || level.Contains("_VRggg")) {// && inputdir.Contains("DYcorr"))) {
       SF_ttZ = 1.44, SF_WZ = 0.97; 
       if (!postfitplots && !inputdir.Contains("Zpeakk") && !inputdir.Contains("ZZ")) {
@@ -113,21 +119,25 @@ void runPlotter(TString level,
   plotter.AddData("01_Data", "data", color_Data);
 
   TString DYCorr = "_DYcorr";
-  if (!level.Contains("_SR")) DYCorr = "";
+  //if (!level.Contains("_SR")) DYCorr = "";
+  if (inputdir.Contains("/WZ") || inputdir.Contains("fake") || inputdir.Contains("SS")) DYCorr = "";
 
   // Add processes
   //----------------------------------------------------------------------------
   ////plotter.AddProcess("14_HZ",        "HZ",       color_HZ);
-  //plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
-  plotter.AddProcess("15_VZ3V",      "VVV + VZ",      color_VVV);
+  if (inputdir.Contains("SS")) 
+    plotter.AddProcess("13_VVV",      "VVV",      color_VVV);
+  else 
+    plotter.AddProcess("15_VZ3V",      "VVV + VZ",      color_VVV);
   if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ") || inputdir.Contains("/ttZ")) { 
     plotter.AddProcess("14_ZZTo4L",        "ZZ (#rightarrow 4l)",       color_ZZ4L,  roc_background);
     ////plotter.AddProcess("14a_ZZTo4L",        "qqZZ (#rightarrow 4l)",       49,  roc_background);// 1.256/1.212);
     ////plotter.AddProcess("14b_ZZTo4L",        "ggZZ (#rightarrow 4l)",       48,  roc_background);
     ////plotter.AddProcess("14c_ZZTo4L",        "H#rightarrow ZZ",       47,  roc_background);
   }
-  //plotter.AddProcess("03_VZ",        "VZ (#rightarrow 2l)",       color_VZ,  roc_background);
-  if (!inputdir.Contains("/ZZ")) plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
+  if (inputdir.Contains("SS")) 
+    plotter.AddProcess("03_VZ",        "VZ (#rightarrow 2l)",       color_VZ,  roc_background);
+  else if (!inputdir.Contains("/ZZ")) plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
   ////plotter.AddProcess("03a_ZZ",        "qqZZ (#rightarrow 2l2#nu)",       48,  roc_background);
   ////plotter.AddProcess("03b_ZZ",        "ggZZ (#rightarrow 2l2#nu)",       47,  roc_background);
   //plotter.AddProcess("15_VZ",        "VZ (#rightarrow 2l2q)",       color_VZ2L2Q,  roc_background);
@@ -136,17 +146,22 @@ void runPlotter(TString level,
   plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
   plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
   plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
-  plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",       color_WZTo3LNu,  roc_background, SF_WZ);
+  if (!inputdir.Contains("/WZ")) plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",  color_WZTo3LNu,  roc_background, SF_WZ);
   plotter.AddProcess("06_WW",        "WW",       color_WW);
   plotter.AddProcess("05_ST",        "tW",       color_ST);
   plotter.AddProcess("07_ZJetsHT" + DYCorr,     "Z+jets",   color_ZJets,  roc_background);//, 0.683211799801126896);
-  if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41);
+  if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41, roc_background, 38./49.);
   plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu);
   //else plotter.AddProcess("TTJets", "#bar{t}t",       color_TTTo2L2Nu);
   //if (inputdir.Contains("SS")) plotter.AddProcess("WJetsToLNu", "WJets",      color_WJets);
+  if (inputdir.Contains("/WZ")) plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",  color_WZTo3LNu,  roc_background, SF_WZ);
+  //plotter.AddProcess("06_WW",        "WW",       color_WW);
 
-  if (postfitplots) plotter.AddPrefit("99_TotalBackground", "pre-fit", 9);//color_Prefit);
-  if (postfitplots) plotter.AddPostfit("99_TotalBackground", "post-fit", kRed+2);
+  if (postfitplots) {
+    plotter.SetDynamicRatioAxis(true);
+    plotter.AddPrefit("99_TotalBackground", "pre-fit", 9);//color_Prefit);
+    plotter.AddPostfit("99_TotalBackground", "post-fit", kRed+2);
+  }
 
   if (signal=="T2tt") {
 
@@ -237,7 +252,7 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "ZZshape");
       ////plotter.AddSystematic("Stop", "DYSF");
       plotter.AddSystematic("Stop", "DYshape");
-      plotter.AddSystematic("Stop", "DYnojet");
+      if (level.Contains("_SR")) plotter.AddSystematic("Stop", "DYnojet");
       ////plotter.AddSystematic("Stop", "normWZ");
       ////plotter.AddSystematic("Stop", "normWW");
       ///plotter.AddSystematic("Stop", "normTtbar");
@@ -277,8 +292,10 @@ void runPlotter(TString level,
 	  if (suffix=="_sf") title = "ee+#mu#mu";
 
 	  if (postfitplots) {
-	    if (suffix=="_ee" || suffix=="_mm" || suffix=="_ll") continue;
+	    if (suffix=="_ee" || suffix=="_mm") continue;
 	  } 
+
+	  //if (suffix!="_ll") continue;
 
 	  plotter.SetTitle(title);
 	  
