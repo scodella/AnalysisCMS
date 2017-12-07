@@ -173,7 +173,8 @@ class AnalysisCMS : public AnalysisBase
 
   void        GetScaleAndResolution(); 
 
-  TRandom3* rand_;
+  TRandom3* _rand;
+  TRandom3* _rand2;
 
   // Data members
   //----------------------------------------------------------------------------

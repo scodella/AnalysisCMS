@@ -7,7 +7,8 @@
 // AnalysisStop
 //------------------------------------------------------------------------------
 AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, systematic)
-{
+{  
+  
   _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
   systematic.ReplaceAll("DYcorr", "");
   if (systematic=="nominal") {
@@ -114,11 +115,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
   BTagSF_UpFSb = new BTagSFUtil("mujets", "DeepCSV", "Medium", +11, FastSimDataset);
   BTagSF_DoFSb = new BTagSFUtil("mujets", "DeepCSV", "Medium", -11, FastSimDataset);*/
 
-  // Stop trigger efficiencies
-  TFile TriggerEfficiencyFile("/afs/cern.ch/work/s/scodella/Stop/CodeDevelopment/CMSSW_8_0_26_patch1/src/AnalysisCMS/stop/trigger/CopyOfFrameWork/output_stop_pt.root");
-  TrgEff_ee = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatoree2D_clone");
-  TrgEff_mm = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatormm2D_clone");
-  TrgEff_em = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatorem2D_clone");
+  // Stop trigger efficiencies using othogonal method
+  //TFile TriggerEfficiencyFile("/afs/cern.ch/work/s/scodella/Stop/CodeDevelopment/CMSSW_8_0_26_patch1/src/AnalysisCMS/stop/trigger/CopyOfFrameWork/output_stop_pt.root");
+  //TrgEff_ee = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatoree2D_clone");
+  //TrgEff_mm = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatormm2D_clone");
+  //TrgEff_em = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatorem2D_clone");
 
   // Loop over events
   //----------------------------------------------------------------------------

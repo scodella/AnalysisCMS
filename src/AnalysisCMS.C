@@ -11,11 +11,12 @@
 //------------------------------------------------------------------------------
 AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
 {
+
+  _verbosity = 0;  // Set it to 1 for debugging
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::AnalysisCMS]\n");
 
-  _verbosity = 1;  // Set it to 1 for debugging
-
   _ismc                  = true;
+  _rand                  = new TRandom3(0);
   _saveminitree          = false;
   _eventdump             = false;
   _applytopptreweighting = false;
@@ -33,7 +34,7 @@ AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
   _systematic_toppt      = (systematic.Contains("Toppt"))     ? true : false;
 
   _systematic = systematic;
-
+ 
   _minitreepath = "";
 }
 
@@ -53,40 +54,41 @@ bool AnalysisCMS::PassTrigger()
   //(std_vector_trigger->at(42) || std_vector_trigger->at(43)) || (std_vector_trigger->at(0)  || std_vector_trigger->at(56)) ||
   //(std_vector_trigger->at(46));
   //return passtrgmc;
-
-     
-
   
   if (_ismc){
 
    // MC trigged for "Full2016"
    bool passtrgmc;
    //Print Warning
-   int MCtrigger[11] = {6,8,11,13,44,45,46,57,93,97,112};
-   for (int a=0; a<11; a++){
+   int MCtrigger[13] = {6,8,10,11,12,13,44,45,46,57,93,97,112};
+   for (int a=0; a<13; a++){
      if (std_vector_trigger->at(MCtrigger[a]) <0) {
-       printf ("  WARNING:  this trigger is not present in this mC sample %int, MCtrigger[a]");
+       printf ("  WARNING:  this trigger is not present in this mC sample %i\n, MCtrigger[a]");
        return false; 
      }
    }
    // Pass the trigger selection
-   rand_ = new TRandom3(0);
+   _rand2 = new TRandom3(0);
+   float coin2 = _rand2 -> Uniform(1.);
+   //std::cout<<"  coin2  "<< coin2 <<std::endl; 
+   //std::cout<<"  lumi_fb_Full2016  "<< lumi_fb_Full2016 <<std::endl; 
    //throw die
-   float coin = rand_->Uniform(1.);   
-   float lumiEra = _luminosity*coin; 
-   if (lumiEra < 18.0) bool passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || 
+   float coin = _rand->Uniform(1.); 
+   //std::cout<<"  coin_real  "<< coin <<std::endl;   
+   float lumiEra = lumi_fb_Full2016*coin; 
+   if (lumiEra < 17.68)  passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || 
                                          (std_vector_trigger->at(11) || std_vector_trigger->at(13))||
                                          (std_vector_trigger->at(44) || std_vector_trigger->at(45))||
                                          std_vector_trigger ->at(46) ||
                                          (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
  
-  if (18.0 < lumiEra < 28.0)  bool passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+  if (17.68 < lumiEra < 27.261)  passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
                                                 (std_vector_trigger->at(11) || std_vector_trigger->at(13))|| 
                                                 (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
                                                 std_vector_trigger ->at(46) ||                               
                                                 (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
 
-  if (28.0 < lumiEra < 36.0)  bool passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+  if (27.261 < lumiEra < 35.867) passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
                                                 (std_vector_trigger->at(10) || std_vector_trigger->at(12))|| 
                                                 (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
                                                 std_vector_trigger ->at(46) ||                               
@@ -592,7 +594,8 @@ void AnalysisCMS::ApplyWeights()
 
   // trigger scale factors
   //----------------------------------------------------------------------------
-  float sf_trigger    = effTrigW;  // To be updated for WZ
+  float sf_trigger    = 1;  // To be updated for WZ
+  //float sf_trigger    = effTrigW;  // To be updated for WZ
   float sf_trigger_up = effTrigW_Up;
   float sf_trigger_do = effTrigW_Down;
 
