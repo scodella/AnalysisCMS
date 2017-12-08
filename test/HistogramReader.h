@@ -138,6 +138,10 @@ class HistogramReader
 
   void     SetDrawRatio       (Bool_t         drawratio) {_drawratio = drawratio;}
 
+  void     SetDrawRatioRel    (Bool_t         drawratiorel) {_drawratiorel = drawratiorel;}
+
+  void     SetDynamicRatioAxis(Bool_t         dynamicratioaxis) {_dynamicratioaxis = dynamicratioaxis;}
+
   void     SetDrawSignificance(Bool_t         drawsignificance) {_drawsignificance = drawsignificance;}
 
   void     SetDrawYield       (Bool_t         drawyield) {_drawyield = drawyield;}
@@ -201,6 +205,8 @@ class HistogramReader
 
   Bool_t                _datanorm;
   Bool_t                _drawratio;
+  Bool_t                _drawratiorel;
+  Bool_t                _dynamicratioaxis;
   Bool_t                _drawsignificance;
   Bool_t                _drawyield;
   Bool_t                _drawregionlegend;

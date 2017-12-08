@@ -594,7 +594,7 @@ void AnalysisCMS::ApplyWeights()
 
   // trigger scale factors
   //----------------------------------------------------------------------------
-  float sf_trigger    = 1;  // To be updated for WZ
+  float sf_trigger    = 1;  // To estimate the trigger eff on MC
   //float sf_trigger    = effTrigW;  // To be updated for WZ
   float sf_trigger_up = effTrigW_Up;
   float sf_trigger_do = effTrigW_Down;
