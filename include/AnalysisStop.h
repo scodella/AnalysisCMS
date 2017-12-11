@@ -114,7 +114,7 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_dphil1MET        [nchannel][ncut][njetbin+1];
   TH1D*                  h_dphil2MET        [nchannel][ncut][njetbin+1];
   TH1D*                  h_METphi           [nchannel][ncut][njetbin+1];
-
+  TH1D*                  h_m2L              [nchannel][ncut][njetbin+1];
   int _SaveHistograms, _DoTheoreticalVariations;
 
   float _metmeff, _MT2ll, _MT2llgen, _MT2llfake;
@@ -135,7 +135,7 @@ class AnalysisStop : public AnalysisCMS
   TH1F*                  h_MT2ll_truth        [nchannel][ncut][njetbin+1];
   TH1F*                  h_MET_fake           [nchannel][ncut][njetbin+1];
   TH1F*                  h_MET_truth          [nchannel][ncut][njetbin+1];
-
+ 
   bool  _hasisrjet;
 
   float _dphiminlmet, _m2lZ2;

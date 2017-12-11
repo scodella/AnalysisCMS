@@ -11,11 +11,12 @@
 //------------------------------------------------------------------------------
 AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
 {
-  if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::AnalysisCMS]\n");
 
   _verbosity = 0;  // Set it to 1 for debugging
+  if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::AnalysisCMS]\n");
 
   _ismc                  = true;
+  _rand                  = new TRandom3(0);
   _saveminitree          = false;
   _eventdump             = false;
   _applytopptreweighting = false;
@@ -33,7 +34,7 @@ AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
   _systematic_toppt      = (systematic.Contains("Toppt"))     ? true : false;
 
   _systematic = systematic;
-
+ 
   _minitreepath = "";
 }
 
@@ -47,26 +48,73 @@ bool AnalysisCMS::PassTrigger()
 {
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::PassTrigger]\n");
 
-  if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
+ // if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
 
   //bool passtrgmc = (std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || (std_vector_trigger->at(11) || std_vector_trigger->at(13)) ||
   //(std_vector_trigger->at(42) || std_vector_trigger->at(43)) || (std_vector_trigger->at(0)  || std_vector_trigger->at(56)) ||
   //(std_vector_trigger->at(46));
   //return passtrgmc;
+  
+  if (_ismc){
 
-  if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
-  else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
-  else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
-  else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
-  else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
-  else if (_sample.Contains("MET")) {
-    int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
-    for(int a = 0; a < 18; a++) {
-      if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
-    }
-    return false;
+   // MC trigged for "Full2016"
+   bool passtrgmc;
+   //Print Warning
+   int MCtrigger[13] = {6,8,10,11,12,13,44,45,46,57,93,97,112};
+   for (int a=0; a<13; a++){
+     if (std_vector_trigger->at(MCtrigger[a]) <0) {
+       printf ("  WARNING:  this trigger is not present in this mC sample %i\n, MCtrigger[a]");
+       return false; 
+     }
+   }
+   // Pass the trigger selection
+   _rand2 = new TRandom3(0);
+   float coin2 = _rand2 -> Uniform(1.);
+   //std::cout<<"  coin2  "<< coin2 <<std::endl; 
+   //std::cout<<"  lumi_fb_Full2016  "<< lumi_fb_Full2016 <<std::endl; 
+   //throw die
+   float coin = _rand->Uniform(1.); 
+   //std::cout<<"  coin_real  "<< coin <<std::endl;   
+   float lumiEra = lumi_fb_Full2016*coin; 
+   if (lumiEra < 17.68)  passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || 
+                                         (std_vector_trigger->at(11) || std_vector_trigger->at(13))||
+                                         (std_vector_trigger->at(44) || std_vector_trigger->at(45))||
+                                         std_vector_trigger ->at(46) ||
+                                         (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+ 
+  if (17.68 < lumiEra < 27.261)  passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+                                                (std_vector_trigger->at(11) || std_vector_trigger->at(13))|| 
+                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+                                                std_vector_trigger ->at(46) ||                               
+                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+
+  if (27.261 < lumiEra < 35.867) passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+                                                (std_vector_trigger->at(10) || std_vector_trigger->at(12))|| 
+                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+                                                std_vector_trigger ->at(46) ||                               
+                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+
+
+  return passtrgmc;
+
+
+  }else{  
+
+   if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
+   else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
+   else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
+   else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
+   else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
+   else if (_sample.Contains("MET")) {
+     int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
+     for(int a = 0; a < 18; a++) {
+       if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+     }
+     return false;
+   }
+   else                                         return true;
   }
-  else                                         return true;
+   
 }
 
 
@@ -546,7 +594,8 @@ void AnalysisCMS::ApplyWeights()
 
   // trigger scale factors
   //----------------------------------------------------------------------------
-  float sf_trigger    = effTrigW;  // To be updated for WZ
+  float sf_trigger    = 1;  // To estimate the trigger eff on MC
+  //float sf_trigger    = effTrigW;  // To be updated for WZ
   float sf_trigger_up = effTrigW_Up;
   float sf_trigger_do = effTrigW_Down;
 
@@ -645,6 +694,7 @@ void AnalysisCMS::ApplyWeights()
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
   if (_systematic_fastsim_do) sf_fastsim = sf_fastsim_do;
       
+  //_event_weight *= (sf_btag * sf_trigger * sf_idiso * sf_reco * sf_fastsim);
   _event_weight *= (sf_btag * sf_trigger * sf_idiso * sf_reco * sf_fastsim);
 
   if (_verbosity > 0)
@@ -1877,6 +1927,8 @@ void AnalysisCMS::OpenMinitree()
   //----------------------------------------------------------------------------
   minitree = new TTree("latino", "minitree");
 
+  
+
   // B
   minitree->Branch("bjet1csvv2ivf",     &_bjet1csvv2ivf,    "bjet1csvv2ivf/F");
   minitree->Branch("bjet1eta",          &_bjet1eta,         "bjet1eta/F");
@@ -2101,6 +2153,10 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("Mdr",               &_Mdr,              "Mdr/F");
   minitree->Branch("DeltaPhiRll",       &_DeltaPhiRll,      "DeltaPhiRll/F");
 
+  // to test 
+  //minitree->Branch("lep1GenDeltaR",    "std::vector<float>",    &_lep1GenDeltaR);
+  //minitree->Branch("lep2GenDeltaR",    "std::vector<float>",    &_lep2GenDeltaR);
+  //minitree->Branch("testMotherID",     "std::vector<float>",    &_testMotherID);
   // Only available in MC
   if (std_vector_LHE_weight)
     minitree->Branch("LHEweight", &std_vector_LHE_weight);
@@ -2737,6 +2793,10 @@ void AnalysisCMS::GetStopVar()
     }
   }
 
+  // Matching gen and reco leptons from W
+  // --------------------------------------
+  // fakes estimate
+
   for (int ml = 0; ml<2; ml++) {
 
     double MinimumDeltaR = 1.;
@@ -2745,11 +2805,11 @@ void AnalysisCMS::GetStopVar()
       
       if (std_vector_leptonGen_pt->at(lp) < 0) continue;
       
-      int Wid = 2*ml - 1;  // -1 for ml==0 (W-), +1 for ml==1 (W+)
+      int Wid = 2*ml - 1;  // Stablish the sign of W =>  -1 for ml==0 (W-), +1 for ml==1 (W+)
 
-      if (Wid*std_vector_leptonGen_pid->at(lp) > 0) continue;
+      if (Wid*std_vector_leptonGen_pid->at(lp) > 0) continue; // avoid lepton mismatching  W+ & e-mu-  or W- & e+mu+  
 
-      if (fabs(std_vector_leptonGen_MotherPID->at(lp)) != 24) continue;
+      if (fabs(std_vector_leptonGen_MotherPID->at(lp)) != 24) continue; 
       
       float LeptonMass = (fabs(std_vector_leptonGen_pid->at(lp)) == 13) ? MUON_MASS : ELECTRON_MASS;
       
@@ -2761,16 +2821,18 @@ void AnalysisCMS::GetStopVar()
 				 LeptonMass);
 
       double DeltaRGenLepLep1 = (Lepton1.v).DeltaR(ChargedLepton);
-
+     
+      // Get the MinimumDeltaR of the two W's, i.e., get the best matching of the two possible W's (+-)
+      
       if (DeltaRGenLepLep1<MinimumDeltaR && DeltaRGenLepLep1<fabs(_lep1isfake)) {
 
 	MinimumDeltaR = DeltaRGenLepLep1; 
 
 	_lep1isfake = MinimumDeltaR;
 	
-	if (std_vector_lepton_ch->at(Lepton1.index)*Wid<0) _lep1isfake *= -1;
+	if (std_vector_lepton_ch->at(Lepton1.index)*Wid<0) _lep1isfake *= -1; //_lep1fake < 0 there is a charge mismatching. It counts as fake lepton 
 
-	if (MinimumDeltaR < 0.04 && lepIndex[ml] < 0) lepIndex[ml] = lp;
+	if (MinimumDeltaR < 0.04 && lepIndex[ml] < 0) lepIndex[ml] = lp; // different use
       }
 
       double DeltaRGenLepLep2 = (Lepton2.v).DeltaR(ChargedLepton);
@@ -2781,7 +2843,7 @@ void AnalysisCMS::GetStopVar()
 
 	_lep2isfake = MinimumDeltaR;
 	
-	if (std_vector_lepton_ch->at(Lepton2.index)*Wid < 0) _lep2isfake *= -1;
+	if (std_vector_lepton_ch->at(Lepton2.index)*Wid < 0) _lep2isfake *= -1; //_lep1fake < 0 there is a charge mismatching. It counts as fake lepton
 
 	if (MinimumDeltaR<0.04 && lepIndex[ml]<0)
 	  lepIndex[ml] = lp;
@@ -3316,17 +3378,23 @@ void AnalysisCMS::GetScaleAndResolution()
 //------------------------------------------------------------------------------
 int AnalysisCMS::GetMotherPID(int index)
 {
+ // _lep1GenDeltaR.clear();
+ // _lep2GenDeltaR.clear();
+ // _testMotherID.clear();
+
   int motherPID = -9999;
 
   if (!_ismc || index > 1) return motherPID;
 
   TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
 
+
   // Loop over GEN leptons
   //----------------------------------------------------------------------------
   float deltaRMin = 0.3;
 
   for (UInt_t j=0; j<std_vector_leptonGen_pt->size(); j++) {
+  
 
     if (std_vector_leptonGen_pt->at(j) < 0) continue;
 

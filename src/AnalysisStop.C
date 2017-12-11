@@ -7,7 +7,8 @@
 // AnalysisStop
 //------------------------------------------------------------------------------
 AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, systematic)
-{
+{  
+  
   _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
   systematic.ReplaceAll("DYcorr", "");
   if (systematic=="nominal") {
@@ -114,11 +115,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
   BTagSF_UpFSb = new BTagSFUtil("mujets", "DeepCSV", "Medium", +11, FastSimDataset);
   BTagSF_DoFSb = new BTagSFUtil("mujets", "DeepCSV", "Medium", -11, FastSimDataset);*/
 
-  // Stop trigger efficiencies
-  TFile TriggerEfficiencyFile("/afs/cern.ch/work/s/scodella/Stop/CodeDevelopment/CMSSW_8_0_26_patch1/src/AnalysisCMS/stop/trigger/CopyOfFrameWork/output_stop_pt.root");
-  TrgEff_ee = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatoree2D_clone");
-  TrgEff_mm = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatormm2D_clone");
-  TrgEff_em = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatorem2D_clone");
+  // Stop trigger efficiencies using othogonal method
+  //TFile TriggerEfficiencyFile("/afs/cern.ch/work/s/scodella/Stop/CodeDevelopment/CMSSW_8_0_26_patch1/src/AnalysisCMS/stop/trigger/CopyOfFrameWork/output_stop_pt.root");
+  //TrgEff_ee = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatoree2D_clone");
+  //TrgEff_mm = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatormm2D_clone");
+  //TrgEff_em = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatorem2D_clone");
 
   // Loop over events
   //----------------------------------------------------------------------------
@@ -547,7 +548,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     
     if (_leadingPtCSVv2M >= 20.) {
       FillLevelHistograms(Stop_02_VR1_Tag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
-      if (_leadingPtCSVv2T >= 30. && njet>1)
+      //if (_leadingPtCSVv2T >= 30. && njet>1)
 	FillLevelHistograms(Stop_02_VR1_Tag2Jet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
       FillLevelHistograms(Stop_02_SR1_Tag,   pass && (MET.Et()>=140. && MET.Et()<200.) && pass_blind && pass_masspoint);
       FillLevelHistograms(Stop_02_SR2_Tag,   pass && (MET.Et()>=200. && MET.Et()<300.) && pass_blind && pass_masspoint);
@@ -628,12 +629,13 @@ void AnalysisStop::BookAnalysisHistograms()
 
 	TString suffix = "_" + schannel[i];
 
-	if (_SaveHistograms==0) DefineHistograms(i, j, k, suffix);
+	if (_SaveHistograms==0)  DefineHistograms(i, j, k, suffix); 
 
 	h_MT2ll             [i][j][k] = new TH1F("h_MT2ll"              + suffix, "",    7,    0,  140);
 	h_MT2llgen          [i][j][k] = new TH1F("h_MT2llgen"           + suffix, "",    7,    0,  140);
 	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
 	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
+
 
 	if (_SaveHistograms>=2 && _systematic=="nominal") {
 
@@ -673,7 +675,8 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
 	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
 	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",   10,    0,   10);
-	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);	
+	
+        h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",   10,    0,   10);	
 	h_Lep1Pt            [i][j][k] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
 	h_Lep2Pt            [i][j][k] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
 	h_Lep1Phi           [i][j][k] = new TH1D("h_Lep2Phi"            + suffix, "",  200, -3.2,  3.2);
@@ -681,6 +684,7 @@ void AnalysisStop::BookAnalysisHistograms()
  	h_dphil1MET         [i][j][k] = new TH1D("h_dphil1MET"          + suffix, "",  100,    0,  3.2);
  	h_dphil2MET         [i][j][k] = new TH1D("h_dphil2MET"          + suffix, "",  100,    0,  3.2);
         h_METphi            [i][j][k] = new TH1D("h_METphi"             + suffix, "",  200, -3.2,  3.2);
+        h_m2L               [i][j][k] = new TH1D("h_m2L"                + suffix, "",  180,    0,  180);
 
 	if (_systematic.Contains("DYcorrections")) {
 	  h_dphiLLbin1            [i][j][k] = new TH1D("h_dphiLLbin1"   + suffix, "",   80,    0, 3.14159);
@@ -1047,6 +1051,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_dphil1MET        [ichannel][icut][ijet]->Fill(dphilmet1,       _event_weight);
   h_dphil2MET        [ichannel][icut][ijet]->Fill(dphilmet2,       _event_weight);
   h_METphi           [ichannel][icut][ijet]->Fill(MET.Phi(),       _event_weight);
+  h_m2L              [ichannel][icut][ijet]->Fill(_m2l,            _event_weight);
 
   if (_systematic.Contains("DYcorrections")) {
     float pi = acos(-1.);
@@ -1067,10 +1072,11 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   if (_systematic.Contains("Zpeak")) return;
 
   if (_nLeptonsMatched==2) {
-    h_MT2ll_truth    [ichannel][icut][ijet]->Fill(_MT2ll,      _event_weight);
+    
+    h_MT2ll_truth    [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
     h_MET_truth      [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   } else { 
-    h_MT2ll_fake     [ichannel][icut][ijet]->Fill(_MT2ll,      _event_weight);
+    h_MT2ll_fake     [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
     h_MET_fake       [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   }
 
@@ -1233,7 +1239,7 @@ void AnalysisStop::FillLevelHistograms(int  icut,
   if (!pass) return;
   
   if (_SaveHistograms==0) {
-
+    
     FillHistograms(_channel, icut, _jetbin);
     FillHistograms(_channel, icut, njetbin);
   }
@@ -25451,11 +25457,13 @@ bool AnalysisStop::ShapeWZtoWW()
   if (DMZ>=DMZCut || Wlep1<0 || Wlep2<0 || Lostlep<0) { 
     return false; 
   } else {
-
-    if (AnalysisLeptons[Wlep1].v.Pt()<25. || AnalysisLeptons[Wlep2].v.Pt()<20.) return false;
+    
+    // Selection of the WW leptons Pt
+    if (AnalysisLeptons[Wlep1].v.Pt() <25 || AnalysisLeptons[Wlep2].v.Pt() <20) return false; 
     //if (AnalysisLeptons[Wlep1].v.Pt()<25. && AnalysisLeptons[Wlep2].v.Pt()<25.) return false;
     //if (AnalysisLeptons[Wlep1].v.Pt()<20. || AnalysisLeptons[Wlep2].v.Pt()<20.) return false;
 
+    // Variables re-computation
     TVector3 NewMET; NewMET.SetXYZ(MET.Px() + AnalysisLeptons[Lostlep].v.Px(),
 				   MET.Py() + AnalysisLeptons[Lostlep].v.Py(),
 				   MET.Pz());
@@ -25475,7 +25483,8 @@ bool AnalysisStop::ShapeWZtoWW()
       if (abs(Lepton1.flavour)!=abs(Lepton2.flavour)) _channel = em;
       else if (abs(Lepton1.flavour)==11) _channel = ee;
       else if (abs(Lepton1.flavour)==13) _channel = mm;
-      
+  
+   
       _mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
       _MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
      
@@ -25489,10 +25498,11 @@ bool AnalysisStop::ShapeWZtoWW()
       dphilmet1 = fabs((Lepton1.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
       dphilmet2 = fabs((Lepton2.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
       _dphillmet = fabs((Lepton1.v + Lepton2.v).DeltaPhi(MET));
-
     
     }
-  
+ 
+     
+   // if (fabs(_m2l - Z_MASS) < 15. && _channel != em) return false;   
     return true;
   
   }

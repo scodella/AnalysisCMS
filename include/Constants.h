@@ -141,6 +141,7 @@ const Color_t color_Fakes     = kGray+1;
 const Color_t color_Data      = kBlack;
 const Color_t color_WZTo3LNu  = kOrange-2;
 const Color_t color_VZ        = kOrange+3;
+//const Color_t color_ZZ        = kOrange+6;
 const Color_t color_TTTo2L2Nu = kYellow;
 const Color_t color_ST        = kYellow+3;
 const Color_t color_WW        = kAzure-9;

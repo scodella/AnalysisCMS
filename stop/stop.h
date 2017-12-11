@@ -2,7 +2,8 @@
 
 //const TString  inputdir = "/gpfs/csic_projects/tier3data/LatinosSkims/RunII/2016/Stop/minitrees/nominal/Stop/";  // where the minitrees are stored
 //const TString  inputdir = "../minitrees/nominal/Stop/";  // where the minitrees are stored
-const TString  inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored. 29Sept2017
+//const TString  inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored. 29Sept2017
+const TString  inputdir = "/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/nominal/Stop/";  // where the minitrees are stored. 17Oct2017 (added in a new variable the lepton efficiencies of trigger from orthogonal method)
 
 const float thelumi = 35.867; 
 const float    ttSF = 1.;  const float ettSF = 0.0;
@@ -13,7 +14,7 @@ const bool doshape = false;
 const bool onlyShape = false; 
 
 
-  const TCut selection= "leadingPtCSVv2M < 20 && metPfType1 >= 140";
+  const TCut selection= "metPfType1 >= 100 && metPfType1 < 140 && njet > 1 && leadingPtCSVv2T >30";
   //const TCut selection= "1>0";
   //const TCut selection= " run < 276502 && channel == 5 && leadingPtCSVv2M > 20.";
   //const TCut selection= "channel == 5 && njet < 1";
@@ -22,7 +23,7 @@ const bool onlyShape = false;
 /*const TCut hard_cut = soft_cut&&"mt2ll>100.&&darkpt>0."; 
 */
 
-enum{ /*	data,
+enum{ 	data,
       	//TT:
       	TT0,
 	TT1,
@@ -83,7 +84,7 @@ enum{ /*	data,
       	VZ,
      	VVV,
       	HWW,
-      */
+      
       	WW,
       	WZ, 
         nprocess
@@ -132,8 +133,8 @@ enum{ 	nominal,
 	DDfakes,
 	nsystematic }; 
 
-enum{ dphilmet1, dphilmet2, dphillmet, mt2ll, njet,
-      /*lep1pt, lep1eta, lep1phi, lep1mass,
+enum{ njet, nbjet30csvv2l, nbjet30csvv2m, nbjet30csvv2t, mt2ll, metPfType1, leadingPtCSVv2T, /* dphilmet1, dphilmet2, dphillmet, mt2ll, njet,
+      lep1pt, lep1eta, lep1phi, lep1mass,
       lep2pt, lep2eta, lep2phi, lep2mass,
       jet1pt, jet1eta, jet1phi, jet1mass,
       jet2pt, jet2eta, jet2phi, jet2mass,
@@ -169,7 +170,7 @@ void Assign(){
 
 	//----------
 
-/*	processID[data ] = "01_Data"                 ;
+	processID[data ] = "01_Data"                 ;
 	//processID[TT   ] = "04_TTTo2L2Nu"            ;
 	  processID[TT0  ] = "TTTo2L2Nu__part0";
           processID[TT1  ] = "TTTo2L2Nu__part1"; 
@@ -227,11 +228,11 @@ void Assign(){
 	processID[TTW  ] = "09_TTW"                  ; 
 	processID[WW   ] = "06_WW"                   ; 
 	processID[WZ   ] = "02_WZTo3LNu"             ; 
-	processID[VZ   ] = "03_VZ"                   ; 
+	processID[VZ   ] = "15_VZ"                   ; 
 	processID[VVV  ] = "13_VVV"                  ; 
 	processID[TTZ  ] = "10_TTZ"                  ; 
 	processID[HWW  ] = "11_HWW"                  ; 
-*/
+
 	processID[WW   ] = "06_WW"                   ; 
 	processID[WZ   ] = "02_WZTo3LNu"             ; 
 	
@@ -343,15 +344,16 @@ void Assign(){
 	b_name[htnojets] = "htnojets";
 
 	b_name[nbjet30csvv2m] = "nbjet30csvv2m";
-*/	b_name[dphilmet1   ] = "dphilmet1"   ;
+	b_name[dphilmet1   ] = "dphilmet1"   ;
 	b_name[dphilmet2   ] = "dphilmet2"   ;
 	b_name[dphillmet   ] = "dphillmet"   ;
-	b_name[mt2ll       ] = "mt2ll"  ;
+*/	b_name[mt2ll       ] = "mt2ll"  ;
 	b_name[njet        ]  = "njet"         ;
-/*	b_name[nbjet30csvv2l] = "nbjet30csvv2l";
+	b_name[nbjet30csvv2l] = "nbjet30csvv2l";
 	b_name[nbjet30csvv2t] = "nbjet30csvv2t";
+	b_name[nbjet30csvv2m] = "nbjet30csvv2m";
 
-	b_name[dphijet1met ] = "dphijet1met" ;   
+/*	b_name[dphijet1met ] = "dphijet1met" ;   
 	b_name[dphijet2met ] = "dphijet2met" ;  
 	b_name[dphijj      ] = "dphijj"      ;    
 	b_name[dphijjmet   ] = "dphijjmet"   ;   

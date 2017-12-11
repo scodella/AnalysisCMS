@@ -202,7 +202,7 @@ void HistogramReader::AddSignal(const TString& filename,
 //------------------------------------------------------------------------------
 void HistogramReader::AddSystematic(TString analysis, TString systematic)
 {
-  //_mycut    = mycut;
+ // _mycut    = mycut;
   _analysis = analysis;
   _systematics.push_back(systematic);
 }
@@ -266,9 +266,11 @@ void HistogramReader::Draw(TString hname,
   else
     {
       canvas = new TCanvas(cname, cname, 550, 600);
-
       pad1 = new TPad("pad1", "pad1", 0, 0, 1, 1);
-
+      //canvas = new TCanvas(cname, cname, 550, 720);
+      //pad1 = new TPad("pad1", "pad1", 0, 0.3, 1, 1.0);
+      //pad1->SetTopMargin   (0.08);
+      //pad1->SetBottomMargin(0.02);
       pad1->Draw();
     }
 
@@ -556,8 +558,8 @@ void HistogramReader::Draw(TString hname,
   if (pad1->GetLogy())
     {
       theMin = 1e-2; // 1e-5
-      int maxOrder = 4;
-      if (_signalfilename.size()>1 && hname.Contains("Tag/")) maxOrder = 5;
+      int maxOrder = 6;
+      if (_signalfilename.size()>1 && hname.Contains("Tag/")) maxOrder = 6;
       if (_signalfilename.size()<1) maxOrder--;
       if (_drawyield) maxOrder++;
       theMax = TMath::Power(10, TMath::Log10(theMax) + maxOrder); // 6);
@@ -572,7 +574,9 @@ void HistogramReader::Draw(TString hname,
 
   if (ymin != -999) hfirst->SetMinimum(ymin);
   if (ymax != -999) hfirst->SetMaximum(ymax);
+  
 
+  //hfirst ->SetMaximum(0.1);
 
   // Legend
   //----------------------------------------------------------------------------
@@ -626,6 +630,9 @@ void HistogramReader::Draw(TString hname,
 
   // Standard Model processes legend
   //----------------------------------------------------------------------------
+  
+  //Int_t nrow = (!_datahist=NULL && _mchist.size() >= 11) ? 5 : 4;
+  //Int_t nrow = (_mchist.size() > 11) ? 5 : 4;
   int addRow = 0;
   if (_prefithist) addRow++;
   if (_postfithist) addRow++;
@@ -656,6 +663,8 @@ void HistogramReader::Draw(TString hname,
 	  ny =  nrow;
 	  nx++;
 	}
+      //DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
+      //DrawLegend(x0 + nx*(xdelta*1.6), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       DrawLegend(x0 + nx*(xdelta*xScale), y0 - ny*ydelta, _signalhist[i], _signallabel[i].Data(), "l");
       ny++;
     }
@@ -776,6 +785,7 @@ void HistogramReader::Draw(TString hname,
 	uncertainty->SetBinContent(ibin, 1.);
 	uncertainty->SetBinError  (ibin, uncertaintyError);
 
+
 	if (ratioVal+ratioErr>ymax) ymax = ratioVal+ratioErr;
 	if (ratioVal>0. && ratioVal-ratioErr<ymin) ymin = ratioVal-ratioErr;
 	if (1.+uncertaintyError>ymax) ymax = 1.+uncertaintyError;
@@ -808,6 +818,7 @@ void HistogramReader::Draw(TString hname,
       }
 
       ratio->SetTitle("");
+      //ratio -> Fit("pol0");
       //ratio->Fit("pol0", "", "", 0., 120.);
       ratio->Draw("ep");
 
@@ -834,7 +845,91 @@ void HistogramReader::Draw(TString hname,
   else if (_drawsignificance)
     {
       // Barbara's stuff
+      pad2->cd();
+      // Just for three first signal points  you use in addSignal function
+      TH1D* signf0  = (TH1D*)_signalhist[0] ->Clone("S0_sqrt(B)");
+      TH1D* signf1  = (TH1D*)_signalhist[1] ->Clone("S1_sqrt(B)");
+      TH1D* signf2  = (TH1D*)_signalhist[2] ->Clone("S2_sqrt(B)");
+
+      for (Int_t ibin=1; ibin<=signf0->GetNbinsX(); ibin++) {
+       //signals
+       Float_t SignalValue0 = _signalhist[0]->GetBinContent(ibin);
+       Float_t SignalError0 = _signalhist[0]->GetBinError  (ibin);
+
+       Float_t SignalValue1 = _signalhist[1]->GetBinContent(ibin);
+       Float_t SignalError1 = _signalhist[1]->GetBinError  (ibin);
+
+       Float_t SignalValue2 = _signalhist[2]->GetBinContent(ibin);
+       Float_t SignalError2 = _signalhist[2]->GetBinError (ibin);
+    
+       //all mc
+       Float_t mcValue = _allmchist->GetBinContent(ibin);
+       Float_t mcError = _allmchist->GetBinError (ibin);
+
+       //significance S/sqrt(B)
+       Float_t signfVal0         = 999;
+       Float_t signfErr0         = 999;
+ 
+       Float_t signfVal1         = 999;
+       Float_t signfErr1         = 999;
+
+       Float_t signfVal2         = 999;
+       Float_t signfErr2         = 999;
+
+       if (mcValue > 0)
+        {
+         //double a = 1 + SignalValue0/mcValue;
+         //signfVal0 = sqrt(2*(SignalValue0 + mcValue)*TMath::Log(a) - 2*SignalValue0);
+         signfVal0 = SignalValue0 / mcValue;
+         signfErr0 = signfVal0 * sqrt( (SignalError0*SignalError0)/(SignalValue0*SignalValue0) + (mcError*mcError)/(mcValue*mcValue)); 
+
+         //double b = 1 + SignalValue1/mcValue; 
+         //signfVal1 = sqrt(2*(SignalValue1 + mcValue)*TMath::Log(b) - 2*SignalValue1);
+         signfVal1 = SignalValue1 /  mcValue;
+         signfErr1 = signfVal1 * sqrt( (SignalError1*SignalError1)/(SignalValue1*SignalValue1) + (mcError*mcError)/(mcValue*mcValue));
+
+         //double c = 1 + SignalValue2/mcValue;
+         //signfVal2 = sqrt(2*(SignalValue2 + mcValue)*TMath::Log(c) - 2*SignalValue2);
+         signfVal2 = SignalValue2 / mcValue;
+         signfErr2 = signfVal2 * sqrt( (SignalError2*SignalError2)/(SignalValue2*SignalValue2) + (mcError*mcError)/(mcValue*mcValue));
+         }
+
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal0  << "    " << "error  =  " << signfErr0 << std::endl;     
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal1  << "    " << "error  =  " << signfErr1 << std::endl;     
+       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal2  << "    " << "error  =  " << signfErr2 << std::endl;     
+
+       signf0 -> SetBinContent(ibin, signfVal0);
+       if (!signfVal0 == 0) signf0 -> SetBinError  (ibin, signfErr0);
+
+       signf1 -> SetBinContent(ibin, signfVal1);
+       if (!signfVal1 == 0) signf1 -> SetBinError  (ibin, signfErr1);
+
+       signf2 -> SetBinContent(ibin, signfVal2);
+       if (!signfVal2 == 0) signf2 -> SetBinError  (ibin, signfErr2);
     }
+    //draw significance
+    signf0->SetTitle("");
+
+    //draw the bin label
+    if (hname.Contains("SR_MT2Met"))
+      { int ibin1 = 0; 
+        for (int i = 0; i<3;i++)
+         { for (int j =0; j<7; j++) 
+           { int ivalue = 20*(j+1); ibin1 = ibin1+1; TString iValue; iValue += ivalue; signf0 -> GetXaxis()->SetBinLabel(ibin1, "  " + iValue); 
+           }
+         }
+      }
+    
+    signf0->Draw("ep");
+
+    signf0->GetXaxis()->SetRangeUser(xmin, xmax);
+    signf0->GetYaxis()->SetRangeUser(0.0, 1.2);
+  
+    signf1->Draw("ep,same");
+    signf2->Draw("ep,same");
+
+    SetAxis(signf0, xtitle, "S / B", 1.4, 0.75);    
+ }
 
 
   //----------------------------------------------------------------------------
@@ -1984,9 +2079,10 @@ void FormatTableYields(float *YY, float *EY) {
 
 }
 
+
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true, _dotablebkg = false;
+  bool _verbose = false, _dotable = true, _dotablebkg = false, _doPaperTable = true;
 
   float StatZero = 1.84102;
 
@@ -2113,7 +2209,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 		 if (fabs(dummy0->GetBinContent(ibin+1)>0.005)) ApplyZeroStat = true;
 	     }
 	     if (ApplyZeroStat && dummy0->GetEntries()>0.) 
-	       StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
+	        StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	   }
 	   errBackTab_up[kproce][ibin] += StatUncert2;
 	   errBackTab_do[kproce][ibin] += StatUncert2;
@@ -2397,7 +2493,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 } else {
 	   for (int ibin = 1; ibin<=nbins; ibin++) {
 	     float StatUncert2 = TMath::Power((dummy0->GetBinError(ibin)+dummy3->GetBinError(ibin))/2., 2);
-	     if (StatUncert2<0.0001 && dummy0->GetEntries()>0.) StatUncert2 = TMath::Power(StatZero*(dummy0->Integral()+dummy3->Integral())/(dummy0->GetEntries()+dummy3->GetEntries()), 2);
+	     if (StatUncert2<0.0001 && dummy0->GetEntries()>0) StatUncert2 = TMath::Power(StatZero*(dummy0->Integral()+dummy3->Integral())/(dummy0->GetEntries()+dummy3->GetEntries()), 2);
 	     errSignUp [kproce][ibin] += StatUncert2;
 	     errSignDo [kproce][ibin] += StatUncert2;
 	   }
@@ -2647,7 +2743,9 @@ void HistogramReader::IncludeSystematics(TString hname)
        cout << "ErrorY[" << ff << "] = " << _ErrorGr->GetErrorY(ff) << endl;
    }
 
-   if (_dotable && hname.Contains("h_MT2ll")) {
+   // Do expanded tables for Analysis Note 
+   if (_dotable  && hname.Contains("h_MT2ll")) {
+     gSystem->mkdir("Tables/", kTRUE);     
      
      //float intData = _datahist->Integral();
      //float intDY = 0.; for (int ibin=1; ibin<nbins; ibin++) intDY += yieldTab[9][ibin];
@@ -2655,7 +2753,7 @@ void HistogramReader::IncludeSystematics(TString hname)
      //float norDY =  (intData - (intSM - intDY))/intDY;
 
      TString TableFlag = hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
-     std::ofstream inFile("./Tables/Yields" + TableFlag + ".tex",std::ios::out);
+     std::ofstream inFile("Tables/Yields" + TableFlag + ".tex",std::ios::out);
      // Process | nbins = 7;    
 
      //inFile << "\\begin{table}[htb]" << endl;
@@ -2820,4 +2918,138 @@ void HistogramReader::IncludeSystematics(TString hname)
 
    } 
    
+   // -------------------------------
+   // Do reduced tables for the Paper 
+   // -------------------------------
+   // This table is filled with the integrated yield and its uncertainty for bins 
+   // from 0 to 80 GeV of MT2ll in the Low MT2 region (lowYield) and for bins from 
+   // 80 to >120 GeV of MT2ll in the High MT2ll region. It is done for each process.  
+   // ------------------------------
+   if ( _doPaperTable && hname.Contains("h_MT2ll")) {
+     gSystem->mkdir("Tables/", kTRUE);     
+     TString TableFlag = hname; TableFlag.ReplaceAll("Stop/", "_"); TableFlag.ReplaceAll("/h", "");
+     std::ofstream inFile("Tables/Yields_Paper_" + TableFlag + ".tex",std::ios::out);
+     //first try of getting the region flag
+     Ssiz_t from = 0;
+     TString region = TableFlag.ReplaceAll("_02_","");
+     TString tok;
+     TString region2 = region.Tokenize(tok, from, "_MT2ll") ? tok : "NONE";
+     region.ReplaceAll(region2, ""); // region flag should be modified to make it work in the latex table.
+     // Create the table
+     inFile << "\\begin{center}" << endl;
+     inFile << "\\begin{tabular}{|l|l|l|}" << endl;
+     inFile << "\\hline" << endl;
+     inFile << "& \\multicolumn{2}{c|}{ $" << region << "$} \\\\" << endl;
+     inFile << "\\cline{2-3}";
+     inFile << "& Low mt2ll & High mt2ll \\\\" << endl;
+     //inFile << "& Low \mt2ll & High \mt2ll \\" << endl;
+     inFile << "\\hline \\hline" << endl;
+
+ 
+     // ~~~~~~~~~~~~ 
+     // Fill the data
+     // ~~~~~~~~~~~~ 
+     inFile << " Data ";
+     // if (_datahist)
+     //inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
+     //   else
+     // write in the table
+     inFile << " & blind  &  blind \\\\"<< endl;;
+     inFile << " \\hline\\hline" << endl;
+ 
+     //inFile << "\\end{table}" << endl;
+     //
+
+     // ~~~~~~~~~~~~ 
+     // Fill the background
+     // ~~~~~~~~~~~~ 
+     for (int kproce=0; kproce<nprocess; kproce++) {       
+       float lowYield=0.; float highYield=0.; float lowUncert=0.; float highUncert=0.; float lowUncert2 = 0.; float highUncert2 = 0; float counter = 0.;
+       TString process = _mclabel[kproce].Data();
+       process.ReplaceAll("#", "\\");
+       for (int lbin=1; lbin<=4; lbin++){
+         lowYield   += yieldTab[kproce][lbin];
+         lowUncert2 += TMath::Power((sqrt(errBackTab_up[kproce][lbin])+sqrt(errBackTab_do[kproce][lbin]))/2.,2); 
+       }
+       lowUncert = sqrt(lowUncert2);
+       FormatTableYields(&lowYield, &lowUncert);
+
+       for (int hbin=5; hbin<=7; hbin++){
+         highYield   += yieldTab[kproce][hbin];        
+         highUncert2 += TMath::Power((sqrt(errBackTab_up[kproce][hbin])+sqrt(errBackTab_do[kproce][hbin]))/2.,2); 
+       }
+       highUncert = sqrt(highUncert2);
+       FormatTableYields(&highYield, &highUncert);
+       // write in the table
+       inFile << "$" << process << " $ " ;
+       inFile << " & " << lowYield << "$\\pm$" << lowUncert << " & "<< highYield << "$\\pm$" << highUncert <<  "\\\\" <<endl; 
+     }
+     inFile << "\\hline \\hline " <<endl;
+     // ~~~~~~~~~~~~ 
+     // Fill all MC stats
+     // ~~~~~~~~~~~~ 
+     float lowMC = 0.; float highMC = 0.; float lowMC_Uncert = 0.; float highMC_Uncert = 0.;  float lowMC_Uncert2 = 0.; float highMC_Uncert2 = 0.;    
+     for (int ibin=0; ibin<=4; ibin++) {
+       lowMC += y[ibin];
+       lowMC_Uncert2 += TMath::Power(_ErrorGr->GetErrorY(ibin), 2);
+     }
+     lowMC_Uncert = sqrt(lowMC_Uncert2); 
+     FormatTableYields(&lowMC, &lowMC_Uncert);
+     for (int ibin=5; ibin<=7; ibin++) {
+        highMC += y[ibin];
+        highMC_Uncert2 += TMath::Power(_ErrorGr->GetErrorY(ibin),2);
+     }
+     highMC_Uncert = sqrt(highMC_Uncert2);
+     FormatTableYields(&highMC, &highMC_Uncert);
+     // write in the table
+     inFile << "SM Processes";
+     inFile << " & " << lowMC << "$\\pm$" << lowMC_Uncert << " & "<< highMC << "$\\pm$" << highMC_Uncert << "\\\\"<< endl; 
+     inFile << "\\hline \\hline " <<endl;
+     // ~~~~~~~~~~~~ 
+     // Fill Signals
+     // ~~~~~~~~~~~~ 
+     for (int ksignal=0; ksignal<nsignals; ksignal++) {
+       TString signal = _signallabel[ksignal].Data();
+       //process.ReplaceAll("m_{#tilde{t}}=", "");
+       //process.ReplaceAll("m_{#tilde{#chi}^{0}_{1}}=", "");   
+       signal.ReplaceAll("#", "\\");
+       signal.ReplaceAll("\\tilde", "\\widetilde");
+       
+       float lowYield=0.; float highYield=0.; float lowUncert=0.; float highUncert=0.; float lowUncert2 = 0.; float highUncert2 = 0; 
+       for (int ibin=1; ibin<=4; ibin++){
+         lowYield   += yieldSign[ksignal][ibin];  
+         std::cout << "lowYield  =  " << yieldSign[ksignal][ibin] << std::endl;      
+         lowUncert2 += TMath::Power((sqrt(errSignUp[ksignal][ibin])+sqrt(errSignDo[ksignal][ibin]))/2.,2); 
+       }
+       lowUncert = sqrt(lowUncert2);
+       FormatTableYields(&lowYield, &lowUncert);
+
+       for (int ibin=5; ibin<=7; ibin++){
+         highYield   += yieldSign[ksignal][ibin];        
+         highUncert2 += TMath::Power((sqrt(errSignUp[ksignal][ibin])+sqrt(errSignDo[ksignal][ibin]))/2.,2); 
+       }
+       highUncert = sqrt(highUncert2);
+       FormatTableYields(&highYield, &highUncert);
+       // write in the table
+       inFile <<" $ " << signal  << "$";
+       inFile << " & " << lowYield << "$\\pm$" << lowUncert << " & "<< highYield << "$\\pm$" << highUncert << "\\\\"<< endl; 
+     }
+     inFile << "\\hline " <<endl;
+     inFile << "\\end{tabular}" << endl;
+     inFile << "\\end{center}" << endl;
+     inFile.close();
+
+     /*
+     inFile << " Data ";
+     for (int ibin=1; ibin<=nbins; ibin++)
+       if (_datahist)
+	 inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
+       else
+	 inFile << " & $" << "blind" << "$";
+     inFile << " \\\\" << endl;
+     inFile << " \\hline" << endl;
+     */
+     //inFile << "\\end{table}" << endl;
+     
+   }
 }

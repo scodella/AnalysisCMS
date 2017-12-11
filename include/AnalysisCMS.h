@@ -15,6 +15,7 @@
 #include <TSystem.h>
 #include <TTree.h>
 #include <TSpline.h>
+#include <TRandom3.h>
 
 
 enum {Loose, Tight};
@@ -172,6 +173,8 @@ class AnalysisCMS : public AnalysisBase
 
   void        GetScaleAndResolution(); 
 
+  TRandom3* _rand;
+  TRandom3* _rand2;
 
   // Data members
   //----------------------------------------------------------------------------
@@ -190,6 +193,11 @@ class AnalysisCMS : public AnalysisBase
   std::vector<float>     _bjet30csvv2m_phi;
   std::vector<float>     _bjet30csvv2m_pt; 
 
+  // to testing for the fakes
+  //std::vector<float>     _lep1GenDeltaR;
+  //std::vector<float>     _lep2GenDeltaR;
+  //std::vector<float>     _testMotherID;
+  
   TH1F*                  _shapemlb; 
 
   bool                   _saveminitree;
@@ -211,6 +219,7 @@ class AnalysisCMS : public AnalysisBase
   bool                   _systematic_fastsim_up;
   bool                   _systematic_toppt;
   bool                   _applytopptreweighting;
+
 
   TString                _analysis;
   TString                _dataperiod;
@@ -419,6 +428,8 @@ class AnalysisCMS : public AnalysisBase
   float                  _ZZdphi;
   float                  _ZZpt;
   float                  _ZZmass; 
+
+
 
   float                  _MR;
   float                  _R2;
