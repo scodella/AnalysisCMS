@@ -252,12 +252,15 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
       //if (!_systematic.Contains("SS")  && !_systematic.Contains("multilepton") && Lepton1.flavour * Lepton2.flavour > 0) continue; 
       if (_systematic.Contains("SS") && Lepton1.flavour * Lepton2.flavour < 0) continue;
+      if (_systematic.Contains("SSm") && (Lepton1.flavour >0 || Lepton2.flavour > 0)) continue;
       
       if (_ismc) CorrectEventWeight(); 
 
       float LeadingLeptonPtCut = (_systematic.Contains("multilepton")) ? 20. : 25.;
+      //********** Lepton pt selection *******************
       if (Lepton1.v.Pt() < LeadingLeptonPtCut) continue;
       if (Lepton2.v.Pt() < 20.) continue;
+      //**************************************************
       
       _nelectron = 0;
 
@@ -448,7 +451,13 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
     // Fill histograms
     // -----------------------------------------------------------------------------
-    
+   /*   //********** Lepton pt selection *********************************************
+      if (_channel == 3 && (_lep1pt<23 || _lep2pt<12)) continue; 
+      if (_channel == 4 && (_lep1pt<17 || _lep2pt<8)) continue; 
+      if (_channel == 5 && abs(_lep1id==13) && (_lep1pt<23 || _lep2pt<12)) continue;
+      if (_channel == 5 && abs(_lep1id==11) && (_lep1pt<23 || _lep2pt<8)) continue;
+      //****************************************************************************
+   */ 
     // Basics Stop
     //-------------------------------------------------------------------------
     FillLevelHistograms(Stop_00_Has2Leptons, !_isminitree && _m2l>20. && pass && pass_blind && pass_masspoint);
@@ -492,7 +501,9 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     // Look in the Z-peak
     bool Zpeak = pass && _channel!=em && fabs(_m2l - Z_MASS)<15. ;  
     if (_systematic.Contains("Zpeak") && !Zpeak) continue;
-
+    //*** WZtoWWVeto Zpeak ***
+      //FillLevelHistograms(Stop_05_Zpeak,      Zpeak && pass_blind && pass_masspoint); // 2 OS Leptons, mll > 20, Z peak
+    //************************************
     //bool Zveto = ( _channel == em || fabs(_m2l - Z_MASS) > 15. ); 
     //if (_systematic.Contains("Zveto") && !Zveto) continue;
 
@@ -983,6 +994,8 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
 					  int icut,
 					  int ijet)
 {
+
+  _event_weight = _event_weight/effTrigW;
   if (ichannel != ll) FillAnalysisHistograms(ll, icut, ijet);
  
   if ((_SaveHistograms>=2 || _systematic!="nominal") && ijet<njetbin) return;
@@ -25415,7 +25428,8 @@ bool AnalysisStop::ShapeWZtoWW()
 
   if (_systematic.Contains("veto") && _nlepton>3) return false;
 
-  float DMZCut = 10.;
+  float DMZCut = 100.;//Roberto's checking cut 
+  //float DMZCut = 10.;//nominal cut
   if (_systematic.Contains("DM15")) DMZCut = 15.;
 
   float DMZ = 999.; int Wlep1 = -1, Wlep2 = -1, Lostlep = -1;

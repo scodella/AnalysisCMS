@@ -894,10 +894,10 @@ void HistogramReader::Draw(TString hname,
          signfErr2 = signfVal2 * sqrt( (SignalError2*SignalError2)/(SignalValue2*SignalValue2) + (mcError*mcError)/(mcValue*mcValue));
          }
 
-       std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal0  << "    " << "error  =  " << signfErr0 << std::endl;     
+     /*  std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal0  << "    " << "error  =  " << signfErr0 << std::endl;     
        std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal1  << "    " << "error  =  " << signfErr1 << std::endl;     
        std::cout << "bin number :   " << ibin  << "      "  <<  "S/B  =   " << signfVal2  << "    " << "error  =  " << signfErr2 << std::endl;     
-
+     */
        signf0 -> SetBinContent(ibin, signfVal0);
        if (!signfVal0 == 0) signf0 -> SetBinError  (ibin, signfErr0);
 
@@ -924,6 +924,7 @@ void HistogramReader::Draw(TString hname,
 
     signf0->GetXaxis()->SetRangeUser(xmin, xmax);
     signf0->GetYaxis()->SetRangeUser(0.0, 1.2);
+//     signf0->GetYaxis()->SetRangeUser(-0.001, 0.055);
   
     signf1->Draw("ep,same");
     signf2->Draw("ep,same");
@@ -2082,7 +2083,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true, _dotablebkg = false, _doPaperTable = true;
+  bool _verbose = false, _dotable = true, _dotablebkg = true, _doPaperTable = true;
 
   float StatZero = 1.84102;
 
@@ -2640,6 +2641,8 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 printf( "--------------------------------------------------------\n" ); 
        }
  
+       printf( "errStat = %f\n", errStat [ibin] ); 
+       
        float systUp2  = 0;
        float systDo2  = 0;
        float systSym2 = 0;

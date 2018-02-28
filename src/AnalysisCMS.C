@@ -48,14 +48,25 @@ bool AnalysisCMS::PassTrigger()
 {
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::PassTrigger]\n");
 
- // if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
-
-  //bool passtrgmc = (std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || (std_vector_trigger->at(11) || std_vector_trigger->at(13)) ||
-  //(std_vector_trigger->at(42) || std_vector_trigger->at(43)) || (std_vector_trigger->at(0)  || std_vector_trigger->at(56)) ||
-  //(std_vector_trigger->at(46));
-  //return passtrgmc;
+  if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
   
-  if (_ismc){
+  if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
+  else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
+  else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
+  else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
+  else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
+  else if (_sample.Contains("MET")) {
+    int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
+    for(int a = 0; a < 18; a++) {
+      if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+    }
+    return false;
+  }
+  else return true; 
+
+ /*// MonteCarlo trigger selection
+   // ------------------------------
+   if (_ismc){
 
    // MC trigged for "Full2016"
    bool passtrgmc;
@@ -98,8 +109,10 @@ bool AnalysisCMS::PassTrigger()
   return passtrgmc;
 
 
-  }else{  
-
+  }else{ 
+  
+   // Data trigger selection
+   // ----------------------
    if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
    else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
    else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
@@ -113,7 +126,7 @@ bool AnalysisCMS::PassTrigger()
      return false;
    }
    else                                         return true;
-  }
+  }*/
    
 }
 
@@ -594,8 +607,8 @@ void AnalysisCMS::ApplyWeights()
 
   // trigger scale factors
   //----------------------------------------------------------------------------
-  float sf_trigger    = 1;  // To estimate the trigger eff on MC
-  //float sf_trigger    = effTrigW;  // To be updated for WZ
+  //float sf_trigger    = 1;  // To estimate the trigger eff on MC
+  float sf_trigger    = effTrigW;  // To be updated for WZ
   float sf_trigger_up = effTrigW_Up;
   float sf_trigger_do = effTrigW_Down;
 
@@ -3684,4 +3697,3 @@ float AnalysisCMS::kfactor_qqZZ_qcd_Pt(float GENpTZZ, int finalState)
     else return k; // if something goes wrong return inclusive k-factor
 
 }
-
