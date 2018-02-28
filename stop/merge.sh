@@ -40,5 +40,5 @@ hadd -f -k 09_TTW.root         TTWJetsToLNu.root TTWJetsToQQ.root
 hadd -f -k 10_TTZ.root         TTZToQQ.root TTZToLLNuNu_M-10.root 
 hadd -f -k 11_HWW.root         GluGluHToWWTo2L2NuAMCNLO_M125.root VBFHToWWTo2L2Nu_M125.root GluGluHToTauTau_M125.root VBFHToTauTau_M125.root HWminusJ_HToWW_M125.root HWplusJ_HToWW_M125.root
 hadd -f -k 13_VVV.root         WWW.root WWZ.root WZZ.root #ZZZ.root
-hadd -f -k 15_VZV3.root        15_VZ.root 13_VVV.root
+hadd -f -k 15_VZ3V.root        15_VZ.root 13_VVV.root
 popd

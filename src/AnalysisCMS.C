@@ -20,6 +20,9 @@ AnalysisCMS::AnalysisCMS(TTree* tree, TString systematic) : AnalysisBase(tree)
   _saveminitree          = false;
   _eventdump             = false;
   _applytopptreweighting = false;
+  _applytriggeremulation = false;
+
+  _rand = new TRandom3(0);
 
   _systematic_btag_do    = (systematic.Contains("Btagdo"))    ? true : false;
   _systematic_btag_up    = (systematic.Contains("Btagup"))    ? true : false;
@@ -48,86 +51,63 @@ bool AnalysisCMS::PassTrigger()
 {
   if (_verbosity > 0) printf(" <<< Entering [AnalysisCMS::PassTrigger]\n");
 
-  if (_ismc) return true;  // Need to study, Summer16 does have the trigger info
-  
-  if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
-  else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
-  else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
-  else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
-  else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
-  else if (_sample.Contains("MET")) {
-    int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
-    for(int a = 0; a < 18; a++) {
-      if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+  if (_ismc) {
+
+    if (!_applytriggeremulation) return true;  // Need to study, Summer16 does have the trigger info
+
+    // MC trigged for "Full2016"
+    bool passtrgmc = false;
+
+    //Print Warning
+    int MCtrigger[13] = {6,8,10,11,12,13,44,45,46,57,93,97,112};
+    for (int a=0; a<13; a++) {
+      if (std_vector_trigger->at(MCtrigger[a]) <0) {
+	printf ("  WARNING:  this trigger is not present in this mC sample %i\n, MCtrigger[a]");
+	return false; 
+      }
     }
-    return false;
-  }
-  else return true; 
 
- /*// MonteCarlo trigger selection
-   // ------------------------------
-   if (_ismc){
+    // Pass the trigger selection
+    float coin = _rand->Uniform(1.);
+    float lumiEra = lumi_fb_Full2016*coin; 
 
-   // MC trigged for "Full2016"
-   bool passtrgmc;
-   //Print Warning
-   int MCtrigger[13] = {6,8,10,11,12,13,44,45,46,57,93,97,112};
-   for (int a=0; a<13; a++){
-     if (std_vector_trigger->at(MCtrigger[a]) <0) {
-       printf ("  WARNING:  this trigger is not present in this mC sample %i\n, MCtrigger[a]");
-       return false; 
-     }
-   }
-   // Pass the trigger selection
-   _rand2 = new TRandom3(0);
-   float coin2 = _rand2 -> Uniform(1.);
-   //std::cout<<"  coin2  "<< coin2 <<std::endl; 
-   //std::cout<<"  lumi_fb_Full2016  "<< lumi_fb_Full2016 <<std::endl; 
-   //throw die
-   float coin = _rand->Uniform(1.); 
-   //std::cout<<"  coin_real  "<< coin <<std::endl;   
-   float lumiEra = lumi_fb_Full2016*coin; 
-   if (lumiEra < 17.68)  passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8)) || 
-                                         (std_vector_trigger->at(11) || std_vector_trigger->at(13))||
-                                         (std_vector_trigger->at(44) || std_vector_trigger->at(45))||
-                                         std_vector_trigger ->at(46) ||
-                                         (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+    if (lumiEra < 17.68)  passtrgmc = ((std_vector_trigger->at(6)  || std_vector_trigger->at(8))  || 
+				       (std_vector_trigger->at(11) || std_vector_trigger->at(13)) ||
+				       (std_vector_trigger->at(44) || std_vector_trigger->at(45)) ||
+				       std_vector_trigger ->at(46) ||
+				       (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
  
-  if (17.68 < lumiEra < 27.261)  passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
-                                                (std_vector_trigger->at(11) || std_vector_trigger->at(13))|| 
-                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
-                                                std_vector_trigger ->at(46) ||                               
-                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+    else if (lumiEra < 27.261)  passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+					     (std_vector_trigger->at(11) || std_vector_trigger->at(13))|| 
+					     (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+					     std_vector_trigger ->at(46) ||                               
+					     (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+    
+    else if (lumiEra <= lumi_fb_Full2016) passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
+						       (std_vector_trigger->at(10) || std_vector_trigger->at(12))|| 
+						       (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
+						       std_vector_trigger ->at(46) ||                               
+						       (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+    
+    return passtrgmc;
 
-  if (27.261 < lumiEra < 35.867) passtrgmc = ((std_vector_trigger->at(57) || std_vector_trigger->at(97))|| 
-                                                (std_vector_trigger->at(10) || std_vector_trigger->at(12))|| 
-                                                (std_vector_trigger->at(44) || std_vector_trigger->at(45))|| 
-                                                std_vector_trigger ->at(46) ||                               
-                                                (std_vector_trigger->at(93) || std_vector_trigger->at(112)));
+  } else {
+    
+    if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
+    else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
+    else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
+    else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
+    else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
+    else if (_sample.Contains("MET")) {
+      int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
+      for(int a = 0; a < 18; a++) {
+	if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
+      }
+      return false;
+    }
+    else                                         return true;
 
-
-  return passtrgmc;
-
-
-  }else{ 
-  
-   // Data trigger selection
-   // ----------------------
-   if      (_sample.Contains("MuonEG"))         return ( trig_EleMu);
-   else if (_sample.Contains("DoubleMuon"))     return (!trig_EleMu &&  trig_DbleMu);
-   else if (_sample.Contains("SingleMuon"))     return (!trig_EleMu && !trig_DbleMu &&  trig_SnglMu);
-   else if (_sample.Contains("DoubleEG"))       return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu &&  trig_DbleEle);
-   else if (_sample.Contains("SingleElectron")) return (!trig_EleMu && !trig_DbleMu && !trig_SnglMu && !trig_DbleEle && trig_SnglEle);
-   else if (_sample.Contains("MET")) {
-     int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
-     for(int a = 0; a < 18; a++) {
-       if(std_vector_trigger->at(METtriggers[a]) != 0) return true;
-     }
-     return false;
-   }
-   else                                         return true;
-  }*/
-   
+  }
 }
 
 
@@ -607,8 +587,7 @@ void AnalysisCMS::ApplyWeights()
 
   // trigger scale factors
   //----------------------------------------------------------------------------
-  //float sf_trigger    = 1;  // To estimate the trigger eff on MC
-  float sf_trigger    = effTrigW;  // To be updated for WZ
+  float sf_trigger    = (_applytriggeremulation || _systematic.Contains("MetTrigger")) ? 1 : effTrigW;  // To be updated for WZ
   float sf_trigger_up = effTrigW_Up;
   float sf_trigger_do = effTrigW_Down;
 
@@ -1172,6 +1151,7 @@ void AnalysisCMS::GetLeptons()
     _lep3id     = AnalysisLeptons[2].flavour; 
     _lep3type   = AnalysisLeptons[2].type;
     _lep3idisoW = AnalysisLeptons[2].idisoW;
+    _lep3mid  = GetMotherPID(2);
  
     _lep4eta    = (_nlepton>=4) ? AnalysisLeptons[3].v.Eta()   : -999.;
     _lep4phi    = (_nlepton>=4) ? AnalysisLeptons[3].v.Phi()   : -999.;
@@ -1180,6 +1160,7 @@ void AnalysisCMS::GetLeptons()
     _lep4id     = (_nlepton>=4) ? AnalysisLeptons[3].flavour   : -999; 
     _lep4type   = (_nlepton>=4) ? AnalysisLeptons[3].type      : -999;
     _lep4idisoW = (_nlepton>=4) ? AnalysisLeptons[3].idisoW    : -999;
+    _lep4mid  = GetMotherPID(3);
 
   }
 
@@ -1668,8 +1649,19 @@ void AnalysisCMS::GetFakeWeights()
 //------------------------------------------------------------------------------
 void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
 {
-  GetMET(metPfType1, metPfType1Phi);
+  if (_systematic.Contains("ZtoTau")) {
+    bool IsZtoTau = false;
+    for (int lgen = 0; lgen<std_vector_leptonGen_pid->size(); lgen++)
+      if (abs(std_vector_leptonGen_MotherPID->at(lgen))==23) {
+	if (abs(std_vector_leptonGen_pid->at(lgen))==15) {
+	  IsZtoTau = true;
+	}
+      }
+    if (!IsZtoTau) { _event_weight = 0.; return; };
+  }
 
+  GetMET(metPfType1, metPfType1Phi);
+  //if (MET.Et()<140.) { _event_weight = 0.; return; } //SSSLLL
   GetTrkMET(metTtrk, metTtrkPhi);
 
   GetLeptons();
@@ -1684,7 +1676,8 @@ void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
   if (_systematic.Contains("invertvetotight") && _ntightlepton<3) { _event_weight = 0.; return; }
 
   GetJets(jet_eta_max, jet_pt_min);
-
+  //if (_njet>0) { _event_weight = 0.; return; }//SSSLLL
+  
   if (_analysis.EqualTo("TTDM")) GetTops();
   
   if (_analysis.EqualTo("TTDM")) GetGenLeptonsAndNeutrinos();
@@ -1698,6 +1691,8 @@ void AnalysisCMS::EventSetup(float jet_eta_max, float jet_pt_min)
   GetFakeWeights();
 
   ApplyWeights();
+
+  if (_systematic.Contains("MetTrigger")) return;
 
   // Additional analysis variables
   //----------------------------------------------------------------------------
@@ -1940,7 +1935,18 @@ void AnalysisCMS::OpenMinitree()
   //----------------------------------------------------------------------------
   minitree = new TTree("latino", "minitree");
 
-  
+  // Just triggers and leptons
+  if (std_vector_trigger && _systematic.Contains("MetTrigger")) {
+    minitree->Branch("std_vector_trigger", &std_vector_trigger);
+    minitree->Branch("std_vector_lepton_pt", &std_vector_lepton_pt);
+    minitree->Branch("std_vector_lepton_eta", &std_vector_lepton_eta);
+    minitree->Branch("std_vector_lepton_phi", &std_vector_lepton_phi);
+    minitree->Branch("std_vector_lepton_flavour", &std_vector_lepton_flavour);
+    minitree->Branch("std_vector_lepton_isTightLepton", &std_vector_lepton_isTightLepton);
+    minitree->Branch("eventW",       &_event_weight,            "eventW/F");
+    minitree->Branch("effTrigW",     &effTrigW,                 "effTrigW/F");
+    return;
+  }
 
   // B
   minitree->Branch("bjet1csvv2ivf",     &_bjet1csvv2ivf,    "bjet1csvv2ivf/F");
@@ -1984,6 +1990,8 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("eventW",            &_event_weight,            "eventW/F");
   minitree->Branch("eventW_Btagup",     &_event_weight_Btagup,     "eventW_Btagup/F");
   minitree->Branch("eventW_Btagdo",     &_event_weight_Btagdo,     "eventW_Btagdo/F");
+  minitree->Branch("eventW_Btaglightup",&_event_weight_Btaglightup,"eventW_Btaglightup/F");
+  minitree->Branch("eventW_Btaglightdo",&_event_weight_Btaglightdo,"eventW_Btaglightdo/F");
   minitree->Branch("eventW_BtagFSup",   &_event_weight_BtagFSup,   "eventW_BtagFSup/F");
   minitree->Branch("eventW_BtagFSdo",   &_event_weight_BtagFSdo,   "eventW_BtagFSdo/F");
   minitree->Branch("eventW_Idisoup",    &_event_weight_Idisoup,    "eventW_Idisoup/F");
@@ -2010,6 +2018,7 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("htnojets",          &_htnojets,         "htnojets/F");
   minitree->Branch("htgen",             &_htgen,            "htgen/F");
   // I
+  minitree->Branch("iRunPeriod",        &iRunPeriod,        "iRunPeriod/F");
   minitree->Branch("isrpt",             &_isrpt,            "isrpt/F");
   // J
   minitree->Branch("jet1eta",           &jeteta1,           "jet1eta/F");
@@ -2060,6 +2069,7 @@ void AnalysisCMS::OpenMinitree()
     minitree->Branch("lep3phi",           &_lep3phi,          "lep3phi/F");
     minitree->Branch("lep3pt",            &_lep3pt,           "lep3pt/F");
     minitree->Branch("lep3idisoW",        &_lep3idisoW,       "lep3idisoW/F");
+    minitree->Branch("lep3mid",           &_lep3mid,          "lep3mid/F");
     minitree->Branch("lep4id",            &_lep4id,           "lep4id/F");
     minitree->Branch("lep4type",          &_lep4type,         "lep4type/F");
     minitree->Branch("lep4eta",           &_lep4eta,          "lep4eta/F");
@@ -2067,6 +2077,7 @@ void AnalysisCMS::OpenMinitree()
     minitree->Branch("lep4phi",           &_lep4phi,          "lep4phi/F");
     minitree->Branch("lep4pt",            &_lep4pt,           "lep4pt/F");
     minitree->Branch("lep4idisoW",        &_lep4idisoW,       "lep4idisoW/F");
+    minitree->Branch("lep4mid",           &_lep4mid,          "lep4mid/F");
   }
 
   // M
@@ -2110,6 +2121,7 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("nbjet30csvv2t",     &_nbjet30csvv2t,    "nbjet30csvv2t/F");
   minitree->Branch("nisrjet",           &_nisrjet,          "nisrjet/F");
   minitree->Branch("njet",              &_njet,             "njet/F");
+  minitree->Branch("nlatinojet",        &njet,              "nlatinojet/F");
   minitree->Branch("nlepton",           &_nlepton,          "nlepton/I");
   minitree->Branch("ntightlepton",      &_ntightlepton,     "ntightlepton/I");
   minitree->Branch("nu1ptGEN",          &_nu1pt_gen,        "nu1ptGEN/F");
@@ -2120,6 +2132,7 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("ntrueint",          &nGoodVtx,          "nGoodVtx/F");
   // P
   minitree->Branch("ptbll",             &_ptbll,            "ptbll/F");
+  minitree->Branch("puW",               &puW,              "puW/F");
   // R
   minitree->Branch("run",               &run,               "run/I");
   // S
@@ -2155,6 +2168,8 @@ void AnalysisCMS::OpenMinitree()
   minitree->Branch("trig_DbleMu",       &trig_DbleMu,       "trig_DbleMu/F");
   minitree->Branch("trig_DbleEle",      &trig_DbleEle,      "trig_DbleEle/F");
   minitree->Branch("trig_EleMu",        &trig_EleMu,        "trig_EleMu/F");
+  minitree->Branch("trpu",              &trpu,              "trpu/F");
+  
   // U
   minitree->Branch("uPara",             &_uPara,            "uPara/F");
   minitree->Branch("uPerp",             &_uPerp,            "uPerp/F");
@@ -3397,9 +3412,11 @@ int AnalysisCMS::GetMotherPID(int index)
 
   int motherPID = -9999;
 
-  if (!_ismc || index > 1) return motherPID;
+  //if (!_ismc || index > 1) return motherPID;
+  if (!_ismc) return motherPID;
 
-  TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
+  //TLorentzVector lepton_tlorentz = (index == 0) ? Lepton1.v : Lepton2.v;
+  TLorentzVector lepton_tlorentz = AnalysisLeptons[index].v;
 
 
   // Loop over GEN leptons

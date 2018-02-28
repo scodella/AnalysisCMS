@@ -52,8 +52,10 @@ class AnalysisStop : public AnalysisCMS
 
   bool PassFastsimJetsCleanup();
 
+  float PileupSyst(float runperiod, float putrue, int variation);
+
   TString FastSimDataset;
-  BTagSFUtil *BTagSF, *BTagSF_Upb, *BTagSF_Dob, *BTagSF_UpFSb, *BTagSF_DoFSb;
+  BTagSFUtil *BTagSF, *BTagSF_Upb, *BTagSF_Dob, *BTagSF_Upl, *BTagSF_Dol, *BTagSF_UpFSb, *BTagSF_DoFSb;
 
   TEfficiency *TrgEff_ee, *TrgEff_mm, *TrgEff_em;
   void ApplyStopTriggerEfficiency();
@@ -82,8 +84,8 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_mlb2true         [nchannel][ncut][njetbin+1];
   TH2D*                  h_mt2lblbvsmlbtrue [nchannel][ncut][njetbin+1];
   TH1D*                  h_nisrjet          [nchannel][ncut][njetbin+1];
-  TH1D*                  h_maxjetpt         [nchannel][ncut][njetbin+1];
   TH1D*                  h_njet20           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_nbjet            [nchannel][ncut][njetbin+1];
   TH1D*                  h_njet20dphilmet   [nchannel][ncut][njetbin+1];
   TH1D*                  h_njet30           [nchannel][ncut][njetbin+1];
   TH1D*                  h_MET              [nchannel][ncut][njetbin+1];
@@ -107,6 +109,8 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_dphiLLbin5       [nchannel][ncut][njetbin+1];
   TH1D*                  h_M1ll             [nchannel][ncut][njetbin+1];
   TH1D*                  h_M2ll             [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep1Eta          [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Lep2Eta          [nchannel][ncut][njetbin+1];
   TH1D*                  h_Lep1Pt           [nchannel][ncut][njetbin+1];
   TH1D*                  h_Lep2Pt           [nchannel][ncut][njetbin+1];
   TH1D*                  h_Lep1Phi          [nchannel][ncut][njetbin+1];
@@ -115,6 +119,10 @@ class AnalysisStop : public AnalysisCMS
   TH1D*                  h_dphil2MET        [nchannel][ncut][njetbin+1];
   TH1D*                  h_METphi           [nchannel][ncut][njetbin+1];
   TH1D*                  h_m2L              [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Jet1Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_Jet2Pt           [nchannel][ncut][njetbin+1];
+  TH1D*                  h_JetPt            [nchannel][ncut][njetbin+1];
+  
   int _SaveHistograms, _DoTheoreticalVariations;
 
   float _metmeff, _MT2ll, _MT2llgen, _MT2llfake;
@@ -135,10 +143,12 @@ class AnalysisStop : public AnalysisCMS
   TH1F*                  h_MT2ll_truth        [nchannel][ncut][njetbin+1];
   TH1F*                  h_MET_fake           [nchannel][ncut][njetbin+1];
   TH1F*                  h_MET_truth          [nchannel][ncut][njetbin+1];
- 
-  bool  _hasisrjet;
+  TH2F*                  h_MT2ll_MET          [nchannel][ncut][njetbin+1];
+  TH1F*                  h_dphiisrmet         [nchannel][ncut][njetbin+1];
 
-  float _dphiminlmet, _m2lZ2;
+  bool  _hasisrjet; 
+
+  float _dphiminlmet, _m2lZ2, _dphiisrmet;
 
   int   _nLeptonsMatched, _njet30;
 
@@ -194,9 +204,15 @@ class AnalysisStop : public AnalysisCMS
 
   bool        ShapeWZtoWW         ();
 
+  float _massZcandidate;
+
   bool        ShapeZZ             ();
 
   bool        ShapeZWtoZ          ();
+
+  vector<int> _lheEvent;
+  TTree *lheTree; 
+  bool hasLHE;
 
 };
 
