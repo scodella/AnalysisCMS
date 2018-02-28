@@ -1,3 +1,4 @@
+
 #ifndef AnalysisCMS_h
 #define AnalysisCMS_h
 
@@ -15,7 +16,7 @@
 #include <TSystem.h>
 #include <TTree.h>
 #include <TSpline.h>
-
+#include "TRandom3.h"
 
 enum {Loose, Tight};
 
@@ -190,6 +191,7 @@ class AnalysisCMS : public AnalysisBase
   std::vector<float>     _bjet30csvv2m_phi;
   std::vector<float>     _bjet30csvv2m_pt; 
 
+
   TH1F*                  _shapemlb; 
 
   bool                   _saveminitree;
@@ -211,6 +213,9 @@ class AnalysisCMS : public AnalysisBase
   bool                   _systematic_fastsim_up;
   bool                   _systematic_toppt;
   bool                   _applytopptreweighting;
+  bool                   _applytriggeremulation;
+
+  TRandom3* _rand;
 
   TString                _analysis;
   TString                _dataperiod;
@@ -251,6 +256,8 @@ class AnalysisCMS : public AnalysisBase
   float                  _event_weight;
   float                  _event_weight_Btagup;
   float                  _event_weight_Btagdo;
+  float                  _event_weight_Btaglightup;
+  float                  _event_weight_Btaglightdo;
   float                  _event_weight_BtagFSup;
   float                  _event_weight_BtagFSdo;
   float                  _event_weight_Idisoup;
@@ -312,6 +319,8 @@ class AnalysisCMS : public AnalysisBase
   float                  _lep2motherid_gen;
   float                  _lep1mid;
   float	                 _lep2mid;
+  float                  _lep3mid;
+  float	                 _lep4mid;
   float                  _lep3id;
   float                  _lep3eta;
   float                  _lep3phi;

@@ -193,7 +193,8 @@ public :
    //   Float_t         pho_sietaieta;
    //   Float_t         predmet;
    //   Float_t         redmet;   
-   UInt_t          run;
+   UInt_t          run;   
+   Float_t         iRunPeriod;
    UInt_t          lumi;
    //UInt_t          event;
    Int_t          event;
@@ -324,7 +325,7 @@ public :
    //   Float_t         ootpup1;
    //   Float_t         ootpup2;
    //   Float_t         ootpup3;
-   //   Float_t         trpu;
+   Float_t         trpu;
    //   Int_t           bveto_ip;
    //   vector<float>   *std_vector_electron_ooEmooP;
    //   vector<float>   *std_vector_jet_puid;
@@ -691,6 +692,7 @@ public :
    //   TBranch        *b_predmet;   //!
    //   TBranch        *b_redmet;   //!
    TBranch        *b_run;   //!
+   TBranch        *b_iRunPeriod;   //!
    TBranch        *b_lumi;   //!
    TBranch        *b_event;   //!
    //   TBranch        *b_softbjpb;   //!
@@ -799,7 +801,7 @@ public :
    //   TBranch        *b_ootpup1;   //!
    //   TBranch        *b_ootpup2;   //!
    //   TBranch        *b_ootpup3;   //!
-   //   TBranch        *b_trpu;   //!
+   TBranch        *b_trpu;   //!
    //   TBranch        *b_bveto_ip;   //!
    //   TBranch        *b_std_vector_electron_ooEmooP;   //!
    //   TBranch        *b_std_vector_jet_puid;   //!
@@ -1432,6 +1434,7 @@ void AnalysisBase::Init(TTree *tree)
    //   fChain->SetBranchAddress("predmet", &predmet, &b_predmet);
    //   fChain->SetBranchAddress("redmet", &redmet, &b_redmet);
    fChain->SetBranchAddress("run", &run, &b_run);
+   fChain->SetBranchAddress("iRunPeriod", &iRunPeriod, &b_iRunPeriod);
    fChain->SetBranchAddress("lumi", &lumi, &b_lumi);
    fChain->SetBranchAddress("event", &event, &b_event);
    //   fChain->SetBranchAddress("softbjpb", &softbjpb, &b_softbjpb);
@@ -1540,7 +1543,7 @@ void AnalysisBase::Init(TTree *tree)
    //   fChain->SetBranchAddress("ootpup1", &ootpup1, &b_ootpup1);
    //   fChain->SetBranchAddress("ootpup2", &ootpup2, &b_ootpup2);
    //   fChain->SetBranchAddress("ootpup3", &ootpup3, &b_ootpup3);
-   //   fChain->SetBranchAddress("trpu", &trpu, &b_trpu);
+   fChain->SetBranchAddress("trpu", &trpu, &b_trpu);
    //   fChain->SetBranchAddress("bveto_ip", &bveto_ip, &b_bveto_ip);
    //   fChain->SetBranchAddress("std_vector_electron_ooEmooP", &std_vector_electron_ooEmooP, &b_std_vector_electron_ooEmooP);
    //   fChain->SetBranchAddress("std_vector_jet_puid", &std_vector_jet_puid, &b_std_vector_jet_puid);
