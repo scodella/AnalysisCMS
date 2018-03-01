@@ -4,22 +4,21 @@
 //------------------------------------------------------------------------------
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
-const Bool_t dosystematics = false;
+const Bool_t dosystematics = true;
 const Bool_t postfitplots = false;
-const Bool_t paperstyle = false;
+const Bool_t paperstyle = true;
 const Bool_t regionlegend = false;
-const Bool_t relativeratio = false;
+const Bool_t relativeratio = true;
 
-const TString inputdir  = "../minitrees/rootfiles/WZtoWW/";
+//const TString inputdir  = "../minitrees/rootfiles/WZtoWW/";
 //const TString inputdir  = "../minitrees/rootfiles/WZtoWWveto/";
 //const TString inputdir  = "../minitrees/rootfiles/nominal/";
-//const TString inputdir  = "../freezing_rootfiles/nominal/";
-//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
-//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
+const TString inputdir  = "../freezing_rootfiles/nominal/";
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
 
+const TString outputdir = "ForPaperTables_1March18/";
 //const TString outputdir = "Paperfigures_7Dec17/";
 //const TString outputdir = "DYcorr_ZZcorr_MT2ll/";
 //const TString outputdir = "DYcorr_MT2ll/";
@@ -28,7 +27,7 @@ const TString inputdir  = "../minitrees/rootfiles/WZtoWW/";
 //const TString outputdir = "PreapprovalTalk_Yieldls/";
 //const TString outputdir = "TBTHanns_ValidatSyst_YSF_22Nov17/";
 //const TString outputdir = "Paperfigures_22Nov17_DrawSign/";
-const TString outputdir = "Zpeak_WZtoWWmimc_Roberto/";
+//const TString outputdir = "Zpeak_WZtoWWmimc_Roberto/";
 //const TString outputdir = "LeptonPt_selection/";
 
 const TString signal = "";
@@ -111,7 +110,6 @@ void runPlotter(TString level,
   float SF_ttZ = 1., SF_ZMet = 1., SF_DY = 1., SF_WZ = 1.;
   if (!postfitplots && !inputdir.Contains("fake") && !inputdir.Contains("SS") && !inputdir.Contains("ttZ") && !inputdir.Contains("WZ3L")) {
     if (level.Contains("_SR") || level.Contains("_VRggg")) {// && inputdir.Contains("DYcorr"))) {
-    //if (level.Contains("_SR") || level.Contains("_VRggg") || level.Contains("_VR1")) {// && inputdir.Contains("DYcorr"))) {
       SF_ttZ = 1.44, SF_WZ = 0.97; 
       if (!postfitplots && !inputdir.Contains("Zpeakk") && !inputdir.Contains("ZZ")) {
 	if (level.Contains("NoJet")) {
@@ -303,38 +301,29 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "Postfit");
     } else {
       plotter.AddSystematic("Stop", "Statistics");
-      //plotter.AddSystematic("Stop", "Luminosity");
-      //plotter.AddSystematic("Stop", "Trigger");
+      plotter.AddSystematic("Stop", "Luminosity");
+      plotter.AddSystematic("Stop", "Trigger");
       plotter.AddSystematic("Stop", "MT2llTop");
       plotter.AddSystematic("Stop", "MT2llWW");
-      //plotter.AddSystematic("Stop", "Fake");
-      //std::cout << "1" << std::endl;
-      //plotter.AddSystematic("Stop", "Idiso");
-      //std::cout << "2" << std::endl;
-      //plotter.AddSystematic("Stop", "JES");
-      //std::cout << "3" << std::endl;
-      //plotter.AddSystematic("Stop", "MET");
-      //std::cout << "4" << std::endl;
-      //plotter.AddSystematic("Stop", "PDF");
-      //std::cout << "5" << std::endl;
-      //plotter.AddSystematic("Stop", "Q2");
-      //std::cout << "6" << std::endl;
-      //plotter.AddSystematic("Stop", "Reco");
-      //std::cout << "7" << std::endl;
-      //plotter.AddSystematic("Stop", "Toppt");
-      //std::cout << "8" << std::endl;
-      //plotter.AddSystematic("Stop", "Isrnjet");
-      //std::cout << "9" << std::endl;
-      //plotter.AddSystematic("Stop", "Metfastsim");
-      //plotter.AddSystematic("Stop", "Pileup");
-      ////plotter.AddSystematic("Stop", "Fastsim");
-      ////plotter.AddSystematic("Stop", "BtagFS");
-      //plotter.AddSystematic("Stop", "Btag");
-      //plotter.AddSystematic("Stop", "Btaglight");
-      //plotter.AddSystematic("Stop", "ttZSF");
-      //plotter.AddSystematic("Stop", "WZSF");
-     // plotter.AddSystematic("Stop", "ZZSF");
-     // plotter.AddSystematic("Stop", "ZZshape");
+      plotter.AddSystematic("Stop", "Fake");
+      plotter.AddSystematic("Stop", "Idiso");
+      plotter.AddSystematic("Stop", "JES");
+      plotter.AddSystematic("Stop", "MET");
+      plotter.AddSystematic("Stop", "PDF");
+      plotter.AddSystematic("Stop", "Q2");
+      plotter.AddSystematic("Stop", "Reco");
+      plotter.AddSystematic("Stop", "Toppt");
+      plotter.AddSystematic("Stop", "Isrnjet");
+      plotter.AddSystematic("Stop", "Metfastsim");
+      plotter.AddSystematic("Stop", "Pileup");
+      plotter.AddSystematic("Stop", "Fastsim");
+      plotter.AddSystematic("Stop", "BtagFS");
+      plotter.AddSystematic("Stop", "Btag");
+      plotter.AddSystematic("Stop", "Btaglight");
+      plotter.AddSystematic("Stop", "ttZSF");
+      plotter.AddSystematic("Stop", "WZSF");
+      plotter.AddSystematic("Stop", "ZZSF");
+      plotter.AddSystematic("Stop", "ZZshape");
       ////plotter.AddSystematic("Stop", "DYSF");
       plotter.AddSystematic("Stop", "DYshape");
       if (level.Contains("_SR")) plotter.AddSystematic("Stop", "DYnojet");
@@ -413,14 +402,6 @@ void runPlotter(TString level,
          std::cout << "   before plotter" << std::endl; 	  
 	  // Common histograms
 	  //--------------------------------------------------------------------
-	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
-          //plotter.Draw(prefix + "m2L" + suffix, "m_{" + sll + "}",  -1, 0, "GeV", linY);
-          //plotter.Draw(prefix + "m2L" + suffix, "m_{" + sll + "}",  -1, 0, "GeV", scale);
-	  plotter.Draw(prefix + "MET"            + suffix, sm,                                  1, 0, "GeV",  scale, true, 0,  400);
-	  plotter.Draw(prefix + "MET"            + suffix, sm,                                  1, 0, "GeV",  linY,  true, 0,  400);
-	  //plotter.Draw(prefix + "Lep1Pt"         + suffix, "leading lepton p_{T}",               5, 0, "GeV",  scale, true, 0,  250);
-	  //plotter.Draw(prefix + "Lep2Pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
          std::cout << "pass the plotter" << std::endl; 	  
 	  
 	  if (inputdir.Contains("/ttZ/")) {
@@ -432,6 +413,14 @@ void runPlotter(TString level,
 	    plotter.Draw(prefix + "M2ll"     + suffix, "m_{ll}",                                  4, 0, "GeV",  linY, false,  0,  180);
 	    continue;
 	  } 
+	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  //plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
+          //plotter.Draw(prefix + "m2L" + suffix, "m_{" + sll + "}",  -1, 0, "GeV", linY);
+          //plotter.Draw(prefix + "m2L" + suffix, "m_{" + sll + "}",  -1, 0, "GeV", scale);
+	  //plotter.Draw(prefix + "MET"            + suffix, sm,                                  1, 0, "GeV",  scale, true, 0,  400);
+	  //plotter.Draw(prefix + "MET"            + suffix, sm,                                  1, 0, "GeV",  linY,  true, 0,  400);
+	  //plotter.Draw(prefix + "Lep1Pt"         + suffix, "leading lepton p_{T}",               5, 0, "GeV",  scale, true, 0,  250);
+	  //plotter.Draw(prefix + "Lep2Pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
 	 /* plotter.Draw(prefix + "m2L" + suffix, "m_{" + sll + "}",  -1, 0, "GeV", linY);
 	  plotter.Draw(prefix + "lep1pt"         + suffix, "leading lepton p_{T}",              10, 0, "GeV",  scale, true, 0,  250);
 	  plotter.Draw(prefix + "lep2pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);

@@ -2163,7 +2163,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true,  _dotablebkg = true, _dotablesyst = true; _doPaperTable = true;
+  bool _verbose = false, _dotable = true,  _dotablebkg = true, _dotablesyst = true, _mergeNbins = true, _doPaperTable = true;
 
   float StatZero = 1.84102;
 
@@ -2177,10 +2177,12 @@ void HistogramReader::IncludeSystematics(TString hname)
   float errBackTab_do [nprocess][nbins+1]; 
   float errBackTab_up [nprocess][nbins+1];
   float errBackSystTab_do [nprocess][nsystematics][nbins+1]; 
-  float errBackSystTab_up [nprocess][nsystematics][nbins+1];  
+  float errBackSystTab_up [nprocess][nsystematics][nbins+1]; 
+  float _err2StatMerged[nprocess]; //merging the statistical error of n MT2ll bins   
   bool FirstSystematic[nprocess];
   bool _isPostfit = false;
   for (int k=0; k <nprocess; k++){
+    _err2StatMerged[k] = 0;
     FirstSystematic[k] = true;
     for (int j=1; j<=nbins; j++){ 
       yieldTab[k][j] = 0;
@@ -2298,13 +2300,20 @@ void HistogramReader::IncludeSystematics(TString hname)
 	     if (ApplyZeroStat && dummy0->GetEntries()>0.) 
 	        StatUncert2 = TMath::Power(StatZero*dummy0->Integral()/dummy0->GetEntries(), 2);
 	   }
-	   errBackTab_up[kproce][ibin] += StatUncert2;
-	   errBackTab_do[kproce][ibin] += StatUncert2;
-	   errBackSystTab_up[kproce][isyst][ibin] = sqrt(StatUncert2);
-	   errBackSystTab_do[kproce][isyst][ibin] = sqrt(StatUncert2);
-	   errSystUp [isyst][ibin] += StatUncert2;
-	   errSystDo [isyst][ibin] += StatUncert2;
+           if (_mergeNbins && ibin<=4)
+           {//merging the statistical error of 4 MT2ll first bins 
+              _err2StatMerged[kproce]+= StatUncert2;   
+            //...................................................
+           }else {
+	     errBackTab_up[kproce][ibin] += StatUncert2;
+	     errBackTab_do[kproce][ibin] += StatUncert2;
+	     errBackSystTab_up[kproce][isyst][ibin] = sqrt(StatUncert2);
+	     errBackSystTab_do[kproce][isyst][ibin] = sqrt(StatUncert2);
+	     errSystUp [isyst][ibin] += StatUncert2;
+	     errSystDo [isyst][ibin] += StatUncert2;
+            }
 	 }
+
 	 if (_systematics.at(isyst)=="Postfit") _isPostfit = true;
 	 myfile0->Close();
 	 continue;
@@ -2927,10 +2936,11 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (ThisLabel=="t#bar{t}") ThisLabel = "\\ttbar";
        /*inFile << ThisLabel;  */
        inFile << " & " << ThisLabel;  
-       //inFile << _mclabel[kproce].Data();     
+       //inFile << _mclabel[kproce].Data();
+       float ThisYield, ThisError;     
        for (int ibin=1; ibin<=nbins; ibin++) {
-	 float ThisYield = yieldTab[kproce][ibin];
-	 float ThisError = (sqrt(errBackTab_up[kproce][ibin])+sqrt(errBackTab_do[kproce][ibin]))/2.;
+	 ThisYield = yieldTab[kproce][ibin];
+	 ThisError = (sqrt(errBackTab_up[kproce][ibin])+sqrt(errBackTab_do[kproce][ibin]))/2.;
 	 FormatTableYields(&ThisYield, &ThisError);
 	 inFile << " & $" << ThisYield <<  " \\pm " << ThisError << "$";
        }
@@ -2990,6 +3000,82 @@ void HistogramReader::IncludeSystematics(TString hname)
      inFile << "\\end{center}" << endl;
      //inFile << "\\end{table}" << endl;
      */
+
+
+     
+      //Write table after merging the 4 first bins
+      //...............................................
+      if (_mergeNbins)
+       {
+        std::ofstream inFile("Tables/Yields" + TableFlag + "_Merged.tex",std::ios::out);
+        // Per process
+        for (int kproce=nprocess-1; kproce>=0; kproce--) {
+
+         TString ThisLabel = _mclabel[kproce].Data();
+         if (ThisLabel=="ZZ (#rightarrow 2l2#nu)") ThisLabel = "ZZ ($\\rightarrow 2\\ell 2\\nu$)";
+         if (ThisLabel=="t#bar{t}Z") ThisLabel = "\\ttZ";
+         if (ThisLabel=="WZ (#rightarrow 3l)") ThisLabel = "WZ ($\\rightarrow 3\\ell$)";
+         if (ThisLabel=="t#bar{t}") ThisLabel = "\\ttbar";
+         inFile << " & " << ThisLabel;
+         float thisMergedYield = 0;
+         float thisMergedError = 0, thisMergedError_up = _err2StatMerged[kproce], thisMergedError_do = _err2StatMerged[kproce];
+         for (int ibin=1; ibin<=4; ibin++)
+          {
+          thisMergedYield += yieldTab[kproce][ibin];
+          thisMergedError_up += errBackTab_up[kproce][ibin];
+          thisMergedError_do += errBackTab_do[kproce][ibin];
+          }
+         thisMergedError = (sqrt(thisMergedError_up) + sqrt(thisMergedError_do))/2.;
+         FormatTableYields(&thisMergedYield, &thisMergedError);
+         inFile << " & $" << thisMergedYield <<  " \\pm " << thisMergedError << "$";
+         for (int ibin=5; ibin<=nbins; ibin++) 
+          {
+            float ThisYield = yieldTab[kproce][ibin];
+            float ThisError = (sqrt(errBackTab_up[kproce][ibin])+sqrt(errBackTab_do[kproce][ibin]))/2.;
+            FormatTableYields(&ThisYield, &ThisError);
+            inFile << " & $" << ThisYield <<  " \\pm " << ThisError << "$";
+          }
+         inFile << " \\\\" << endl;
+         }
+         // Per total SM
+         inFile << " & SM Processes ";
+         float mergedSM = 0 ; float errMergedSM =0;
+         for (int ibin=1; ibin<=4; ibin++) 
+          {
+           mergedSM += y[ibin];
+           errMergedSM += _ErrorGr->GetErrorY(ibin);
+          }
+         FormatTableYields(&mergedSM, &errMergedSM);
+         inFile << " &  $" << mergedSM << " \\pm " << errMergedSM << "$"; 
+         for (int ibin=5; ibin<=nbins; ibin++)
+          {
+           float thisSMyield = y[ibin];  float thisSMerr = _ErrorGr->GetErrorY(ibin);
+           FormatTableYields(&thisSMyield, &thisSMerr);
+           inFile << " &  $" << thisSMyield << " \\pm " << thisSMerr << "$"; 
+          }  
+          inFile << " \\\\" << endl;
+          // For Data
+          if (_datahist) {
+            inFile << " & Data ";
+            float thisMergedData = 0;  
+            for (int ibin=1; ibin<=4; ibin++)
+             { 
+              thisMergedData += _datahist->GetBinContent(ibin);
+             }
+            
+            inFile << " & $" << thisMergedData << "$";
+            for (int ibin=5; ibin<=nbins; ibin++)
+             { 
+              inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
+             }
+            } 
+           inFile << " \\\\" << endl;
+           inFile << " \\hline" << endl;
+        }
+        //.................................................
+
+
+
      inFile.close();
    }
 

@@ -221,7 +221,6 @@ class AnalysisCMS : public AnalysisBase
   bool                   _applytopptreweighting;
   bool                   _applytriggeremulation;
 
-  TRandom3* _rand;
 
 
   TString                _analysis;
