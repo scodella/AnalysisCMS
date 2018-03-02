@@ -47,6 +47,10 @@ class HistogramReader
 			       const TString& label,
 			       Color_t        color);
 
+  void     AddPostfitSM       (const TString& filename,
+			       const TString& label,
+			       Color_t        color);
+
   void     AddProcess         (const TString& filename,
 			       const TString& label,
 			       Color_t        color,
@@ -246,6 +250,12 @@ class HistogramReader
   TH1*                  _postfithist;
   Color_t               _postfitcolor;
   TString               _postfitlabel;
+
+  TString 		_postfitSMfilename;
+  TFile*                _postfitSMfile;
+  TH1*                  _postfitSMhist;
+  Color_t               _postfitSMcolor;
+  TString               _postfitSMlabel;
 
   TString               _allmclabel;
 

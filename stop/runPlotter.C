@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
-const Bool_t dosystematics = false;
-const Bool_t postfitplots = false;
-const Bool_t paperstyle = false;
+const Bool_t dosystematics = true;
+const Bool_t postfitplots = true;
+const Bool_t paperstyle = true;
 const Bool_t regionlegend = true;
 const Bool_t relativeratio = true;
 
@@ -34,19 +34,19 @@ const Bool_t relativeratio = true;
 //const TString inputdir  = "../minitrees/rootfiles/ZpeakDYcorrections/";
 ////const TString inputdir  = "../minitrees/rootfilesOct17/WZtoWWveto/";
 //const TString inputdir  = "../minitrees/rootfilesFakePM/nominal/";
+//const TString inputdir  = "../minitrees/rootfilesNoTopPt/nominal/";
 //const TString inputdir  = "../minitrees/rootfilesFakePM/kinematiclowMet/";
-const TString inputdir  = "../minitrees/rootfilesFakePM/kinematic/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4WZ/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiSlep_Xm500_Xm200/Postfit/";
+//const TString inputdir  = "../minitrees/rootfiles/kinematic/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm100_Xm1/Postfit/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm125_Xm1/Postfit/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm150_Xm1/Postfit/";
 //const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm175_Xm1/Postfit/";
+const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "T2tt";
+//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "TChi";
 
 const TString outputdir = "figures/";
 
-const TString signal = "";
+//const TString signal = "";
 
 const TString sl  = "#font[12]{l}";
 const TString sll = "#font[12]{ll}";
@@ -158,10 +158,7 @@ void runPlotter(TString level,
   // Add processes
   //----------------------------------------------------------------------------
   if (paperstyle) {
-    //plotter.AddProcess("98_Others",    "Minor bkg.",      color_VVV);
-    plotter.AddProcess("15_VZ3V",      "VVV + VZ",      color_VVV);
-    plotter.AddProcess("09_TTW",       "t#bar{t}W",      color_TTV);
-    plotter.AddProcess("11_HWW",       "HWW",      color_HWW);
+    plotter.AddProcess("98_Others",    "Minor bkg.",      color_VVV);
     plotter.AddProcess("07_ZJetsHT" + DYCorr,     "Drell-Yan",   color_ZJets,  roc_background, SF_DY);
     plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
     plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
@@ -203,7 +200,7 @@ void runPlotter(TString level,
     plotter.AddProcess("05_ST",        "tW",       color_ST);
     plotter.AddProcess("07_ZJetsHT" + DYCorr,     "Z+jets",   color_ZJets,  roc_background, SF_DY);
     if (inputdir.Contains("SS")) plotter.AddProcess("TTToSemiLepton", "t#bar{t} Semilep.",  41, roc_background);
-    plotter.AddProcess("04_TTTo2L2Nu_NoTopPt", "t#bar{t}",       color_TTTo2L2Nu, roc_background);
+    plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu, roc_background);
     //else plotter.AddProcess("TTJets", "#bar{t}t",       color_TTTo2L2Nu);
     //if (inputdir.Contains("SS/")) plotter.AddProcess("WJetsToLNu", "WJets",      color_WJets);
     if (inputdir.Contains("/WZ")) plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",  color_WZTo3LNu,  roc_background, SF_WZ);
@@ -213,7 +210,8 @@ void runPlotter(TString level,
   if (postfitplots) {
     plotter.SetDynamicRatioAxis(true);
     plotter.AddPrefit("99_TotalBackground", "Pre-fit", 9);//color_Prefit);
-    plotter.AddPostfit("99_TotalBackground", "Post-fit", kRed+2);
+    plotter.AddPostfit("00_Total", "Post-fit", kRed+2);
+    plotter.AddPostfitSM("99_TotalBackground", "Post-fit", kRed+4);
   }
   
   if (signal=="T2tt") {
@@ -428,10 +426,13 @@ void runPlotter(TString level,
 	  //plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
 	  if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	  if (inputdir.Contains("Oct17/nominal/")) continue;
+	  if (inputdir.Contains("rootfiles/nominal/")) continue;
 	  if (dosystematics /*|| inputdir.Contains("rootfilesOct17")*/) continue;
 	  int METrebin = 2;
-	  if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ")) METrebin = 4;
+	  if (level.Contains("01_")) METrebin = 1;
+	  else if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ")) METrebin = 4;
 	  plotter.Draw(prefix + "MET"     + suffix, sm,                             METrebin, 0, "GeV",  scale, true, 0,  400);
+	  //plotter.Draw(prefix + "mt2ll"   + suffix, "M_{T2}(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);continue;
 	  if (inputdir.Contains("gkinematic")) {
 	    plotter.Draw(prefix + "dphiisrmet"         + suffix, "#Delta#phi(ISR jet," + sm + ")",             8, 0, "NULL", linY, false);
 	  }
@@ -462,7 +463,6 @@ void runPlotter(TString level,
 	  //continue;
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
 	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
-	  //plotter.Draw(prefix + "mt2ll"   + suffix, "M_{T2}(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);
 	  //continue;
 	  
 	  if (inputdir.Contains("../rootfiles/nominal")) {

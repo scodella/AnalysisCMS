@@ -39,6 +39,8 @@ HistogramReader::HistogramReader(const TString& inputdir,
   _prefithist = NULL;
   _postfitfile = NULL;
   _postfithist = NULL;
+  _postfitSMfile = NULL;
+  _postfitSMhist = NULL;
 
   TH1::SetDefaultSumw2();
 }
@@ -117,6 +119,30 @@ void HistogramReader::AddPostfit(const TString& filename,
 
 
 //------------------------------------------------------------------------------
+// AddPostfitSM
+//------------------------------------------------------------------------------
+void HistogramReader::AddPostfitSM(const TString& filename,
+				   const TString& label,
+				   Color_t        color)
+{
+  TString fullname = _inputdir + "/" + filename + ".root";
+ 
+  if (gSystem->AccessPathName(fullname))
+    {
+      printf(" [HistogramReader::AddPostfit] Cannot access %s\n", fullname.Data());
+      return;
+    }
+
+  TFile* file = new TFile(fullname, "read");
+
+  _postfitSMcolor    = color;
+  _postfitSMfile     = file;
+  _postfitSMfilename = filename;
+  _postfitSMlabel    = label;
+}
+
+
+//------------------------------------------------------------------------------
 // AddProcess
 //------------------------------------------------------------------------------
 void HistogramReader::AddProcess(const TString& filename,
@@ -167,7 +193,7 @@ void HistogramReader::AddSignal(const TString& filename,
 				Float_t        scale)
 {
   TString fullname = _inputdir + "/" + filename + ".root";
-  fullname.ReplaceAll("FakePM", "Oct17");
+  fullname.ReplaceAll("NoTopPt", "Oct17");
  
   if (gSystem->AccessPathName(fullname))
     {
@@ -677,7 +703,7 @@ void HistogramReader::Draw(TString hname,
     if (regionTitle=="VR1") regionTitle = "100<#font[50]{p}_{T}^{miss}<140 GeV  ";
     if (regionTitle=="ttZ") regionTitle = " t#bar{t}Z CR  ";
     if (regionTitle=="VZ/h") regionTitle = " 3 leptons CR  ";
-    if (_inputdir.Contains("Full")) {
+    if (_inputdir.Contains("Full") || _inputdir.Contains("kinematic")) {
       if (hname.Contains("/01_NoTag")) regionTitle = "2 leptons + Z veto + 0 b-tag"; 
       if (hname.Contains("/01_Tag")) regionTitle = "2 leptons + Z veto + #geq 1 b-tag"; 
     } else if (_inputdir.Contains("lowMet")) {
@@ -865,7 +891,7 @@ void HistogramReader::Draw(TString hname,
 	}*/
       ratio->Draw("ep");
       //if (hname.Contains("MT2ll_ll") && hname.Contains("SR"))
-      //ratio->Fit("pol0", "", "", 0., 120.);
+	//ratio->Fit("pol0", "", "", 0., 120.);
 
       ymax = ceil(10*(ymax+0.05))/10.;
       ymin = floor(10*(ymin-0.05))/10.;
@@ -2060,7 +2086,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = false, _dotablebkg = false, _dotablesyst = true;
+  bool _verbose = false, _dotable = true, _dotablebkg = false, _dotablesyst = true;
 
   float StatZero = 1.84102;
 
@@ -2265,7 +2291,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	     else if (hname.Contains("NoTag")) errSF = 0.17;
 	     else errSF = 0.12;
 	   } else if (_systematics.at(isyst)=="DYSF") errSF = 0.64;
-	   else if (_systematics.at(isyst)=="DYnojet") errSF = 4.;
+	   else if (_systematics.at(isyst)=="DYnojet") errSF = 1.;
 	   for (int ibin=1; ibin<=nbins; ibin++) {
 	     float relErr = errSF;
 	     if (_mcscale[kproce]>0.) relErr /= _mcscale[kproce];
@@ -2350,8 +2376,10 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 if (dummy0->GetBinContent(ibin)<0.) dummy0->SetBinContent(ibin, 0.001);
 	 if (dummy1->GetBinContent(ibin)<0.) dummy1->SetBinContent(ibin, 0.001);
 	 if (dummy2->GetBinContent(ibin)<0.) dummy2->SetBinContent(ibin, 0.001);
-         errSystUp [isyst][ibin] += (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
-         errSystDo [isyst][ibin] += (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)); 
+	 float VarUp = (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
+	 float VarDo = (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
+         errSystUp [isyst][ibin] += VarUp;
+         errSystDo [isyst][ibin] += VarDo; 
 	 
 	 if (hname.Contains("VR1") && bckName.Contains("07_ZJets"))
 	   if (_systematics.at(isyst)!="JESa" || (_systematics.at(isyst)=="MET")) {
@@ -2360,8 +2388,6 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   }
 
 	 float ErrUp = 0., ErrDo = 0.; 
-	 float VarUp = (dummy1->GetBinContent(ibin) - dummy0->GetBinContent(ibin));
-	 float VarDo = (dummy2->GetBinContent(ibin) - dummy0->GetBinContent(ibin)); 
 	 if (VarDo<=0. && VarUp>=0.) {
 	   ErrUp = VarUp;
 	   ErrDo = VarDo;
@@ -2430,7 +2456,7 @@ void HistogramReader::IncludeSystematics(TString hname)
    for (int kproce=0; kproce<nsignals; kproce++) {
 
      TString signalName = _inputdir + "/" + _signalfilename.at(kproce);
-     signalName.ReplaceAll("FakePM", "Oct17");
+     signalName.ReplaceAll("NoTopPt", "Oct17");
      TFile* myfile0 = TFile::Open(signalName + ".root");
 
      TH1D* dummy0 = GetHistogram(myfile0, hsigname);//(TH1D*)myfile0->Get( hsigname );
@@ -2531,8 +2557,8 @@ void HistogramReader::IncludeSystematics(TString hname)
        } else {
 	 FileUpName = _inputdir + "/../../" + _systematics.at(isyst) + "up/" + _analysis + "/" + _signalfilename.at(kproce) + ".root";
 	 FileDoName = _inputdir + "/../../" + _systematics.at(isyst) + "do/" + _analysis + "/" + _signalfilename.at(kproce) + ".root";
-	 FileUpName.ReplaceAll("FakePM", "Oct17");
-	 FileDoName.ReplaceAll("FakePM", "Oct17");
+	 FileUpName.ReplaceAll("NoTopPt", "Oct17");
+	 FileDoName.ReplaceAll("NoTopPt", "Oct17");
 	 }
        TFile* myfile1 = TFile::Open(FileUpName);
        TFile* myfile2 = TFile::Open(FileDoName);
@@ -2757,7 +2783,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 else if (_systematics.at(isyst)=="Luminosity") thiserror = errLumi [ibin];
 	 else if (_systematics.at(isyst)=="Trigger") thiserror = errTrig [ibin];
 	 else {
-	   thiserror = (errSystUp[isyst][ibin]>errSystDo[isyst][ibin]) ? errSystUp[isyst][ibin] : errSystDo[isyst][ibin];
+	   thiserror = (fabs(errSystUp[isyst][ibin])>fabs(errSystDo[isyst][ibin])) ? fabs(errSystUp[isyst][ibin]) : fabs(errSystDo[isyst][ibin]);
 	 }
 	 infile << " " << 100.*fabs(thiserror/_allmchist ->GetBinContent(ibin));
 	 
@@ -2798,7 +2824,7 @@ void HistogramReader::IncludeSystematics(TString hname)
      // Process | nbins = 7;    
 
      //inFile << "\\begin{table}[htb]" << endl;
-     /*
+     
      inFile << "\\tiny" << endl;
      inFile << "\\begin{center}" << endl;
      inFile << "\\begin{tabular}{|l|ccccccc|}" << endl;
@@ -2811,17 +2837,17 @@ void HistogramReader::IncludeSystematics(TString hname)
        inFile <<  (ibin-1)*20 <<"-"<< ibin*20 << "~\\GeV & ";
      inFile << "$\\ge$ " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
      inFile << "\\hline" << endl;
-     */
-     //for (int kproce=0; kproce<nprocess; kproce++) {  
-     for (int kproce=nprocess-1; kproce>=0; kproce--) {       
+     
+     for (int kproce=0; kproce<nprocess; kproce++) {  
+     //for (int kproce=nprocess-1; kproce>=0; kproce--) {       
        TString ThisLabel = _mclabel[kproce].Data();
-       //ThisLabel.ReplaceAll("#", "\\");
+       ThisLabel.ReplaceAll("#", "\\");
        if (ThisLabel=="ZZ (#rightarrow 2l2#nu)") ThisLabel = "ZZ ($\\rightarrow 2\\ell 2\\nu$)";
        if (ThisLabel=="t#bar{t}Z") ThisLabel = "\\ttZ";
        if (ThisLabel=="WZ (#rightarrow 3l)") ThisLabel = "WZ ($\\rightarrow 3\\ell$)";
        if (ThisLabel=="t#bar{t}") ThisLabel = "\\ttbar";
-       /*inFile << ThisLabel;  */
-       inFile << " & " << ThisLabel;  
+       inFile << "$" << ThisLabel << "$";  
+       //inFile << " & " << ThisLabel;  
        //inFile << _mclabel[kproce].Data();     
        for (int ibin=1; ibin<=nbins; ibin++) {
 	 float ThisYield = yieldTab[kproce][ibin];
@@ -2831,8 +2857,8 @@ void HistogramReader::IncludeSystematics(TString hname)
        }
        inFile << " \\\\" << endl;
      }
-     /*     inFile << "\\hline" << endl;*/
-     inFile << " & SM Processes ";
+     inFile << "\\hline" << endl;
+     inFile << "SM Processes ";
      for (int ibin=1; ibin<=nbins; ibin++) {
        float ThisYield = y[ibin];
        float ThisError = _ErrorGr->GetErrorY(ibin);
@@ -2840,22 +2866,22 @@ void HistogramReader::IncludeSystematics(TString hname)
        inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
      }
      inFile << " \\\\" << endl;
-     /*
-     if (_postfithist) {
+     
+     if (_postfitSMhist) {
        TString addLeg = (hname.Contains("fit_s_")) ? " (only-b) " : "(Fit b+s) ";
        inFile << "SM Processes " << addLeg;
        for (int ibin=1; ibin<=nbins; ibin++) {
-	 float ThisYield = _postfithist->GetBinContent(ibin);
-	 float ThisError = _postfithist->GetBinError(ibin);
+	 float ThisYield = _postfitSMhist->GetBinContent(ibin);
+	 float ThisError = _postfitSMhist->GetBinError(ibin);
 	 FormatTableYields(&ThisYield, &ThisError);
-	 inFile << " &  $" << ThisYield << " \\pm " << ThisError << "$";
+	 inFile << "$" << ThisYield << " \\pm " << ThisError << "$";
        }
        inFile << " \\\\" << endl;
      }
      inFile << " \\hline" << endl;
-     */
+     
      if (_datahist) {
-       inFile << " & Data ";
+       inFile << " Data ";
        for (int ibin=1; ibin<=nbins; ibin++)
 	 if (_datahist)
 	   inFile << " & $" << _datahist->GetBinContent(ibin) << "$";
@@ -2865,7 +2891,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        inFile << " \\\\" << endl;
        inFile << " \\hline" << endl;
      }
-     /*
+     
      for (int kproce=0; kproce<nsignals; kproce++) {
        TString ThisLabel = _signallabel[kproce].Data();
        ThisLabel.ReplaceAll("m_{#tilde{t}}=", "");
@@ -2884,7 +2910,7 @@ void HistogramReader::IncludeSystematics(TString hname)
      inFile << "\\end{tabular}" << endl;
      inFile << "\\end{center}" << endl;
      //inFile << "\\end{table}" << endl;
-     */
+     
      inFile.close();
    }
 
