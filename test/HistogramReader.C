@@ -2163,7 +2163,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true,  _dotablebkg = true, _dotablesyst = true, _mergeNbins = true, _doPaperTable = true;
+  bool _verbose = false, _dotable = true,  _dotablebkg = true, _dotablesyst = true, _mergeNbins = false, _doPaperTable = false;
 
   float StatZero = 1.84102;
 
