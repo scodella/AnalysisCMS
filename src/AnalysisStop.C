@@ -461,15 +461,18 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     _event_weight_Fakeup = _event_weight;
     _event_weight_Fakedo = _event_weight;
     bool _applyFakeRateCorrection = _ismc && !_isfastsim;
-    if (_systematic.Contains("SS") || _systematic.Contains("fake") || _systematic.Contains("kinematic")) _applyFakeRateCorrection = false; 
+    if (_systematic.Contains("SS") || _systematic.Contains("fake") || _systematic.Contains("kinematic") || _systematic.Contains("Zpeak")) _applyFakeRateCorrection = false; 
     if (_nLeptonsMatched<2) {
       float fakeRateUp = 1.5;
       float fakeRateDo = 0.5;
       if (_applyFakeRateCorrection && !_saveminitree) {
 	cout << " Applying fake rescaling " << endl;
-	float fakeRateCorrection = 1.135;
-	fakeRateUp = 1.32;
-	fakeRateDo = 0.95;
+	//float fakeRateCorrection = 1.135;
+	//fakeRateUp = 1.32;
+	//fakeRateDo = 0.95;
+	float fakeRateCorrection = 1.08;
+	fakeRateUp = 1.29;
+	fakeRateDo = 0.87;
 	_event_weight *= fakeRateCorrection;
 	_event_weight_Btagup     *= fakeRateCorrection; 
 	_event_weight_Btagdo     *= fakeRateCorrection;
@@ -688,7 +691,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     
     if (_leadingPtCSVv2M <  20.) {
       FillLevelHistograms(Stop_02_VR1_NoTag,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_blind && pass_masspoint);
-      if (njet<1) FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
+      int _nvr1jet = (_systematic.Contains("nominal") || _systematic.Contains("kinematic")) ? njet : _njet;
+      if (_nvr1jet<1) FillLevelHistograms(Stop_02_VR1_NoJet,   pass && (MET.Et()>=100. && MET.Et()<140.) && pass_masspoint);
     }
 
     if (_njet<1) {
@@ -849,6 +853,7 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_Jet1Pt            [i][j][k] = new TH1D("h_Jet1Pt"             + suffix, "",  2000,    0, 2000);
 	h_Jet2Pt            [i][j][k] = new TH1D("h_Jet2Pt"             + suffix, "",  2000,    0, 2000);
 	h_JetPt             [i][j][k] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
+	h_mt2LL             [i][j][k] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
 
 	h_MT2ll_MET         [i][j][k] = new TH2F("h_MT2ll_MET"          + suffix, "",   80,    0,  800,    7,    0,  140);
 
@@ -1281,6 +1286,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_Jet1Pt           [ichannel][icut][ijet]->Fill(jetpt1,         _event_weight);
   h_Jet2Pt           [ichannel][icut][ijet]->Fill(jetpt2,         _event_weight);
   for (int ij = 0; ij<_jet_pt.size(); ij++) h_JetPt[ichannel][icut][ijet]->Fill(_jet_pt.at(ij), _event_weight);
+  h_mt2LL            [ichannel][icut][ijet]->Fill(_mt2ll,         _event_weight);
 
   h_MT2ll_MET        [ichannel][icut][ijet]->Fill(MET.Et(),  _MT2ll,      _event_weight);
 
@@ -13632,6 +13638,46 @@ void AnalysisStop::SetSUSYProductionMap() {
     StopCrossSection cs263 (0.0143134*0.10497000068426132, 0.00132368*0.10497000068426132);
     MassPointParameters mpp263 (cs263, 10804);
     StopNeutralinoMap.insert(std::make_pair(mp263, mpp263));
+   
+    MassPoint mp264 (138, 1);
+    StopCrossSection cs264 (3.54133*0.10497000068426132, 0.180938*0.10497000068426132);
+    MassPointParameters mpp264 (cs264, 17962);
+    StopNeutralinoMap.insert(std::make_pair(mp264, mpp264));
+
+    MassPoint mp265 (163, 1);
+    StopCrossSection cs265 (1.92616*0.10497000068426132, 0.105142*0.10497000068426132);
+    MassPointParameters mpp265 (cs265, 17342);
+    StopNeutralinoMap.insert(std::make_pair(mp265, mpp265));
+
+    MassPoint mp266 (188, 1);
+    StopCrossSection cs266 (1.13664*0.10497000068426132, 0.0658326*0.10497000068426132);
+    MassPointParameters mpp266 (cs266, 16744);
+    StopNeutralinoMap.insert(std::make_pair(mp266, mpp266));
+
+    MassPoint mp267 (213, 1);
+    StopCrossSection cs267 (0.712826*0.10497000068426132, 0.043494*0.10497000068426132);
+    MassPointParameters mpp267 (cs267, 16242);
+    StopNeutralinoMap.insert(std::make_pair(mp267, mpp267));
+
+    MassPoint mp268 (238, 1);
+    StopCrossSection cs268 (0.467991*0.10497000068426132, 0.0299163*0.10497000068426132);
+    MassPointParameters mpp268 (cs268, 15406);
+    StopNeutralinoMap.insert(std::make_pair(mp268, mpp268));
+
+    MassPoint mp269 (263, 1);
+    StopCrossSection cs269 (0.3186*0.10497000068426132, 0.0212679*0.10497000068426132);
+    MassPointParameters mpp269 (cs269, 15299);
+    StopNeutralinoMap.insert(std::make_pair(mp269, mpp269));
+
+    MassPoint mp270 (288, 1);
+    StopCrossSection cs270 (0.223431*0.10497000068426132, 0.0155324*0.10497000068426132);
+    MassPointParameters mpp270 (cs270, 14358);
+    StopNeutralinoMap.insert(std::make_pair(mp270, mpp270));
+
+    MassPoint mp271 (338, 1);
+    StopCrossSection cs271 (0.117816*0.10497000068426132, 0.00882081*0.10497000068426132);
+    MassPointParameters mpp271 (cs271, 14750);
+    StopNeutralinoMap.insert(std::make_pair(mp271, mpp271));
 
     MassPoint mpisr0 (100, 1);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979482));
@@ -14424,6 +14470,30 @@ void AnalysisStop::SetSUSYProductionMap() {
 
     MassPoint mpisr263 (550, 300);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr263, 0.96469));
+
+    MassPoint mpisr264 (138, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr264, 0.975039));
+
+    MassPoint mpisr265 (163, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr265, 0.973112));
+
+    MassPoint mpisr266 (188, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr266, 0.97141));
+
+    MassPoint mpisr267 (213, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr267, 0.970069));
+
+    MassPoint mpisr268 (238, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr268, 0.969403));
+
+    MassPoint mpisr269 (263, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr269, 0.967779));
+
+    MassPoint mpisr270 (288, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr270, 0.967523));
+
+    MassPoint mpisr271 (338, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr271, 0.966524));
 
   } else  if (SUSYProductionProcess=="TChiStau") {
 
