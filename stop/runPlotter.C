@@ -22,7 +22,7 @@ const Bool_t relativeratio = true;
 //const TString inputdir  = "../rootfiles/SSp/";
 //const TString inputdir  = "../rootfiles/SSm/";
 //const TString inputdir  = "../minitrees/rootfiles/ttZalexis/";
-//const TString inputdir  = "../minitrees/rootfiles/WZ3L/";
+//const TString inputdir  = "../minitrees/rootfilesOct17/WZ3L/";
 //const TString inputdir  = "../minitrees/rootfiles/ttZWZ3LNoMetCut/";
 //const TString inputdir  = "../minitrees/rootfiles/ZZ/";
 //const TString inputdir  = "../minitrees/rootfiles3R/ZpeakkfM/";
@@ -35,14 +35,15 @@ const Bool_t relativeratio = true;
 ////const TString inputdir  = "../minitrees/rootfilesOct17/WZtoWWveto/";
 //const TString inputdir  = "../minitrees/rootfilesFakePM/nominal/";
 //const TString inputdir  = "../minitrees/rootfilesNoTopPt/nominal/";
+//const TString inputdir  = "../minitrees/rootfilesCWR/nominal/";
+//const TString inputdir  = "../minitrees/rootfilesOct17/CWRkinematic/";
 //const TString inputdir  = "../minitrees/rootfilesFakePM/kinematiclowMet/";
 //const TString inputdir  = "../minitrees/rootfiles/kinematic/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm100_Xm1/Postfit/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm125_Xm1/Postfit/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm150_Xm1/Postfit/";
-//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitV4/MassPointChiWW_Xm175_Xm1/Postfit/";
-const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "T2tt";
-//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "TChi";
+//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsTChiWWint/MassPointChiWW_mChi1_Xm288_Xm1/Postfit/";
+//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsPostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "T2tt";
+//const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "T2tt";
+const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "TChi";
+//const TString inputdir  = "../../PlotsConfigurations/Configurations/T2tt/DatacardsTChiWWPostfitZeroStat2/MassPointChiWW_Xm100_Xm1/Postfit/"; const TString signal = "TChiWWlow";
 
 const TString outputdir = "figures/";
 
@@ -50,7 +51,9 @@ const TString outputdir = "figures/";
 
 const TString sl  = "#font[12]{l}";
 const TString sll = "#font[12]{ll}";
-const TString sm  = "E_{T}^{miss}";
+const TString sm  = "#font[50]{p}_{T}^{miss}";
+const TString pt  = "#font[50]{p}_{T}";
+const TString mt2 = "#font[50]{M}_{T2}";
 
 enum {linY, logY};
 
@@ -105,7 +108,8 @@ void runPlotter(TString level,
   plotter.SetPublicStyle(false);
   if (paperstyle) {
     plotter.SetSavePdf(true); 
-    //plotter.SetIsPreliminary(false);
+    plotter.SetIsPreliminary(false);
+    //plotter.SetDynamicRatioAxis(true);
   }
   if (regionlegend) plotter.SetDrawRegionLegend(true);
 
@@ -145,7 +149,8 @@ void runPlotter(TString level,
   if (!level.Contains("_SR")) DYCorr = "";
   if (inputdir.Contains("/WZ") || inputdir.Contains("fake") || inputdir.Contains("SS") || 
       inputdir.Contains("ttZ") || inputdir.Contains("/ZZ") || inputdir.Contains("/Zpeak") ||
-      inputdir.Contains("Full")) DYCorr = "";
+      inputdir.Contains("Full") || inputdir.Contains("kinematic")) DYCorr = "";
+  if (inputdir.Contains("CWR")) DYCorr = "_DYcorr";
 
   if (level.Contains("_DYnorm")) {
     SF_DY = 0.683211799801126896;
@@ -155,17 +160,23 @@ void runPlotter(TString level,
     level.ReplaceAll("_DYcorrVR1norm", "");
   }
 
+  TString TopPt = "_NoTopPt";
+  if (postfitplots) TopPt = "";
+
+  
+  std::cout << "DYCorr = " << DYCorr << " TopPt = " << TopPt << std::endl;
+
   // Add processes
   //----------------------------------------------------------------------------
   if (paperstyle) {
     plotter.AddProcess("98_Others",    "Minor bkg.",      color_VVV);
-    plotter.AddProcess("07_ZJetsHT" + DYCorr,     "Drell-Yan",   color_ZJets,  roc_background, SF_DY);
+    plotter.AddProcess("07_ZJetsHT" + DYCorr + "_bis",     "Drell-Yan",   color_ZJets,  roc_background, SF_DY);
     plotter.AddProcess("03_ZZ",        "ZZ (#rightarrow 2l2#nu)",   color_VZ, roc_background, SF_ZMet);
     plotter.AddProcess("10_TTZ",       "t#bar{t}Z",      color_TTZ,  roc_background, SF_ttZ);
     plotter.AddProcess("02_WZTo3LNu",  "WZ (#rightarrow 3l)",  color_WZTo3LNu,  roc_background, SF_WZ);
     plotter.AddProcess("06_WW",        "WW",       color_WW, roc_background);
     plotter.AddProcess("05_ST",        "tW",       color_ST);
-    plotter.AddProcess("04_TTTo2L2Nu", "t#bar{t}",       color_TTTo2L2Nu, roc_background);
+    plotter.AddProcess("04_TTTo2L2Nu" + TopPt, "t#bar{t}",       color_TTTo2L2Nu, roc_background);
   } else {
     //plotter.AddProcess("16_tZq",      "tZq",      49);
     //plotter.AddProcess("16_STs",      "ST s-ch.",      49);
@@ -208,15 +219,15 @@ void runPlotter(TString level,
   }
 
   if (postfitplots) {
-    plotter.SetDynamicRatioAxis(true);
+    //plotter.SetDynamicRatioAxis(true);
     plotter.AddPrefit("99_TotalBackground", "Pre-fit", 9);//color_Prefit);
-    plotter.AddPostfit("00_Total", "Post-fit", kRed+2);
-    plotter.AddPostfitSM("99_TotalBackground", "Post-fit", kRed+4);
+    plotter.AddPostfit("00_Total", "Post-fit", 2);//kRed+2);
+    plotter.AddPostfitSM("99_TotalBackground", "Post-fit", 2);//kRed+4);
   }
   
   if (signal=="T2tt") {
     
-    if (postfitplots) {
+    if (paperstyle) {
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", STP+" "+STP+",   "+STP+"#rightarrow t"+LSP+",   (m_{"+STP+"} = 350 GeV,  m_{"+LSP+"} = 225 GeV)",kViolet);
     } else {
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
@@ -228,7 +239,7 @@ void runPlotter(TString level,
     
   } else if (signal=="TChi") {
 
-    if (postfitplots) {
+    if (paperstyle) {
       if (inputdir.Contains("Xm500_Xm200"))
 	plotter.AddSignal("TChiSlep_Xm500_Xm200", CHR+CHR+",   "+CHR+"#rightarrow l#nu"+LSP+",   (m_{"+CHR+"} = 500 GeV,  m_{"+LSP+"} = 200 GeV)", kViolet);
       else if (inputdir.Contains("Xm100_Xm1"))
@@ -239,6 +250,8 @@ void runPlotter(TString level,
 	plotter.AddSignal("TChiWW_Xm150_Xm1", CHR+CHR+",   "+CHR+"#rightarrow W"+LSP+",   (m_{"+CHR+"} = 150 GeV,  m_{"+LSP+"} = 1 GeV)", kViolet);
       else if (inputdir.Contains("Xm175_Xm1"))
 	plotter.AddSignal("TChiWW_Xm175_Xm1", CHR+CHR+",   "+CHR+"#rightarrow W"+LSP+",   (m_{"+CHR+"} = 175 GeV,  m_{"+LSP+"} = 1 GeV)", kViolet);
+      else 
+	plotter.AddSignal("TChiSlep_Xm500_Xm200", CHR+CHR+",   "+CHR+"#rightarrow l#nu"+LSP+",   (m_{"+CHR+"} = 500 GeV,  m_{"+LSP+"} = 200 GeV)", kViolet);
     } else {
       plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
       plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
@@ -258,6 +271,32 @@ void runPlotter(TString level,
     //plotter.AddSignal("TChiSlep_Xm200_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,1)", kBlue);
     //plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kCyan);
 
+  } else if (signal=="TChiWWlow") {
+
+    plotter.AddSignal("TChiWW_all_Xm100_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (100, 1)", kRed);
+    plotter.AddSignal("TChiWW_mChi1bis_Xm113_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (113, 1)", kCyan);
+    plotter.AddSignal("TChiWW_Xm125_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (125, 1)", kViolet);
+    plotter.AddSignal("TChiWW_mChi1_Xm138_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (138, 1)", kGreen+3);
+    //plotter.AddSignal("TChiWW_Xm150_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (150, 1)", kGreen);
+    //plotter.AddSignal("TChiWW_Xm175_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (175, 1)", kBlue);
+    //plotter.AddSignal("TChiWW_Xm200_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 1)", kCyan);
+   
+  } else if (signal=="TChiWWint") {
+
+    plotter.AddSignal("TChiWW_mChi1_Xm238_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (238, 1)", kRed);
+    plotter.AddSignal("TChiWW_Xm250_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (250, 1)", kViolet);
+    plotter.AddSignal("TChiWW_mChi1_Xm263_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (263, 1)", kGreen+3);
+    plotter.AddSignal("TChiWW_Xm275_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (275, 1)", kGreen);
+    plotter.AddSignal("TChiWW_mChi1_Xm288_Xm1", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (288, 1)", kBlue);
+   
+  }else if (signal=="TChiSleplow") {
+
+    plotter.AddSignal("TChiSlep_Xm200_Xm100",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,100)", kRed);
+    plotter.AddSignal("TChiSlep_Xm200_Xm125", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,125)", kViolet);
+    plotter.AddSignal("TChiSlep_Xm250_Xm125", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (250,125)", kOrange);
+    plotter.AddSignal("TChiSlep_Xm250_Xm150",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (250, 150)", kBlue);
+    plotter.AddSignal("TChiSlep_Xm300_Xm175", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,175)", kCyan);
+   
   }
   
   if (inputdir.Contains("rootfiles/nominalX")) {
@@ -327,18 +366,19 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "ttZSF");
       plotter.AddSystematic("Stop", "WZSF");
       plotter.AddSystematic("Stop", "ZZSF");
-      plotter.AddSystematic("Stop", "ZZshape");
+      if (!inputdir.Contains("rootfilesCWR")) plotter.AddSystematic("Stop", "ZZshape");
       ////plotter.AddSystematic("Stop", "DYSF");
       plotter.AddSystematic("Stop", "DYshape");
       if (level.Contains("_SR")) plotter.AddSystematic("Stop", "DYnojet");
       ////plotter.AddSystematic("Stop", "normWZ");
-      ////plotter.AddSystematic("Stop", "normWW");
-      ///plotter.AddSystematic("Stop", "normTtbar");
-      ///plotter.AddSystematic("Stop", "normTW");
+      if (inputdir.Contains("rootfilesCWR")) plotter.AddSystematic("Stop", "normWW");
+      if (inputdir.Contains("rootfilesCWR")) plotter.AddSystematic("Stop", "normTtbar");
+      if (inputdir.Contains("rootfilesCWR")) plotter.AddSystematic("Stop", "normTW");
       plotter.AddSystematic("Stop", "normDY");
       ///plotter.AddSystematic("Stop", "normTTW");
       ///plotter.AddSystematic("Stop", "normHWW");
       ///plotter.AddSystematic("Stop", "normVVV");
+      ////plotter.AddSystematic("Stop", "Muscale");
     }
   }
   
@@ -377,19 +417,22 @@ void runPlotter(TString level,
 	  if (inputdir.Contains("/Zpeak")) 
 	    if (suffix=="_sf" || suffix=="_em") continue;
 
+	  if (inputdir.Contains("CWR")) 
+	    if (suffix=="_ee" || suffix=="_mm") continue;
+
 	  //if (suffix!="_ll") continue;
 
 	  plotter.SetTitle(title);
 	  
 	  if (postfitplots) {
 	    if (level.Contains("_SR3") && !inputdir.Contains("MassPointChi")) {
-	      plotter.Draw(prefix + "MT2llisr_prefit"     + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	      plotter.Draw(prefix + "MT2llisr_fit_b"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	      plotter.Draw(prefix + "MT2llisr_fit_s"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2llisr_prefit"     + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2llisr_fit_b"      + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2llisr_fit_s"      + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	    } else {
-	      plotter.Draw(prefix + "MT2ll_prefit"     + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	      plotter.Draw(prefix + "MT2ll_fit_b"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	      plotter.Draw(prefix + "MT2ll_fit_s"      + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2ll_prefit"     + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2ll_fit_b"      + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	      plotter.Draw(prefix + "MT2ll_fit_s"      + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	    }
 	    continue;
 	  }
@@ -422,51 +465,67 @@ void runPlotter(TString level,
 	  plotter.Draw(prefix + "lep1phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
 	  plotter.Draw(prefix + "lep2phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
 	  plotter.Draw(prefix + "nvtx"           + suffix, "number of vertices",                -1, 0, "NULL", scale, true, 0,   30);*/
-	  plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	  //plotter.Draw(prefix + "MT2ll"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
-	  if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  plotter.Draw(prefix + "MT2ll"        + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  //plotter.Draw(prefix + "MT2ll"        + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  linY, false, 0, 140);
+	  if (level.Contains("_SR3") && signal=="T2tt")  plotter.Draw(prefix + "MT2llisr"        + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  //if (level.Contains("_SR3")) plotter.Draw(prefix + "MT2llisr"        + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	  
 	  if (inputdir.Contains("Oct17/nominal/")) continue;
-	  if (inputdir.Contains("rootfiles/nominal/")) continue;
-	  if (dosystematics /*|| inputdir.Contains("rootfilesOct17")*/) continue;
-	  int METrebin = 2;
+	  if (inputdir.Contains("NoTopPt/nominal/")) continue; 
+	  if (dosystematics && !inputdir.Contains("rootfilesCWR")) continue;
+	  int METrebin = 1;
 	  if (level.Contains("01_")) METrebin = 1;
 	  else if (inputdir.Contains("/ZZ") || inputdir.Contains("/WZ")) METrebin = 4;
-	  plotter.Draw(prefix + "MET"     + suffix, sm,                             METrebin, 0, "GeV",  scale, true, 0,  400);
-	  //plotter.Draw(prefix + "mt2ll"   + suffix, "M_{T2}(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);continue;
+	  float minMET = (level.Contains("_SR")) ? 140. : 0.;
+	  plotter.Draw(prefix + "MET"     + suffix, sm, METrebin, 0, "GeV",  scale, true, minMET,  400);
+	  //plotter.Draw(prefix + "njet20"         + suffix, "number of jets",                    -1, 0, "NULL", linY, true, 0., 2.);
+	  //plotter.Draw(prefix + "mt2ll"   + suffix, mt2 + "(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);continue;
 	  if (inputdir.Contains("gkinematic")) {
 	    plotter.Draw(prefix + "dphiisrmet"         + suffix, "#Delta#phi(ISR jet," + sm + ")",             8, 0, "NULL", linY, false);
 	  }
 	  if (inputdir.Contains("../rootfilesX/")) {
 	    plotter.Draw(prefix + "lep1pt"         + suffix, "leading lepton p_{T}",              10, 0, "GeV",  scale, true, 0,  250); // LS
 	    plotter.Draw(prefix + "lep2pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
-	    plotter.Draw(prefix + "lep1eta"        + suffix, "leading lepton #eta",               -1, 1, "NULL", scale);
-	    plotter.Draw(prefix + "lep2eta"        + suffix, "trailing lepton #eta",              -1, 1, "NULL", scale);
+	    plotter.Draw(prefix + "lep1eta"        + suffix, "leading lepton #eta",               -1, 1, "units", scale);
+	    plotter.Draw(prefix + "lep2eta"        + suffix, "trailing lepton #eta",              -1, 1, "units", scale);
 	    plotter.Draw(prefix + "lep1phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
 	    plotter.Draw(prefix + "lep2phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
-	    plotter.Draw(prefix + "nbjet30csvv2m"  + suffix, "number of 30 GeV csvv2m b-jets",    -1, 0, "NULL", scale);
-	    plotter.Draw(prefix + "njet"           + suffix, "number of jets",                    -1, 0, "NULL", scale, true);
-	  } else if (inputdir.Contains("kinematic")) {
-	    plotter.Draw(prefix + "Lep1Pt"         + suffix, "leading lepton p_{T}",              10, 0, "GeV",  scale, true, 0,  250); // LS
-	    plotter.Draw(prefix + "Lep2Pt"         + suffix, "trailing lepton p_{T}",              5, 0, "GeV",  scale, true, 0,  150);
-	    plotter.Draw(prefix + "Jet1Pt"         + suffix, "leading jet p_{T}",                 10, 0, "GeV",  scale, true, 0,  250); 
-	    plotter.Draw(prefix + "Jet2Pt"         + suffix, "trailing jet p_{T}",                 5, 0, "GeV",  scale, true, 0,  150);
-	    plotter.Draw(prefix + "JetPt"          + suffix, "jet p_{T}",                          5, 0, "GeV",  scale, true, 0,  250);
-	    plotter.Draw(prefix + "Lep1Eta"        + suffix, "leading lepton #eta",               -1, 1, "NULL", scale);
-	    plotter.Draw(prefix + "Lep2Eta"        + suffix, "trailing lepton #eta",              -1, 1, "NULL", scale);
-	    plotter.Draw(prefix + "Lep1Phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
-	    plotter.Draw(prefix + "Lep2Phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
-	    plotter.Draw(prefix + "nbjet"          + suffix, "number of 30 GeV csvv2m b-jets",    -1, 0, "NULL", scale);
-	    plotter.Draw(prefix + "njet20"         + suffix, "number of jets",                    -1, 0, "NULL", scale, true);
-	    //plotter.Draw(prefix + "njet30"         + suffix, "number of jets",                    -1, 0, "NULL", scale, true);
+	    plotter.Draw(prefix + "nbjet30csvv2m"  + suffix, "number of 30 GeV csvv2m b-jets",    -1, 0, "units", scale);
+	    plotter.Draw(prefix + "njet"           + suffix, "number of jets",                    -1, 0, "units", scale, true);
+	  } else if (inputdir.Contains("kinematic") || inputdir.Contains("rootfilesCWR")) {
+	    plotter.Draw(prefix + "Lep1Pt"         + suffix, "leading lepton " + pt,              10, 0, "GeV",  scale, true, 0,  250); // LS
+	    plotter.Draw(prefix + "Lep2Pt"         + suffix, "trailing lepton " + pt,              5, 0, "GeV",  scale, true, 0,  150);
+	    plotter.Draw(prefix + "JetPt"          + suffix, "jet " + pt,                          5, 0, "GeV",  scale, true, 0,  250);
+	    plotter.Draw(prefix + "nbjet"          + suffix, "number of b-tagged jets",           -1, 0, "units", scale, true, -0.5, 3.5);
+	    plotter.Draw(prefix + "njet20"         + suffix, "number of jets",                    -1, 0, "units", scale, true, -0.5, 6.5);
+	    plotter.Draw(prefix + "nbjet"          + suffix, "number of b-tagged jets",           -1, 0, "units", linY, true, -0.5, 3.5);
+	    plotter.Draw(prefix + "njet20"         + suffix, "number of jets",                    -1, 0, "units", linY, true, -0.5, 6.5);
+	    plotter.Draw(prefix + "njetISR"        + suffix, "number of ISR jets",                -1, 0, "units", scale, true, -0.5, 1.5);
+	    plotter.Draw(prefix + "njetISR"        + suffix, "number of ISR jets",                -1, 0, "units", linY, true, -0.5, 1.5);
+	    int rebinISR = (level.Contains("_SR3")) ? 4 : 2;
+	    plotter.Draw(prefix + "ptjetISR"       + suffix, "ISR jet " + pt,               rebinISR, 0, "GeV",  scale, true, 0, 600.);
+	    plotter.Draw(prefix + "dphijetISR"     + suffix, "#Delta#phi(ISR jet, " + sm +")",    10, 2, "rad", scale);
+	    plotter.Draw(prefix + "mt2LL"          + suffix, mt2 + "(" + sll + ")",               20, 0, "GeV",  scale, true, 0, 200);
+	    if (inputdir.Contains("kinematic")) {
+	      plotter.Draw(prefix + "Jet1Pt"         + suffix, "leading jet " + pt,                 10, 0, "GeV",  scale, true, 0,  250); 
+	      plotter.Draw(prefix + "Jet2Pt"         + suffix, "trailing jet " + pt,                 5, 0, "GeV",  scale, true, 0,  150);
+	      plotter.Draw(prefix + "Lep1Eta"        + suffix, "leading lepton #eta",               -1, 1, "NULL", scale);
+	      plotter.Draw(prefix + "Lep2Eta"        + suffix, "trailing lepton #eta",              -1, 1, "NULL", scale);
+	      plotter.Draw(prefix + "Lep1Phi"        + suffix, "leading lepton #phi",                5, 2, "rad",  scale);
+	      plotter.Draw(prefix + "Lep2Phi"        + suffix, "trailing lepton #phi",               5, 2, "rad",  scale);
+	    }
+	    continue;
+	  } else if (inputdir.Contains("Full")) {
+	    plotter.Draw(prefix + "m2l" + suffix, "m_{" + sll + "}", -1, 0, "GeV", scale, true, 81., 101.);
 	    continue;
 	  }
 	  //continue;
 	  //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  linY, false, 80, 100);
-	  //plotter.Draw(prefix + "MT2_Met"      + suffix, "M_{T2}-Met",                         1, 0, "GeV",  scale, false);
+	  //plotter.Draw(prefix + "MT2_Met"      + suffix, mt2 + "-Met",                         1, 0, "GeV",  scale, false);
 	  //continue;
 	  
 	  if (inputdir.Contains("../rootfiles/nominal")) {
-	    plotter.Draw(prefix + "mt2ll"   + suffix, "M_{T2}(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);
+	    plotter.Draw(prefix + "mt2ll"   + suffix, mt2 + "(" + sll + ")",         10, 0, "GeV",  scale, true, 0, 400);
 	    continue;
 	  }
 	  if (inputdir.Contains("ZZ")) {
@@ -475,13 +534,13 @@ void runPlotter(TString level,
 	  } else if (inputdir.Contains("Zpeak")) {
 	    //plotter.Draw(prefix + "HT"     + suffix, "#sum_{jet} p_{T}",                                  2, 0, "GeV",  scale, true, 0,  800);
 	    //plotter.Draw(prefix + "HT"     + suffix, "#sum_{jet} p_{T}",                                  2, 0, "GeV",  linY, true, 0,  800);
-	    //plotter.Draw(prefix + "MT2ll_HTm200" + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	    //plotter.Draw(prefix + "MT2ll_HTp200" + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	    //plotter.Draw(prefix + "MT2ll_HTm150" + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
-	    //plotter.Draw(prefix + "MT2ll_HTp150" + suffix, "M_{T2}(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    //plotter.Draw(prefix + "MT2ll_HTm200" + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    //plotter.Draw(prefix + "MT2ll_HTp200" + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    //plotter.Draw(prefix + "MT2ll_HTm150" + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
+	    //plotter.Draw(prefix + "MT2ll_HTp150" + suffix, mt2 + "(" + sll + ")",               1, 0, "GeV",  scale, false, 0, 140);
 	    //plotter.Draw(prefix + "njet20dphilmet"           + suffix, "number of 20 GeV jets",             -1, 0, "NULL", scale);
 	    //plotter.Draw(prefix + "njet20dphilmet"           + suffix, "number of 20 GeV jets",             -1, 0, "NULL", linY);
-	    //plotter.Draw(prefix + "ptLL"              + suffix, "#font[50]{p}_{T}^{ll}",             1, 0, "GeV", scale);
+	    plotter.Draw(prefix + "ptLL"              + suffix, "#font[50]{p}_{T}^{ll}",             1, 0, "GeV", scale);
 	    plotter.Draw(prefix + "ptLLbins"              + suffix, "#font[50]{p}_{T}^{ll}",             1, 0, "GeV", scale);
 	    plotter.Draw(prefix + "dphillMET"           + suffix, "#Delta#phi(" +sll + "," + sm + ")",             10, 0, "NULL", scale);
 	    //plotter.Draw(prefix + "dphillMET"           + suffix, "#Delta#phi(" +sll + "," + sm + ")",             10, 0, "NULL", linY);
@@ -511,7 +570,7 @@ void runPlotter(TString level,
 	    //plotter.Draw(prefix + "htnojets"     + suffix, "p_{T}^{lep1} + p_{T}^{lep2} + MET", 20, 0, "GeV",  scale, true, 0, 1500);
 	    //plotter.Draw(prefix + "metPfType1"     + suffix, sm,                                  10, 0, "GeV",  scale, true, 0,  400);
 	    //plotter.Draw(prefix + "Counter"        + suffix, "m_{ll} (" + sll + ")",               1, 0, "GeV",  scale, false, 80, 100);
-	    //plotter.Draw(prefix + "mt2ll"        + suffix, "M_{T2}(" + sll + ")",               10, 0, "GeV",  scale, false, 0, 400);
+	    //plotter.Draw(prefix + "mt2ll"        + suffix, mt2 + "(" + sll + ")",               10, 0, "GeV",  scale, false, 0, 400);
 	    //plotter.Draw(prefix + "dphilmet1"    + suffix, "#Delta#phi(lep1,E_{T}^{miss})",      10, 2, "rad",  scale, false);
 	    //plotter.Draw(prefix + "dphilmet2"    + suffix, "#Delta#phi(lep2,E_{T}^{miss})",      10, 2, "rad",  scale, false);
 	  }
@@ -535,8 +594,8 @@ void runPlotter(TString level,
 	  plotter.Draw(prefix + "mllbb"        + suffix, "m_{" + sll + "bb}",                 10, 0, "GeV",  scale, false, 0, 600);
 	  plotter.Draw(prefix + "meff"         + suffix, "m_{eff}",                           10, 0, "GeV",  scale, false, 0, 600);
 	  plotter.Draw(prefix + "ptbll"        + suffix, "p_{T}^{llmet}",                     10, 0, "GeV",  scale, false, 0, 600);
-	  plotter.Draw(prefix + "mt2bb"        + suffix, "M_{T2}(bb)" ,                       10, 0, "GeV",  scale, false, 0, 800);
-	  plotter.Draw(prefix + "mt2lblb"      + suffix, "M_{T2}(" + sl + "b" + sl + "b)",    10, 0, "GeV",  scale, false, 0, 800);
+	  plotter.Draw(prefix + "mt2bb"        + suffix, mt2 + "(bb)" ,                       10, 0, "GeV",  scale, false, 0, 800);
+	  plotter.Draw(prefix + "mt2lblb"      + suffix, mt2 + "(" + sl + "b" + sl + "b)",    10, 0, "GeV",  scale, false, 0, 800);
 	  plotter.Draw(prefix + "MetMeff_Met"  + suffix, "MetMEff-Met",                        1, 0, "GeV",  scale, false);
 	  plotter.Draw(prefix + "dphimetptbll" + suffix, "#Delta#phi(llmet," + sm + ")",       5, 2, "rad",  scale);
 	  plotter.Draw(prefix + "dphijet1met"  + suffix, "#Delta#phi(jet1,E_{T}^{miss})",      5, 2, "rad",  scale, false);

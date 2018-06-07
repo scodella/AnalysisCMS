@@ -19,22 +19,21 @@
 #include <fstream>
 #include <iostream>
 
-TString Model = "T2bW";
-TString MinitreesDirectory = "/afs/cern.ch/work/s/scodella/Stop/CodeDevelopment/CMSSW_8_0_26_patch1/src/AnalysisCMS/minitrees/nominal/Stop/";
+TString MinitreesDirectory = "/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/";
 TString SystematicsDirectory = "/eos/cms/store/caf/user/scodella/BTV/Feb2017_Summer16_stop_ghent_others_isr/MCl2stop__SFWeights__";
 const int nSystematicsToList = 2;
 TString SystematicToList[nSystematicsToList] = {"JES", "MET"}; 
 TString Variation[2] = {"up", "do"};
 
-void WriteMassPointLists() {
+void WriteMassPointLists(TString Model = "T2bW") {
 
   // Open output files
   ofstream MassPointList; MassPointList.open("./MassPointLists/MassPointList_" + Model + ".txt");
-  ofstream MinitreesList; MinitreesList.open("./MassPointLists/samples_" + Model + "_Ghent_Summer16_minitrees.txt");
+  ofstream MinitreesList; MinitreesList.open("./MassPointLists/samples_" + Model + "_minitrees.txt");
   ofstream SystematicsList[2*nSystematicsToList];
   for (int is = 0; is<nSystematicsToList; is++) 
     for (int vr = 0; vr<2; vr++) 
-      SystematicsList[vr+2*is].open("./MassPointLists/samples_" + Model + "_Ghent_Summer16_" + SystematicToList[is] + Variation[vr] + ".txt"); 
+      SystematicsList[vr+2*is].open("./MassPointLists/samples_" + Model + "_minitrees_" + SystematicToList[is] + Variation[vr] + ".txt"); 
   
   // Get mass plan histograms
   TFile *HistoFile = TFile::Open("./MassPlanHistograms/MassPlan_" + Model + ".root");
@@ -92,11 +91,12 @@ void WriteMassPointLists() {
 
 	  MassPointList << ModelString << endl;
 
-	  MinitreesList << MinitreesDirectory << TreeName <<  " 3 " << iXMass << " " << iNeutralinoMass << endl;
+	  MinitreesList << MinitreesDirectory << "nominal/Stop/" << TreeName <<  " 3 " << iXMass << " " << iNeutralinoMass << endl;
 	  
 	  for (int is = 0; is<nSystematicsToList; is++) 
 	    for (int vr = 0; vr<2; vr++) 
-	      SystematicsList[vr+2*is] << SystematicsDirectory << SystematicToList[is] << Variation[vr] << "__hadd/latino_" << TreeName << " " << iXMass << " " << iNeutralinoMass << endl;
+	      //SystematicsList[vr+2*is] << SystematicsDirectory << SystematicToList[is] << Variation[vr] << "__hadd/latino_" << TreeName << " " << iXMass << " " << iNeutralinoMass << endl;
+	      SystematicsList[vr+2*is] << MinitreesDirectory << SystematicToList[is] << Variation[vr] << "/Stop/" << TreeName << " " << iXMass << " " << iNeutralinoMass << endl;
 	  
 	}
 	

@@ -376,7 +376,8 @@ public :
    //   vector<float>   *std_vector_electron_hOverE;
    //   vector<float>   *std_vector_jet_NumberSoftMu;
    vector<float>   *std_vector_jet_HadronFlavour;
-   //   vector<float>   *std_vector_electron_scEta;
+   vector<float>   *std_vector_electron_scEta;
+   vector<float>   *std_vector_electron_R9;
    //   vector<float>   *std_vector_electron_expectedMissingInnerHits;
    Float_t         metFilter;
    Float_t         jetpt1;
@@ -852,7 +853,8 @@ public :
    //   TBranch        *b_std_vector_electron_hOverE;   //!
    //   TBranch        *b_std_vector_jet_NumberSoftMu;   //!
    TBranch        *b_std_vector_jet_HadronFlavour;   //!
-   //   TBranch        *b_std_vector_electron_scEta;   //!
+   TBranch        *b_std_vector_electron_scEta;   //!
+   TBranch        *b_std_vector_electron_R9;   //!
    //   TBranch        *b_std_vector_electron_expectedMissingInnerHits;   //!
    TBranch        *b_metFilter;   //!
    TBranch        *b_jetpt1;   //!
@@ -1210,7 +1212,8 @@ void AnalysisBase::Init(TTree *tree)
    //   std_vector_electron_hOverE = 0;
    //   std_vector_jet_NumberSoftMu = 0;
    std_vector_jet_HadronFlavour = 0;
-   //   std_vector_electron_scEta = 0;
+   std_vector_electron_scEta = 0;
+   std_vector_electron_R9 = 0;
    //   std_vector_electron_expectedMissingInnerHits = 0;
    std_vector_lepton_chargedHadronIso = 0;
    std_vector_lepton_photonIso = 0;
@@ -1594,7 +1597,8 @@ void AnalysisBase::Init(TTree *tree)
    //   fChain->SetBranchAddress("std_vector_electron_hOverE", &std_vector_electron_hOverE, &b_std_vector_electron_hOverE);
    //   fChain->SetBranchAddress("std_vector_jet_NumberSoftMu", &std_vector_jet_NumberSoftMu, &b_std_vector_jet_NumberSoftMu);
    fChain->SetBranchAddress("std_vector_jet_HadronFlavour", &std_vector_jet_HadronFlavour, &b_std_vector_jet_HadronFlavour);
-   //   fChain->SetBranchAddress("std_vector_electron_scEta", &std_vector_electron_scEta, &b_std_vector_electron_scEta);
+   fChain->SetBranchAddress("std_vector_electron_scEta", &std_vector_electron_scEta, &b_std_vector_electron_scEta);
+   fChain->SetBranchAddress("std_vector_electron_R9", &std_vector_electron_R9, &b_std_vector_electron_R9);
    //   fChain->SetBranchAddress("std_vector_electron_expectedMissingInnerHits", &std_vector_electron_expectedMissingInnerHits, &b_std_vector_electron_expectedMissingInnerHits);
    fChain->SetBranchAddress("metFilter", &metFilter, &b_metFilter);
    fChain->SetBranchAddress("jetpt1", &jetpt1, &b_jetpt1);

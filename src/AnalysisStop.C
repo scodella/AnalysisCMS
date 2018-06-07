@@ -14,7 +14,7 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
   systematic.ReplaceAll("NoTopPt", "");
   if (systematic.Contains("nominal")) {
     SetSaveMinitree(true);
-    _SaveHistograms = 0;
+    _SaveHistograms = 1;
   } else if (systematic.Contains("multilepton") || _systematic.Contains("MetTrigger")) {
     SetSaveMinitree(true);
     _SaveHistograms = -1;
@@ -31,7 +31,8 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
 AnalysisStop::AnalysisStop(TFile* MiniTreeFile, TString systematic, int SaveHistograms) 
 {
   _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
-  _applytopptreweighting = true;
+  _applytopptreweighting = systematic.Contains("NoTopPt") ? false : true;
+  systematic.ReplaceAll("NoTopPt", "");
   systematic.ReplaceAll("DYcorr", "");
   SetSaveMinitree(false);
   GetMiniTree(MiniTreeFile, systematic);
@@ -130,6 +131,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
   TrgEff_mm = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatormm2D_clone");
   TrgEff_em = (TEfficiency *) TriggerEfficiencyFile.Get("DATAdenominatorem2D_clone");
 
+  if (_systematic.Contains("Elescale") && !_ismc) FillElescale();
+
   // Loop over events
   //----------------------------------------------------------------------------
   int nnn = 0, lll = 0;
@@ -155,11 +158,11 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     if (!pass_masspoint && !_saveminitree) continue;
 
     if (!_isminitree) {
-
+      
       // I found an event with metPfType1 = nan, this cause MT2 calculation to stuck
       if (metPfType1!=metPfType1) continue;
       EventSetup(2.4, 20.);
-
+      
       if (_systematic.Contains("MetTrigger")) {
 	int METtriggers[] = {63, 64, 65, 66, 68, 79, 80, 81, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92};
 	for(int a = 0; a < 18; a++) {
@@ -197,7 +200,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 
     // 3L sidebands
     if (_systematic.Contains("WZ3L") || _systematic.Contains("ttZ")) {
-      
+
+      if (_njet>0) continue;
       if (_nlepton<3) continue;
       if (MET.Et()<140. && !_systematic.Contains("NoMetCut")) continue; 
       if (_ntightlepton<3) continue; 
@@ -209,7 +213,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       if (AnalysisLeptons[0].v.Pt()<25.) continue;
       if (AnalysisLeptons[1].v.Pt()<20.) continue;
       if (AnalysisLeptons[2].v.Pt()<20.) continue;
-      
+
       float DMZ = 999.; int Zlep1 = -1, Zlep2 = -1, Wlep = -1;
       for (int l1 = 0; l1<3; l1++) {
 	for (int l2 = l1+1; l2<3; l2++) {
@@ -241,7 +245,8 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	if (abs(AnalysisLeptons[Wlep].flavour)==ELECTRON_FLAVOUR) _channel = ee;
 	else _channel = mm;
 
-	if (_systematic.Contains("WZ3L") && AnalysisLeptons[0].v.Pt()<30.) {
+	if (_systematic.Contains("WZ3L") && AnalysisLeptons[0].v.Pt()>30.) {
+	  cout << "SSS " << _leadingPtCSVv2M << endl;
 	  FillLevelHistograms(Stop_00_VZ, _leadingPtCSVv2M<20.);
 	} else if (_systematic.Contains("ttZ")) {
 	  FillLevelHistograms(Stop_00_ttZ_Tag,  _leadingPtCSVv2M>20.);// && _njet>=2); 
@@ -253,9 +258,101 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       continue;
       
     } // end 3L sidebands
+
+    if ((_ismc && _systematic.Contains("Muscale")) || (!_ismc && _systematic.Contains("Elescale"))) {
+ 
+      float lepscale = 0.002;
+
+      TVector3 LeptonPtChange; LeptonPtChange.SetXYZ(0., 0., 0.);
+
+      bool _hasPtChange = false;
+
+      if ((_systematic.Contains("Muscale")  && abs(AnalysisLeptons[0].flavour)==13) || 
+	  (_systematic.Contains("Elescale") && abs(AnalysisLeptons[0].flavour)==11)) {
+	float thispt   = AnalysisLeptons[0].v.Pt();  float thiseta  = AnalysisLeptons[0].v.Eta();
+	float thisphi  = AnalysisLeptons[0].v.Phi(); float thismass = AnalysisLeptons[0].v.M();
+	if (_systematic.Contains("Elescale")) {
+	  //cout << " LL1 " << thispt << " " << thiseta << " " << thisphi << " " << thismass << endl;
+	  float thissceta = std_vector_electron_scEta->at(AnalysisLeptons[0].index);
+	  float thisR9    = std_vector_electron_R9->at(AnalysisLeptons[0].index);
+	  lepscale = GetElescale(thissceta, thisR9, run);
+	  //cout << "     " << lepscale << endl;
+	}
+	if (_systematic.Contains("scaleup")) thispt *= (1.+lepscale);
+	if (_systematic.Contains("scaledo")) thispt *= (1.-lepscale);
+	//cout << "     " << thispt << " " << thiseta << " " << thisphi << " " << thismass << endl;
+	AnalysisLeptons[0].v.SetPtEtaPhiM(thispt, thiseta, thisphi, thismass);
+	LeptonPtChange += Lepton1.v.Vect() - AnalysisLeptons[0].v.Vect(); 
+	Lepton1 = AnalysisLeptons[0];
+	//cout  << "     " << Lepton1.flavour << " " << Lepton1.v.Pt() << " " << Lepton1.v.Eta() << " " << Lepton1.v.Phi() << " " << Lepton1.v.M() << endl; 
+	 _hasPtChange = true;
+      } 
+
+      if ((_systematic.Contains("Muscale")  && abs(AnalysisLeptons[1].flavour)==13) || 
+	  (_systematic.Contains("Elescale") && abs(AnalysisLeptons[1].flavour)==11)) {
+	float thispt   = AnalysisLeptons[1].v.Pt();  float thiseta  = AnalysisLeptons[1].v.Eta();
+	float thisphi  = AnalysisLeptons[1].v.Phi(); float thismass = AnalysisLeptons[1].v.M();
+	if (_systematic.Contains("Elescale")) {
+	  //cout << " LL2 " << thispt << " " << thiseta << " " << thisphi << " " << thismass << endl;
+	  float thissceta = std_vector_electron_scEta->at(AnalysisLeptons[1].index);
+	  float thisR9    = std_vector_electron_R9->at(AnalysisLeptons[1].index);
+	  lepscale = GetElescale(thissceta, thisR9, run);
+	  //cout << "     " << lepscale << endl;
+	}
+	if (_systematic.Contains("scaleup")) thispt *= (1.+lepscale);
+	if (_systematic.Contains("scaledo")) thispt *= (1.-lepscale);
+	//cout << "     " << thispt << " " << thiseta << " " << thisphi << " " << thismass << endl;
+	AnalysisLeptons[1].v.SetPtEtaPhiM(thispt, thiseta, thisphi, thismass);
+	LeptonPtChange += Lepton2.v.Vect() - AnalysisLeptons[1].v.Vect(); 
+	Lepton2 = AnalysisLeptons[1]; 
+	//cout  << "     " << Lepton2.flavour << " " << Lepton2.v.Pt() << " " << Lepton2.v.Eta() << " " << Lepton2.v.Phi() << " " << Lepton2.v.M() << endl; 
+	_hasPtChange = true;
+      } 
+
+      if (_hasPtChange) {
+
+	if (Lepton1.v.Pt()<Lepton2.v.Pt()) {
+	  Lepton2 = Lepton1;
+	  Lepton1 = AnalysisLeptons[1]; 
+	  AnalysisLeptons[0] = Lepton1; 
+	  AnalysisLeptons[1] = Lepton2; 
+	}
+	 
+	mll = (Lepton1.v+Lepton2.v).M();
+	_m2l  = mll;
+	//cout << " EEE " << MET.Pt()       << " " << MET.Eta()       << " " << MET.Phi()       << " " << MET.M()       << endl
+	//   << "     " << LeptonPtChange.Px() << " " << LeptonPtChange.Py() << endl;
+	TVector3 NewMET; NewMET.SetXYZ(MET.Px() + LeptonPtChange.Px(),
+				       MET.Py() + LeptonPtChange.Py(),
+				       MET.Pz());
+	MET.SetPtEtaPhiM(NewMET.Pt(), 0.0, NewMET.Phi(), 0.0);
+	/*
+	cout << " SSS " << _mt2ll << " " << run << " " << event << endl
+	     << "     " << Lepton1.flavour << " " << Lepton1.v.Pt() << " " << Lepton1.v.Eta() << " " << Lepton1.v.Phi() << " " << Lepton1.v.M() << endl 
+	     << "     " << Lepton2.flavour << " " << Lepton2.v.Pt() << " " << Lepton2.v.Eta() << " " << Lepton2.v.Phi() << " " << Lepton2.v.M() << endl 
+	     << "     " << MET.Pt()       << " " << MET.Eta()       << " " << MET.Phi()       << " " << MET.M()       << endl 
+	     << "     " << _mt2ll << endl;
+	*/
+	_mt2ll    = ComputeMT2(Lepton1.v, Lepton2.v, MET);
+	_MT2ll = (_mt2ll<140.) ? _mt2ll : 139.;
+	
+	_lep1pt = Lepton1.v.Pt();   
+	_lep2pt = Lepton2.v.Pt();
+	
+	_lep1phi = Lepton1.v.Phi();   
+	_lep2phi = Lepton2.v.Phi();  
+	
+	dphill = fabs((Lepton1.v).DeltaPhi(Lepton2.v));
+	dphilmet1 = fabs((Lepton1.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
+	dphilmet2 = fabs((Lepton2.v).DeltaPhi(MET)); // this recompute the latino variable used in AnalysisCMS.C
+	_dphillmet = fabs((Lepton1.v + Lepton2.v).DeltaPhi(MET));
+      
+      }
+
+    }
     
     if (!_isminitree) {
-
+      
       if (!_systematic.Contains("fake") && !_systematic.Contains("invertveto") && 
 	  !_systematic.Contains("WZtoWW") && !_systematic.Contains("ZZ") && !_systematic.Contains("MetTrigger") && 
 	  !_systematic.Contains("ZWtoZ") && !_systematic.Contains("multilepton") && _nlepton != 2) continue; // 2 and only 2 leptons
@@ -445,7 +542,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       _event_weight_Isrnjetup  *= kFactor;
       _event_weight_Isrnjetdo  *= kFactor;
     }
-    
+
     if (_systematic=="Topptdo")
       _event_weight = _event_weight_Toppt*_event_weight_Toppt/_event_weight;
 
@@ -463,7 +560,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       float fakeRateUp = 1.5;
       float fakeRateDo = 0.5;
       if (_applyFakeRateCorrection && !_saveminitree) {
-	cout << " Applying fake rescaling " << endl;
+	//cout << " Applying fake rescaling " << endl;
 	//float fakeRateCorrection = 1.135;
 	//fakeRateUp = 1.32;
 	//fakeRateDo = 0.95;
@@ -522,7 +619,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
 	}
       }
     }
-      
+    
     // Fill histograms
     //--------------------------------------------------------------------------
     bool pass = true;
@@ -538,7 +635,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       }
 
     if (_systematic.Contains("BlindMT2") && _mt2ll>40.) pass_blind = false;
-
+    
     // Fill histograms
     // -----------------------------------------------------------------------------
     
@@ -706,7 +803,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     }
     
     FillLevelHistograms(Stop_02_SRs, pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
-    
+ 
   }
 
   if (_SaveHistograms>=3) SaveSystematicHistograms();
@@ -762,6 +859,17 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_MT2llisr          [i][j][k] = new TH1F("h_MT2llisr"           + suffix, "",    7,    0,  140);
 	h_MT2llisrgen       [i][j][k] = new TH1F("h_MT2llisrgen"        + suffix, "",    7,    0,  140);
 
+	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
+	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",    7, -0.5,  6.5);
+	h_nbjet             [i][j][k] = new TH1D("h_nbjet"              + suffix, "",    7, -0.5,  6.5);
+	h_njetISR           [i][j][k] = new TH1D("h_njetISR"            + suffix, "",    7, -0.5,  6.5);
+ 	h_dphijetISR        [i][j][k] = new TH1D("h_dphijetISR"         + suffix, "",  100,    0,  3.2);
+	h_ptjetISR          [i][j][k] = new TH1D("h_ptjetISR"           + suffix, "",   80,     0,  800);	
+	h_Lep1Pt            [i][j][k] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
+	h_Lep2Pt            [i][j][k] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
+	h_JetPt             [i][j][k] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
+	h_mt2LL             [i][j][k] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
+
 	if (_SaveHistograms>=2 && _systematic=="nominal") {
 
 	  h_MT2ll_nvtxup      [i][j][k] = new TH1F("h_MT2ll_nvtxup"       + suffix, "",    7,    0,  140);
@@ -792,25 +900,22 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_dphillMET         [i][j][k] = new TH1D("h_dphillMET"          + suffix, "",  100,    0,  3.2);
 	h_ptdphiLL          [i][j][k] = new TH2D("h_ptdphiLL"           + suffix, "",   80,    0,  800, 10,  0,  3.2);
 	h_dphiLL            [i][j][k] = new TH1D("h_dphiLL"             + suffix, "",  100,    0,  3.2);
+	h_m2L               [i][j][k] = new TH1D("h_m2L"                + suffix, "",  200,    0,  200);
 	float ptLLbins[24] = {0, 10., 20., 30., 40., 50., 60, 70., 80., 90., 100., 110., 120., 130., 140., // 15
 			    160., 180., 200., 250., 300., 400., 500., 600., 800.}; // 9
-	h_ptLL              [i][j][k] = new TH1D("h_ptLL"               + suffix, "",   80,    0,  800);
 	h_ptLLbins          [i][j][k] = new TH1D("h_ptLLbins"           + suffix, "",   23, ptLLbins);
 	h_genptLL           [i][j][k] = new TH1D("h_genptLL"            + suffix, "",   80,    0,  800);
-	h_MET               [i][j][k] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
 	h_Counter           [i][j][k] = new TH1D("h_Counter"            + suffix, "",    1,   80,  100);
-	h_njet20            [i][j][k] = new TH1D("h_njet20"             + suffix, "",    7, -0.5,  6.5);
-	h_nbjet             [i][j][k] = new TH1D("h_nbjet"              + suffix, "",    7, -0.5,  6.5);
-	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",    7, -0.5,  6.5);	
-	h_Lep1Pt            [i][j][k] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
-	h_Lep2Pt            [i][j][k] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
+	h_njet30            [i][j][k] = new TH1D("h_njet30"             + suffix, "",    7, -0.5,  6.5);
+ 	h_dphil1MET         [i][j][k] = new TH1D("h_dphil1MET"          + suffix, "",  100,    0,  3.2);
+ 	h_dphil2MET         [i][j][k] = new TH1D("h_dphil2MET"          + suffix, "",  100,    0,  3.2);
+        h_METphi            [i][j][k] = new TH1D("h_METphi"             + suffix, "",  200, -3.2,  3.2);
 	h_Lep1Phi           [i][j][k] = new TH1D("h_Lep2Phi"            + suffix, "",  200, -3.2,  3.2);
 	h_Lep2Eta           [i][j][k] = new TH1D("h_Lep1Eta"            + suffix, "",   60,  -3.,   3.);
 	h_Lep1Eta           [i][j][k] = new TH1D("h_Lep2Eta"            + suffix, "",   60,  -3.,   3.);
 	h_Lep2Phi           [i][j][k] = new TH1D("h_Lep1Phi"            + suffix, "",  200, -3.2,  3.2);
- 	h_dphil1MET         [i][j][k] = new TH1D("h_dphil1MET"          + suffix, "",  100,    0,  3.2);
- 	h_dphil2MET         [i][j][k] = new TH1D("h_dphil2MET"          + suffix, "",  100,    0,  3.2);
-        h_METphi            [i][j][k] = new TH1D("h_METphi"             + suffix, "",  200, -3.2,  3.2);
+	h_Jet1Pt            [i][j][k] = new TH1D("h_Jet1Pt"             + suffix, "",  2000,    0, 2000);
+	h_Jet2Pt            [i][j][k] = new TH1D("h_Jet2Pt"             + suffix, "",  2000,    0, 2000);
 
 	if (_systematic.Contains("DYcorrections")) {
 	  h_dphiLLbin1            [i][j][k] = new TH1D("h_dphiLLbin1"   + suffix, "",   80,    0, 3.14159);
@@ -835,11 +940,6 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_MT2ll_truth       [i][j][k] = new TH1F("h_MT2ll_truth"        + suffix, "",    7,    0,  140);
 
 	if (!_systematic.Contains("kinematic")) continue;	
-
-	h_Jet1Pt            [i][j][k] = new TH1D("h_Jet1Pt"             + suffix, "",  2000,    0, 2000);
-	h_Jet2Pt            [i][j][k] = new TH1D("h_Jet2Pt"             + suffix, "",  2000,    0, 2000);
-	h_JetPt             [i][j][k] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
-	h_mt2LL             [i][j][k] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
 
 	h_MT2ll_MET         [i][j][k] = new TH2F("h_MT2ll_MET"          + suffix, "",   80,    0,  800,    7,    0,  140);
 
@@ -921,6 +1021,17 @@ void AnalysisStop::BookSystematicHistograms()
 	h_MT2llgen_systematic     [i][j][is] = new TH1F("h_MT2llgen"         + suffix, "",    7,    0,  140);
 	h_MT2llisr_systematic     [i][j][is] = new TH1F("h_MT2llisr"         + suffix, "",    7,    0,  140);
 	h_MT2llisrgen_systematic  [i][j][is] = new TH1F("h_MT2llisrgen"      + suffix, "",    7,    0,  140);
+
+	h_MET_systematic               [i][j][is] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
+	h_njet20_systematic            [i][j][is] = new TH1D("h_njet20"             + suffix, "",    7, -0.5,  6.5);
+	h_nbjet_systematic             [i][j][is] = new TH1D("h_nbjet"              + suffix, "",    7, -0.5,  6.5);
+	h_njetISR_systematic           [i][j][is] = new TH1D("h_njetISR"            + suffix, "",    7, -0.5,  6.5);
+ 	h_dphijetISR_systematic        [i][j][is] = new TH1D("h_dphijetISR"         + suffix, "",  100,    0,  3.2);
+	h_ptjetISR_systematic          [i][j][is] = new TH1D("h_ptjetISR"           + suffix, "",   80,     0,  800);	
+	h_Lep1Pt_systematic            [i][j][is] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
+	h_Lep2Pt_systematic            [i][j][is] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
+	h_JetPt_systematic             [i][j][is] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
+	h_mt2LL_systematic             [i][j][is] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
 	
       }
 
@@ -1024,6 +1135,17 @@ void AnalysisStop::BookTheoreticalVariationsHistograms()
 	h_MT2llgen_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llgen"         + suffix, "",    7,    0,  140);
 	h_MT2llisr_theoreticalvariation     [i][j][tv] = new TH1F("h_MT2llisr"         + suffix, "",    7,    0,  140);
 	h_MT2llisrgen_theoreticalvariation  [i][j][tv] = new TH1F("h_MT2llisrgen"      + suffix, "",    7,    0,  140);
+
+	h_MET_theoreticalvariation               [i][j][tv] = new TH1D("h_MET"                + suffix, "",   80,    0,  800);
+	h_njet20_theoreticalvariation            [i][j][tv] = new TH1D("h_njet20"             + suffix, "",    7, -0.5,  6.5);
+	h_nbjet_theoreticalvariation             [i][j][tv] = new TH1D("h_nbjet"              + suffix, "",    7, -0.5,  6.5);
+	h_njetISR_theoreticalvariation           [i][j][tv] = new TH1D("h_njetISR"            + suffix, "",    7, -0.5,  6.5);
+ 	h_dphijetISR_theoreticalvariation        [i][j][tv] = new TH1D("h_dphijetISR"         + suffix, "",  100,    0,  3.2);
+	h_ptjetISR_theoreticalvariation          [i][j][tv] = new TH1D("h_ptjetISR"           + suffix, "",   80,     0,  800);	
+	h_Lep1Pt_theoreticalvariation            [i][j][tv] = new TH1D("h_Lep1Pt"             + suffix, "",  2000,    0, 2000);
+	h_Lep2Pt_theoreticalvariation            [i][j][tv] = new TH1D("h_Lep2Pt"             + suffix, "",  2000,    0, 2000);
+	h_JetPt_theoreticalvariation             [i][j][tv] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
+	h_mt2LL_theoreticalvariation             [i][j][tv] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
 	
       }
       
@@ -1041,6 +1163,11 @@ void AnalysisStop::GetAnalysisVariables()
 
   if (_isminitree) { 
 
+    // Weight
+    if (_systematic.Contains("JES") ||  _systematic.Contains("MET"))
+      if (!_applytopptreweighting && _filename.Contains("TTTo2L2Nu"))
+	_event_weight = _event_weight_Toppt;
+    
     // Met
     MET.SetPtEtaPhiM(metPfType1, 0.0, metPfType1Phi, 0.0); 
     _jetbin = (_njet < njetbin) ? _njet : njetbin - 1;
@@ -1147,6 +1274,10 @@ void AnalysisStop::GetAnalysisVariables()
   // ISR jet
   _dphiisrmet = (jetpt1>150. && jetpt1!=_leadingPtCSVv2M) ? acos(cos(metPfType1Phi-jetphi1)) : -1.;
   _hasisrjet = (jetpt1>150. && jetpt1!=_leadingPtCSVv2M && acos(cos(metPfType1Phi-jetphi1))>2.5) ? true : false;
+  
+  _ptjetISR = (jetpt1!=_leadingPtCSVv2M && acos(cos(metPfType1Phi-jetphi1))>2.5) ? jetpt1 : -1.;
+  _dphijetISR = (jetpt1>150. && jetpt1!=_leadingPtCSVv2M) ? acos(cos(metPfType1Phi-jetphi1)) : -1.;
+  _njetISR = _hasisrjet ? 1 : 0;
 
   // 
   TLorentzVector Lep1; Lep1.SetPtEtaPhiM(_lep1pt, _lep1eta, _lep1phi, 0.1); 
@@ -1175,6 +1306,17 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
     h_MT2llisr         [ichannel][icut][ijet]->Fill(_MT2ll,          _event_weight);
     h_MT2llisrgen      [ichannel][icut][ijet]->Fill(_MT2llgen,       _event_weight);
   }
+
+  h_MET              [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
+  h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
+  h_nbjet            [ichannel][icut][ijet]->Fill(_nbjet30csvv2m,  _event_weight);
+  h_njetISR          [ichannel][icut][ijet]->Fill(_njetISR,        _event_weight);
+  h_ptjetISR         [ichannel][icut][ijet]->Fill(_ptjetISR,       _event_weight);
+  h_dphijetISR       [ichannel][icut][ijet]->Fill(_dphijetISR,     _event_weight);
+  h_Lep1Pt           [ichannel][icut][ijet]->Fill(_lep1pt,         _event_weight);
+  h_Lep2Pt           [ichannel][icut][ijet]->Fill(_lep2pt,         _event_weight);
+  for (int ij = 0; ij<_jet_pt.size(); ij++) h_JetPt[ichannel][icut][ijet]->Fill(_jet_pt.at(ij), _event_weight);
+  h_mt2LL            [ichannel][icut][ijet]->Fill(_mt2ll,          _event_weight);
 
   if (_SaveHistograms>=2 && _systematic=="nominal") {
 
@@ -1222,20 +1364,18 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_ptLLbins         [ichannel][icut][ijet]->Fill(_pt2l,           _event_weight);
   h_ptdphiLL         [ichannel][icut][ijet]->Fill(_pt2l, dphill,   _event_weight);
   h_genptLL          [ichannel][icut][ijet]->Fill(_gen_ptll,       _event_weight);
-  h_MET              [ichannel][icut][ijet]->Fill(MET.Et(),        _event_weight);
   h_Counter          [ichannel][icut][ijet]->Fill(90.,             _event_weight);
-  h_njet20           [ichannel][icut][ijet]->Fill(_njet,           _event_weight);
-  h_nbjet            [ichannel][icut][ijet]->Fill(_nbjet30csvv2m,  _event_weight);
+  h_m2L              [ichannel][icut][ijet]->Fill(_m2l,            _event_weight);
   h_njet30           [ichannel][icut][ijet]->Fill(_njet30,         _event_weight);
-  h_Lep1Pt           [ichannel][icut][ijet]->Fill(_lep1pt,         _event_weight);
-  h_Lep2Pt           [ichannel][icut][ijet]->Fill(_lep2pt,         _event_weight);
+  h_dphil1MET        [ichannel][icut][ijet]->Fill(dphilmet1,       _event_weight);
+  h_dphil2MET        [ichannel][icut][ijet]->Fill(dphilmet2,       _event_weight);
+  h_METphi           [ichannel][icut][ijet]->Fill(MET.Phi(),       _event_weight);
   h_Lep1Phi          [ichannel][icut][ijet]->Fill(_lep1phi,        _event_weight);
   h_Lep2Phi          [ichannel][icut][ijet]->Fill(_lep2phi,        _event_weight);
   h_Lep1Eta          [ichannel][icut][ijet]->Fill(_lep1eta,        _event_weight);
   h_Lep2Eta          [ichannel][icut][ijet]->Fill(_lep2eta,        _event_weight);
-  h_dphil1MET        [ichannel][icut][ijet]->Fill(dphilmet1,       _event_weight);
-  h_dphil2MET        [ichannel][icut][ijet]->Fill(dphilmet2,       _event_weight);
-  h_METphi           [ichannel][icut][ijet]->Fill(MET.Phi(),       _event_weight);
+  h_Jet1Pt           [ichannel][icut][ijet]->Fill(jetpt1,         _event_weight);
+  h_Jet2Pt           [ichannel][icut][ijet]->Fill(jetpt2,         _event_weight);
 
   if (_systematic.Contains("DYcorrections")) {
     float pi = acos(-1.);
@@ -1264,11 +1404,6 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   }
 
   if (!_systematic.Contains("kinematic")) return;
-  
-  h_Jet1Pt           [ichannel][icut][ijet]->Fill(jetpt1,         _event_weight);
-  h_Jet2Pt           [ichannel][icut][ijet]->Fill(jetpt2,         _event_weight);
-  for (int ij = 0; ij<_jet_pt.size(); ij++) h_JetPt[ichannel][icut][ijet]->Fill(_jet_pt.at(ij), _event_weight);
-  h_mt2LL            [ichannel][icut][ijet]->Fill(_mt2ll,         _event_weight);
 
   h_MT2ll_MET        [ichannel][icut][ijet]->Fill(MET.Et(),  _MT2ll,      _event_weight);
 
@@ -1343,6 +1478,18 @@ void AnalysisStop::FillSystematicHistograms(int ichannel,
       h_MT2llisrgen_systematic   [ichannel][icut][is]->Fill(_MT2llgen, _event_weight_systematic);
     }
 
+    h_MET_systematic              [ichannel][icut][is]->Fill(MET.Et(),        _event_weight_systematic);
+    h_njet20_systematic           [ichannel][icut][is]->Fill(_njet,           _event_weight_systematic);
+    h_nbjet_systematic            [ichannel][icut][is]->Fill(_nbjet30csvv2m,  _event_weight_systematic);
+    h_njetISR_systematic          [ichannel][icut][is]->Fill(_njetISR,        _event_weight_systematic);
+    h_ptjetISR_systematic         [ichannel][icut][is]->Fill(_ptjetISR,       _event_weight_systematic);
+    h_dphijetISR_systematic       [ichannel][icut][is]->Fill(_dphijetISR,     _event_weight_systematic);
+    h_Lep1Pt_systematic           [ichannel][icut][is]->Fill(_lep1pt,         _event_weight_systematic);
+    h_Lep2Pt_systematic           [ichannel][icut][is]->Fill(_lep2pt,         _event_weight_systematic);
+    for (int ij = 0; ij<_jet_pt.size(); ij++) 
+      h_JetPt_systematic[ichannel][icut][is]->Fill(_jet_pt.at(ij), _event_weight_systematic);
+    h_mt2LL_systematic            [ichannel][icut][is]->Fill(_mt2ll,          _event_weight_systematic);
+    
   }
 
 }
@@ -1390,6 +1537,18 @@ void AnalysisStop::FillTheoreticalVariationsHistograms(int ichannel,
       h_MT2llisr_theoreticalvariation      [ichannel][icut][tv]->Fill(_MT2ll,    _event_weight_theoreticalvariation);
       h_MT2llisrgen_theoreticalvariation   [ichannel][icut][tv]->Fill(_MT2llgen, _event_weight_theoreticalvariation);
     }
+
+    h_MET_theoreticalvariation              [ichannel][icut][tv]->Fill(MET.Et(),        _event_weight_theoreticalvariation);
+    h_njet20_theoreticalvariation           [ichannel][icut][tv]->Fill(_njet,           _event_weight_theoreticalvariation);
+    h_nbjet_theoreticalvariation            [ichannel][icut][tv]->Fill(_nbjet30csvv2m,  _event_weight_theoreticalvariation);
+    h_njetISR_theoreticalvariation          [ichannel][icut][tv]->Fill(_njetISR,        _event_weight_theoreticalvariation);
+    h_ptjetISR_theoreticalvariation         [ichannel][icut][tv]->Fill(_ptjetISR,       _event_weight_theoreticalvariation);
+    h_dphijetISR_theoreticalvariation       [ichannel][icut][tv]->Fill(_dphijetISR,     _event_weight_theoreticalvariation);
+    h_Lep1Pt_theoreticalvariation           [ichannel][icut][tv]->Fill(_lep1pt,         _event_weight_theoreticalvariation);
+    h_Lep2Pt_theoreticalvariation           [ichannel][icut][tv]->Fill(_lep2pt,         _event_weight_theoreticalvariation);
+    for (int ij = 0; ij<_jet_pt.size(); ij++) 
+      h_JetPt_theoreticalvariation[ichannel][icut][tv]->Fill(_jet_pt.at(ij), _event_weight_theoreticalvariation);
+    h_mt2LL_theoreticalvariation            [ichannel][icut][tv]->Fill(_mt2ll,          _event_weight_theoreticalvariation);
 
   }
 
@@ -12303,7 +12462,9 @@ void AnalysisStop::SetSUSYProductionMap() {
 
     MassPoint mp0 (100, 1);
     StopCrossSection cs0 (11.6119*0.10497000068426132, 0.518613*0.10497000068426132);
-    MassPointParameters mpp0 (cs0, 9420);
+    //MassPointParameters mpp0 (cs0, 9420);
+    //MassPointParameters mpp0 (cs0, 18632); // ter
+    MassPointParameters mpp0 (cs0, 28052); // all
     StopNeutralinoMap.insert(std::make_pair(mp0, mpp0));
 
     MassPoint mp1 (100, 10);
@@ -13621,6 +13782,11 @@ void AnalysisStop::SetSUSYProductionMap() {
     MassPointParameters mpp263 (cs263, 10804);
     StopNeutralinoMap.insert(std::make_pair(mp263, mpp263));
    
+    MassPoint mp26X (113, 1);
+    StopCrossSection cs26X (7.38419*0.10497000068426132, 0.34708*0.10497000068426132);
+    MassPointParameters mpp26X (cs26X, 18078);
+    StopNeutralinoMap.insert(std::make_pair(mp26X, mpp26X));
+
     MassPoint mp264 (138, 1);
     StopCrossSection cs264 (3.54133*0.10497000068426132, 0.180938*0.10497000068426132);
     MassPointParameters mpp264 (cs264, 17962);
@@ -13662,7 +13828,9 @@ void AnalysisStop::SetSUSYProductionMap() {
     StopNeutralinoMap.insert(std::make_pair(mp271, mpp271));
 
     MassPoint mpisr0 (100, 1);
-    StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979482));
+    //StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979482));    
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr0, 0.979649)); // ter
+
 
     MassPoint mpisr1 (100, 10);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr1, 0.979291));
@@ -14452,6 +14620,9 @@ void AnalysisStop::SetSUSYProductionMap() {
 
     MassPoint mpisr263 (550, 300);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr263, 0.96469));
+
+    MassPoint mpisr26X (113, 1);
+    StopNeutralinoISRMap.insert(std::make_pair(mpisr26X, 0.977609));
 
     MassPoint mpisr264 (138, 1);
     StopNeutralinoISRMap.insert(std::make_pair(mpisr264, 0.975039));
@@ -25604,7 +25775,7 @@ void AnalysisStop::GetMiniTree(TFile *MiniTreeFile, TString systematic) {
   else 
     fChain->SetBranchAddress("eventW",           &_event_weight);
 
-  if (systematic=="nominal") {
+  if (systematic=="nominal" || systematic.Contains("JES") ||  systematic.Contains("MET")) {
     fChain->SetBranchAddress("eventW_Btagup",     &_event_weight_Btagup);
     fChain->SetBranchAddress("eventW_Btagdo",     &_event_weight_Btagdo);
     fChain->SetBranchAddress("eventW_Btaglightup",&_event_weight_Btaglightup);
@@ -26072,5 +26243,1260 @@ bool AnalysisStop::ShapeZWtoZ()
     return true;
     
   }
+
+}
+
+//------------------------------------------------------------------------------
+// GetElescale
+//------------------------------------------------------------------------------
+float AnalysisStop::GetElescale(float eleeta, float eler9, int elerun)
+{
+  //cout << "     sss " << eleeta << " " << eler9 << " " << elerun << endl;
+  int etabin = -1;
+  for (int ib = 0; ib<nEtaEdges-1; ib++)	
+    if (fabs(eleeta)>=EtaEdge[ib] && fabs(eleeta)<EtaEdge[ib+1]) etabin = ib;
+
+  int r9bin = (eler9<0.94) ? 0 : 1;
+
+  int runbin = -1; 
+  for (int ir = 0; ir<nRuns; ir++)	
+    if (elerun>=Run1[ir] && elerun<=Run2[ir]) runbin = ir;
+  
+  if (etabin<0 || etabin==2 || runbin<0) 
+    cout << "AnalysisStop::GetElescale Error " << eleeta << " " << elerun << endl;
+
+
+  float _lepscale = _elescale[etabin][r9bin][runbin];
+
+  if (fabs(_lepscale)>0.03) 
+    cout << "AnalysisStop::GetElescale Warning " << eleeta << " " << r9bin << " " << elerun << " " << _lepscale << endl;
+
+  //cout << "         " << etabin << " " << r9bin << " " << runbin << " " << _elescale[etabin][r9bin][runbin] << endl;
+  return _lepscale;
+
+}
+
+//------------------------------------------------------------------------------
+// FillElescale
+//------------------------------------------------------------------------------
+void AnalysisStop::FillElescale()
+{
+
+  _elescale[0][1][0] =  0;
+  _elescale[0][1][1] =  0;
+  _elescale[0][0][0] =  0;
+  _elescale[0][0][1] =  0;
+  _elescale[1][1][0] =  0;
+  _elescale[1][1][1] =  0;
+  _elescale[1][0][0] =  0;
+  _elescale[1][0][1] =  0;
+  _elescale[3][1][0] =  0;
+  _elescale[3][1][1] =  0;
+  _elescale[3][0][0] =  0;
+  _elescale[3][0][1] =  0;
+  _elescale[4][1][0] =  0;
+  _elescale[4][1][1] =  0;
+  _elescale[4][0][0] =  0;
+  _elescale[4][0][1] =  0;
+  _elescale[0][1][2] =  0.0057;
+  _elescale[0][0][2] =  0.0036;
+  _elescale[0][1][3] =  0.0052;
+  _elescale[0][0][3] =  0.0031;
+  _elescale[0][1][4] =  0.0051;
+  _elescale[0][0][4] =  0.003;
+  _elescale[0][1][5] =  0.0048;
+  _elescale[0][0][5] =  0.0027;
+  _elescale[0][1][6] =  0.0041;
+  _elescale[0][0][6] =  0.002;
+  _elescale[0][1][7] =  0.0045;
+  _elescale[0][0][7] =  0.0024;
+  _elescale[0][1][8] =  0.0048;
+  _elescale[0][0][8] =  0.0027;
+  _elescale[0][1][9] =  0.0046;
+  _elescale[0][0][9] =  0.0026;
+  _elescale[0][1][10] =  0.005;
+  _elescale[0][0][10] =  0.003;
+  _elescale[0][1][11] =  0.0055;
+  _elescale[0][0][11] =  0.0035;
+  _elescale[0][1][12] =  0.0052;
+  _elescale[0][0][12] =  0.0031;
+  _elescale[0][1][13] =  0.0056;
+  _elescale[0][0][13] =  0.0035;
+  _elescale[0][1][14] =  0.0045;
+  _elescale[0][0][14] =  0.0024;
+  _elescale[0][1][15] =  0.0053;
+  _elescale[0][0][15] =  0.0032;
+  _elescale[0][1][16] =  0.0055;
+  _elescale[0][0][16] =  0.0034;
+  _elescale[0][1][17] =  0.0049;
+  _elescale[0][0][17] =  0.0028;
+  _elescale[0][1][18] =  0.0056;
+  _elescale[0][0][18] =  0.0035;
+  _elescale[0][1][19] =  0.0052;
+  _elescale[0][0][19] =  0.0031;
+  _elescale[0][1][20] =  0.0052;
+  _elescale[0][0][20] =  0.0031;
+  _elescale[0][1][21] =  0.0045;
+  _elescale[0][0][21] =  0.0024;
+  _elescale[0][1][22] =  0.0046;
+  _elescale[0][0][22] =  0.0025;
+  _elescale[0][1][23] =  0.0051;
+  _elescale[0][0][23] =  0.003;
+  _elescale[0][1][24] =  0.0045;
+  _elescale[0][0][24] =  0.0024;
+  _elescale[0][1][25] =  0.0046;
+  _elescale[0][0][25] =  0.0026;
+  _elescale[0][1][26] =  0.0052;
+  _elescale[0][0][26] =  0.0031;
+  _elescale[0][1][27] =  0.0046;
+  _elescale[0][0][27] =  0.0025;
+  _elescale[0][1][28] =  0.0045;
+  _elescale[0][0][28] =  0.0024;
+  _elescale[0][1][29] =  0.0045;
+  _elescale[0][0][29] =  0.0024;
+  _elescale[0][1][30] =  0.0039;
+  _elescale[0][0][30] =  0.0017;
+  _elescale[0][1][31] =  0.0039;
+  _elescale[0][0][31] =  0.0017;
+  _elescale[0][1][32] =  0.0048;
+  _elescale[0][0][32] =  0.0027;
+  _elescale[0][1][33] =  0.0052;
+  _elescale[0][0][33] =  0.0031;
+  _elescale[0][1][34] =  0.005;
+  _elescale[0][0][34] =  0.0029;
+  _elescale[0][1][35] =  0.0039;
+  _elescale[0][0][35] =  0.0019;
+  _elescale[0][1][36] =  0.0039;
+  _elescale[0][0][36] =  0.0017;
+  _elescale[0][1][37] =  0.0024;
+  _elescale[0][0][37] =  0.0003;
+  _elescale[0][1][38] =  0.0026;
+  _elescale[0][0][38] =  0.0005;
+  _elescale[0][1][39] =  0.0034;
+  _elescale[0][0][39] =  0.0013;
+  _elescale[0][1][40] =  0.0028;
+  _elescale[0][0][40] =  0.0007;
+  _elescale[0][1][41] =  0.0021;
+  _elescale[0][0][41] =  0;
+  _elescale[0][1][42] =  0.0029;
+  _elescale[0][0][42] =  0.0008;
+  _elescale[0][1][43] =  0.0036;
+  _elescale[0][0][43] =  0.0015;
+  _elescale[0][1][44] =  0.0035;
+  _elescale[0][0][44] =  0.0014;
+  _elescale[0][1][45] =  0.0029;
+  _elescale[0][0][45] =  0.0008;
+  _elescale[0][1][46] =  0.0024;
+  _elescale[0][0][46] =  0.0003;
+  _elescale[0][1][47] =  0.002;
+  _elescale[0][0][47] = -0.0001;
+  _elescale[0][1][48] =  0.0034;
+  _elescale[0][0][48] =  0.0013;
+  _elescale[0][1][49] =  0.0025;
+  _elescale[0][0][49] =  0.0005;
+  _elescale[0][1][50] =  0.0032;
+  _elescale[0][0][50] =  0.001;
+  _elescale[0][1][51] =  0.003;
+  _elescale[0][0][51] =  0.0009;
+  _elescale[0][1][52] =  0.0026;
+  _elescale[0][0][52] =  0.0005;
+  _elescale[0][1][53] =  0.0019;
+  _elescale[0][0][53] = -0.0002;
+  _elescale[0][1][54] =  0.0031;
+  _elescale[0][0][54] =  0.001;
+  _elescale[0][1][55] =  0.0025;
+  _elescale[0][0][55] =  0.0005;
+  _elescale[0][1][56] =  0.0025;
+  _elescale[0][0][56] =  0.0003;
+  _elescale[0][1][57] =  0.0026;
+  _elescale[0][0][57] =  0.0005;
+  _elescale[0][1][58] =  0.0023;
+  _elescale[0][0][58] =  0.0002;
+  _elescale[0][1][59] =  0.0025;
+  _elescale[0][0][59] =  0.0003;
+  _elescale[0][1][60] =  0.0025;
+  _elescale[0][0][60] =  0.0005;
+  _elescale[0][1][61] =  0.0024;
+  _elescale[0][0][61] =  0.0003;
+  _elescale[0][1][62] =  0.0023;
+  _elescale[0][0][62] =  0.0002;
+  _elescale[0][1][63] =  0.002;
+  _elescale[0][0][63] =  0;
+  _elescale[0][1][64] =  0.0024;
+  _elescale[0][0][64] =  0.0003;
+  _elescale[0][1][65] =  0.0019;
+  _elescale[0][0][65] = -0.0001;
+  _elescale[0][1][66] =  0.0013;
+  _elescale[0][0][66] = -0.0008;
+  _elescale[0][1][67] =  0.0024;
+  _elescale[0][0][67] =  0.0003;
+  _elescale[0][1][68] =  0.0016;
+  _elescale[0][0][68] = -0.0005;
+  _elescale[0][1][69] =  0.0019;
+  _elescale[0][0][69] = -0.0002;
+  _elescale[0][1][70] =  0.002;
+  _elescale[0][0][70] =  0;
+  _elescale[0][1][71] =  0.0024;
+  _elescale[0][0][71] =  0.0003;
+  _elescale[0][1][72] =  0.0015;
+  _elescale[0][0][72] = -0.0006;
+  _elescale[0][1][73] =  0.0024;
+  _elescale[0][0][73] =  0.0003;
+  _elescale[0][1][74] =  0.0013;
+  _elescale[0][0][74] = -0.0008;
+  _elescale[0][1][75] =  0.0017;
+  _elescale[0][0][75] = -0.0004;
+  _elescale[0][1][76] =  0.0017;
+  _elescale[0][0][76] = -0.0003;
+  _elescale[0][1][77] =  0.002;
+  _elescale[0][0][77] = -0.0001;
+  _elescale[0][1][78] =  0.0023;
+  _elescale[0][0][78] =  0.0002;
+  _elescale[0][1][79] =  0.0017;
+  _elescale[0][0][79] = -0.0002;
+  _elescale[0][1][80] =  0.0022;
+  _elescale[0][0][80] =  0.0002;
+  _elescale[0][1][81] =  0.0025;
+  _elescale[0][0][81] =  0.0003;
+  _elescale[0][1][82] =  0.0013;
+  _elescale[0][0][82] = -0.0007;
+  _elescale[0][1][83] =  0.0012;
+  _elescale[0][0][83] = -0.0009;
+  _elescale[0][1][84] =  0.0008;
+  _elescale[0][0][84] = -0.0013;
+  _elescale[0][1][85] =  0.0014;
+  _elescale[0][0][85] = -0.0006;
+  _elescale[0][1][86] =  0.0008;
+  _elescale[0][0][86] = -0.0012;
+  _elescale[0][1][87] =  0.0016;
+  _elescale[0][0][87] = -0.0005;
+  _elescale[0][1][88] =  0.001;
+  _elescale[0][0][88] = -0.001;
+  _elescale[0][1][89] =  0.0016;
+  _elescale[0][0][89] = -0.0005;
+  _elescale[0][1][90] =  0.0012;
+  _elescale[0][0][90] = -0.0009;
+  _elescale[0][1][91] =  0.0017;
+  _elescale[0][0][91] = -0.0004;
+  _elescale[0][1][92] =  0.002;
+  _elescale[0][0][92] = -0.0001;
+  _elescale[0][1][93] =  0.0028;
+  _elescale[0][0][93] =  0.0007;
+  _elescale[0][1][94] =  0.0029;
+  _elescale[0][0][94] =  0.0008;
+  _elescale[0][1][95] =  0.0022;
+  _elescale[0][0][95] =  0.0001;
+  _elescale[0][1][96] =  0.0028;
+  _elescale[0][0][96] =  0.0007;
+  _elescale[0][1][97] =  0.0013;
+  _elescale[0][0][97] = -0.0008;
+  _elescale[0][1][98] =  0.0017;
+  _elescale[0][0][98] = -0.0004;
+  _elescale[0][1][99] =  0.0034;
+  _elescale[0][0][99] =  0.0013;
+  _elescale[0][1][100] =  0.0032;
+  _elescale[0][0][100] =  0.001;
+  _elescale[0][1][101] =  0.0026;
+  _elescale[0][0][101] =  0.0005;
+  _elescale[0][1][102] =  0.002;
+  _elescale[0][0][102] =  0;
+  _elescale[0][1][103] =  0.0017;
+  _elescale[0][0][103] = -0.0004;
+  _elescale[0][1][104] =  0.0029;
+  _elescale[0][0][104] =  0.0008;
+  _elescale[0][1][105] =  0.0027;
+  _elescale[0][0][105] =  0.0006;
+  _elescale[0][1][106] =  0.0023;
+  _elescale[0][0][106] =  0.0002;
+  _elescale[0][1][107] =  0.0035;
+  _elescale[0][0][107] =  0.0014;
+  _elescale[0][1][108] =  0.0024;
+  _elescale[0][0][108] =  0.0003;
+  _elescale[0][1][109] =  0.003;
+  _elescale[0][0][109] =  0.0009;
+  _elescale[0][1][110] =  0.002;
+  _elescale[0][0][110] =  0;
+  _elescale[0][1][111] =  0.0033;
+  _elescale[0][0][111] =  0.0012;
+  _elescale[0][1][112] =  0.0017;
+  _elescale[0][0][112] = -0.0003;
+  _elescale[0][1][113] =  0.0029;
+  _elescale[0][0][113] =  0.0008;
+  _elescale[0][1][114] =  0.0027;
+  _elescale[0][0][114] =  0.0006;
+  _elescale[0][1][115] =  0.0019;
+  _elescale[0][0][115] = -0.0002;
+  _elescale[0][1][116] =  0.0013;
+  _elescale[0][0][116] = -0.0008;
+  _elescale[0][1][117] = -0.0001;
+  _elescale[0][0][117] = -0.0022;
+  _elescale[0][1][118] =  0.0007;
+  _elescale[0][0][118] = -0.0013;
+  _elescale[0][1][119] =  0.0014;
+  _elescale[0][0][119] = -0.0007;
+  _elescale[0][1][120] =  0.0003;
+  _elescale[0][0][120] = -0.0017;
+  _elescale[0][1][121] =  0.0016;
+  _elescale[0][0][121] = -0.0004;
+  _elescale[0][1][122] =  0.001;
+  _elescale[0][0][122] = -0.001;
+  _elescale[0][1][123] =  0.0013;
+  _elescale[0][0][123] = -0.0007;
+  _elescale[0][1][124] =  0.0009;
+  _elescale[0][0][124] = -0.0012;
+  _elescale[0][1][125] =  0.003;
+  _elescale[0][0][125] =  0.001;
+  _elescale[0][1][126] =  0.0013;
+  _elescale[0][0][126] = -0.0008;
+  _elescale[0][1][127] =  0.0026;
+  _elescale[0][0][127] =  0.0005;
+  _elescale[0][1][128] =  0.0016;
+  _elescale[0][0][128] = -0.0005;
+  _elescale[0][1][129] =  0.0021;
+  _elescale[0][0][129] =  0;
+  _elescale[0][1][130] =  0.0048;
+  _elescale[0][0][130] =  0.0027;
+  _elescale[0][1][131] =  0.0051;
+  _elescale[0][0][131] =  0.003;
+  _elescale[0][1][132] =  0.0053;
+  _elescale[0][0][132] =  0.0032;
+  _elescale[0][1][133] =  0.0035;
+  _elescale[0][0][133] =  0.0014;
+  _elescale[0][1][134] =  0.0058;
+  _elescale[0][0][134] =  0.0037;
+  _elescale[0][1][135] =  0.0046;
+  _elescale[0][0][135] =  0.0026;
+  _elescale[0][1][136] =  0.0055;
+  _elescale[0][0][136] =  0.0034;
+  _elescale[0][1][137] =  0.0046;
+  _elescale[0][0][137] =  0.0025;
+  _elescale[0][1][138] =  0.0049;
+  _elescale[0][0][138] =  0.0028;
+  _elescale[0][1][139] =  0.0053;
+  _elescale[0][0][139] =  0.0032;
+  _elescale[0][1][140] =  0.0052;
+  _elescale[0][0][140] =  0.0031;
+  _elescale[0][1][141] =  0.0057;
+  _elescale[0][0][141] =  0.0036;
+  _elescale[0][1][142] =  0.0046;
+  _elescale[0][0][142] =  0.0025;
+  _elescale[0][1][143] =  0.0036;
+  _elescale[0][0][143] =  0.0016;
+  _elescale[0][1][144] =  0.0056;
+  _elescale[0][0][144] =  0.0035;
+  _elescale[0][1][145] =  0.0055;
+  _elescale[0][0][145] =  0.0034;
+  _elescale[0][1][146] =  0.0052;
+  _elescale[0][0][146] =  0.0031;
+  _elescale[0][1][147] =  0.0049;
+  _elescale[0][0][147] =  0.0028;
+  _elescale[0][1][148] =  0.0055;
+  _elescale[0][0][148] =  0.0034;
+  _elescale[0][1][149] =  0.0053;
+  _elescale[0][0][149] =  0.0033;
+  _elescale[0][1][150] =  0.0048;
+  _elescale[0][0][150] =  0.0027;
+  _elescale[0][1][151] =  0.0051;
+  _elescale[0][0][151] =  0.003;
+  _elescale[1][1][2] = -0.0014;
+  _elescale[1][0][2] =  0.0014;
+  _elescale[1][1][3] = -0.0033;
+  _elescale[1][0][3] = -0.0005;
+  _elescale[1][1][4] = -0.006;
+  _elescale[1][0][4] = -0.0032;
+  _elescale[1][1][5] = -0.0019;
+  _elescale[1][0][5] =  0.0009;
+  _elescale[1][1][6] = -0.0045;
+  _elescale[1][0][6] = -0.0017;
+  _elescale[1][1][7] = -0.0015;
+  _elescale[1][0][7] =  0.0013;
+  _elescale[1][1][8] = -0.003;
+  _elescale[1][0][8] = -0.0002;
+  _elescale[1][1][9] = -0.0034;
+  _elescale[1][0][9] = -0.0006;
+  _elescale[1][1][10] = -0.0018;
+  _elescale[1][0][10] =  0.001;
+  _elescale[1][1][11] = -0.0006;
+  _elescale[1][0][11] =  0.0022;
+  _elescale[1][1][12] =  0.0003;
+  _elescale[1][0][12] =  0.0032;
+  _elescale[1][1][13] =  0.0001;
+  _elescale[1][0][13] =  0.0029;
+  _elescale[1][1][14] = -0.001;
+  _elescale[1][0][14] =  0.0017;
+  _elescale[1][1][15] = -0.0021;
+  _elescale[1][0][15] =  0.0006;
+  _elescale[1][1][16] = -0.0014;
+  _elescale[1][0][16] =  0.0014;
+  _elescale[1][1][17] = -0.0008;
+  _elescale[1][0][17] =  0.0019;
+  _elescale[1][1][18] = -0.0003;
+  _elescale[1][0][18] =  0.0025;
+  _elescale[1][1][19] = -0.0008;
+  _elescale[1][0][19] =  0.002;
+  _elescale[1][1][20] = -0.0004;
+  _elescale[1][0][20] =  0.0024;
+  _elescale[1][1][21] = -0.001;
+  _elescale[1][0][21] =  0.0017;
+  _elescale[1][1][22] = -0.0034;
+  _elescale[1][0][22] = -0.0006;
+  _elescale[1][1][23] =  0.0007;
+  _elescale[1][0][23] =  0.0035;
+  _elescale[1][1][24] = -0.0008;
+  _elescale[1][0][24] =  0.002;
+  _elescale[1][1][25] = -0.0017;
+  _elescale[1][0][25] =  0.001;
+  _elescale[1][1][26] = -0.0005;
+  _elescale[1][0][26] =  0.0023;
+  _elescale[1][1][27] = -0.0026;
+  _elescale[1][0][27] =  0.0002;
+  _elescale[1][1][28] = -0.0016;
+  _elescale[1][0][28] =  0.001;
+  _elescale[1][1][29] = -0.0016;
+  _elescale[1][0][29] =  0.0012;
+  _elescale[1][1][30] = -0.0034;
+  _elescale[1][0][30] = -0.0006;
+  _elescale[1][1][31] = -0.0033;
+  _elescale[1][0][31] = -0.0005;
+  _elescale[1][1][32] = -0.0014;
+  _elescale[1][0][32] =  0.0014;
+  _elescale[1][1][33] = -0.0014;
+  _elescale[1][0][33] =  0.0014;
+  _elescale[1][1][34] = -0.0011;
+  _elescale[1][0][34] =  0.0017;
+  _elescale[1][1][35] = -0.0019;
+  _elescale[1][0][35] =  0.0009;
+  _elescale[1][1][36] = -0.0034;
+  _elescale[1][0][36] = -0.0006;
+  _elescale[1][1][37] = -0.0054;
+  _elescale[1][0][37] = -0.0027;
+  _elescale[1][1][38] = -0.0046;
+  _elescale[1][0][38] = -0.0019;
+  _elescale[1][1][39] = -0.0034;
+  _elescale[1][0][39] = -0.0007;
+  _elescale[1][1][40] = -0.0054;
+  _elescale[1][0][40] = -0.0026;
+  _elescale[1][1][41] = -0.0061;
+  _elescale[1][0][41] = -0.0033;
+  _elescale[1][1][42] = -0.0026;
+  _elescale[1][0][42] =  0.0001;
+  _elescale[1][1][43] = -0.0028;
+  _elescale[1][0][43] =  0;
+  _elescale[1][1][44] = -0.0029;
+  _elescale[1][0][44] = -0.0001;
+  _elescale[1][1][45] = -0.0043;
+  _elescale[1][0][45] = -0.0016;
+  _elescale[1][1][46] = -0.0049;
+  _elescale[1][0][46] = -0.0021;
+  _elescale[1][1][47] = -0.0056;
+  _elescale[1][0][47] = -0.0028;
+  _elescale[1][1][48] = -0.0034;
+  _elescale[1][0][48] = -0.0006;
+  _elescale[1][1][49] = -0.0037;
+  _elescale[1][0][49] = -0.0009;
+  _elescale[1][1][50] = -0.0047;
+  _elescale[1][0][50] = -0.0019;
+  _elescale[1][1][51] = -0.0044;
+  _elescale[1][0][51] = -0.0016;
+  _elescale[1][1][52] = -0.0042;
+  _elescale[1][0][52] = -0.0014;
+  _elescale[1][1][53] = -0.0048;
+  _elescale[1][0][53] = -0.002;
+  _elescale[1][1][54] = -0.0042;
+  _elescale[1][0][54] = -0.0014;
+  _elescale[1][1][55] = -0.0062;
+  _elescale[1][0][55] = -0.0034;
+  _elescale[1][1][56] = -0.0052;
+  _elescale[1][0][56] = -0.0024;
+  _elescale[1][1][57] = -0.0055;
+  _elescale[1][0][57] = -0.0027;
+  _elescale[1][1][58] = -0.0043;
+  _elescale[1][0][58] = -0.0015;
+  _elescale[1][1][59] = -0.0059;
+  _elescale[1][0][59] = -0.0031;
+  _elescale[1][1][60] = -0.0052;
+  _elescale[1][0][60] = -0.0024;
+  _elescale[1][1][61] = -0.0059;
+  _elescale[1][0][61] = -0.0032;
+  _elescale[1][1][62] = -0.0057;
+  _elescale[1][0][62] = -0.0029;
+  _elescale[1][1][63] = -0.0047;
+  _elescale[1][0][63] = -0.0019;
+  _elescale[1][1][64] = -0.0051;
+  _elescale[1][0][64] = -0.0023;
+  _elescale[1][1][65] = -0.006;
+  _elescale[1][0][65] = -0.0032;
+  _elescale[1][1][66] = -0.0061;
+  _elescale[1][0][66] = -0.0034;
+  _elescale[1][1][67] = -0.0053;
+  _elescale[1][0][67] = -0.0025;
+  _elescale[1][1][68] = -0.0069;
+  _elescale[1][0][68] = -0.0041;
+  _elescale[1][1][69] = -0.0043;
+  _elescale[1][0][69] = -0.0015;
+  _elescale[1][1][70] = -0.0048;
+  _elescale[1][0][70] = -0.002;
+  _elescale[1][1][71] = -0.0046;
+  _elescale[1][0][71] = -0.0018;
+  _elescale[1][1][72] = -0.0062;
+  _elescale[1][0][72] = -0.0034;
+  _elescale[1][1][73] = -0.0044;
+  _elescale[1][0][73] = -0.0016;
+  _elescale[1][1][74] = -0.0074;
+  _elescale[1][0][74] = -0.0046;
+  _elescale[1][1][75] = -0.0075;
+  _elescale[1][0][75] = -0.0048;
+  _elescale[1][1][76] = -0.0063;
+  _elescale[1][0][76] = -0.0035;
+  _elescale[1][1][77] = -0.007;
+  _elescale[1][0][77] = -0.0042;
+  _elescale[1][1][78] = -0.0053;
+  _elescale[1][0][78] = -0.0026;
+  _elescale[1][1][79] = -0.0065;
+  _elescale[1][0][79] = -0.0037;
+  _elescale[1][1][80] = -0.0047;
+  _elescale[1][0][80] = -0.0019;
+  _elescale[1][1][81] = -0.0045;
+  _elescale[1][0][81] = -0.0017;
+  _elescale[1][1][82] = -0.0049;
+  _elescale[1][0][82] = -0.0021;
+  _elescale[1][1][83] = -0.0055;
+  _elescale[1][0][83] = -0.0027;
+  _elescale[1][1][84] = -0.0054;
+  _elescale[1][0][84] = -0.0026;
+  _elescale[1][1][85] = -0.0042;
+  _elescale[1][0][85] = -0.0014;
+  _elescale[1][1][86] = -0.0041;
+  _elescale[1][0][86] = -0.0013;
+  _elescale[1][1][87] = -0.0051;
+  _elescale[1][0][87] = -0.0023;
+  _elescale[1][1][88] = -0.0057;
+  _elescale[1][0][88] = -0.0029;
+  _elescale[1][1][89] = -0.0041;
+  _elescale[1][0][89] = -0.0013;
+  _elescale[1][1][90] = -0.0062;
+  _elescale[1][0][90] = -0.0034;
+  _elescale[1][1][91] = -0.0043;
+  _elescale[1][0][91] = -0.0015;
+  _elescale[1][1][92] = -0.0042;
+  _elescale[1][0][92] = -0.0014;
+  _elescale[1][1][93] = -0.0017;
+  _elescale[1][0][93] =  0.001;
+  _elescale[1][1][94] = -0.0006;
+  _elescale[1][0][94] =  0.0022;
+  _elescale[1][1][95] = -0.003;
+  _elescale[1][0][95] = -0.0002;
+  _elescale[1][1][96] = -0.0022;
+  _elescale[1][0][96] =  0.0006;
+  _elescale[1][1][97] = -0.0039;
+  _elescale[1][0][97] = -0.0011;
+  _elescale[1][1][98] = -0.0016;
+  _elescale[1][0][98] =  0.001;
+  _elescale[1][1][99] =  0.0001;
+  _elescale[1][0][99] =  0.0029;
+  _elescale[1][1][100] =  0.0003;
+  _elescale[1][0][100] =  0.0031;
+  _elescale[1][1][101] = -0.0019;
+  _elescale[1][0][101] =  0.0009;
+  _elescale[1][1][102] = -0.0042;
+  _elescale[1][0][102] = -0.0014;
+  _elescale[1][1][103] = -0.003;
+  _elescale[1][0][103] = -0.0003;
+  _elescale[1][1][104] = -0.0029;
+  _elescale[1][0][104] = -0.0001;
+  _elescale[1][1][105] = -0.001;
+  _elescale[1][0][105] =  0.0017;
+  _elescale[1][1][106] = -0.0025;
+  _elescale[1][0][106] =  0.0003;
+  _elescale[1][1][107] = -0.0021;
+  _elescale[1][0][107] =  0.0007;
+  _elescale[1][1][108] = -0.0023;
+  _elescale[1][0][108] =  0.0005;
+  _elescale[1][1][109] =  0.0003;
+  _elescale[1][0][109] =  0.0031;
+  _elescale[1][1][110] = -0.0026;
+  _elescale[1][0][110] =  0.0002;
+  _elescale[1][1][111] = -0.001;
+  _elescale[1][0][111] =  0.0017;
+  _elescale[1][1][112] = -0.002;
+  _elescale[1][0][112] =  0.0008;
+  _elescale[1][1][113] = -0.0009;
+  _elescale[1][0][113] =  0.0019;
+  _elescale[1][1][114] = -0.0019;
+  _elescale[1][0][114] =  0.0008;
+  _elescale[1][1][115] = -0.0016;
+  _elescale[1][0][115] =  0.0012;
+  _elescale[1][1][116] = -0.0021;
+  _elescale[1][0][116] =  0.0007;
+  _elescale[1][1][117] = -0.0035;
+  _elescale[1][0][117] = -0.0007;
+  _elescale[1][1][118] = -0.0026;
+  _elescale[1][0][118] =  0.0002;
+  _elescale[1][1][119] = -0.0027;
+  _elescale[1][0][119] =  0.0001;
+  _elescale[1][1][120] = -0.0032;
+  _elescale[1][0][120] = -0.0004;
+  _elescale[1][1][121] = -0.0021;
+  _elescale[1][0][121] =  0.0007;
+  _elescale[1][1][122] = -0.0026;
+  _elescale[1][0][122] =  0.0002;
+  _elescale[1][1][123] = -0.0024;
+  _elescale[1][0][123] =  0.0003;
+  _elescale[1][1][124] = -0.0029;
+  _elescale[1][0][124] = -0.0001;
+  _elescale[1][1][125] =  0.0005;
+  _elescale[1][0][125] =  0.0033;
+  _elescale[1][1][126] = -0.0023;
+  _elescale[1][0][126] =  0.0005;
+  _elescale[1][1][127] =  0.001;
+  _elescale[1][0][127] =  0.0038;
+  _elescale[1][1][128] = -0.002;
+  _elescale[1][0][128] =  0.0008;
+  _elescale[1][1][129] = -0.0003;
+  _elescale[1][0][129] =  0.0025;
+  _elescale[1][1][130] =  0.0046;
+  _elescale[1][0][130] =  0.0075;
+  _elescale[1][1][131] =  0.0048;
+  _elescale[1][0][131] =  0.0075;
+  _elescale[1][1][132] =  0.0039;
+  _elescale[1][0][132] =  0.0068;
+  _elescale[1][1][133] =  0.0015;
+  _elescale[1][0][133] =  0.0043;
+  _elescale[1][1][134] =  0.0036;
+  _elescale[1][0][134] =  0.0064;
+  _elescale[1][1][135] =  0;
+  _elescale[1][0][135] =  0.0028;
+  _elescale[1][1][136] =  0.0029;
+  _elescale[1][0][136] =  0.0057;
+  _elescale[1][1][137] =  0.002;
+  _elescale[1][0][137] =  0.0048;
+  _elescale[1][1][138] =  0.0033;
+  _elescale[1][0][138] =  0.0062;
+  _elescale[1][1][139] =  0.0055;
+  _elescale[1][0][139] =  0.0082;
+  _elescale[1][1][140] =  0.0024;
+  _elescale[1][0][140] =  0.0052;
+  _elescale[1][1][141] =  0.0071;
+  _elescale[1][0][141] =  0.0099;
+  _elescale[1][1][142] =  0.0033;
+  _elescale[1][0][142] =  0.0061;
+  _elescale[1][1][143] =  0.0003;
+  _elescale[1][0][143] =  0.0031;
+  _elescale[1][1][144] =  0.0043;
+  _elescale[1][0][144] =  0.0071;
+  _elescale[1][1][145] =  0.0035;
+  _elescale[1][0][145] =  0.0063;
+  _elescale[1][1][146] =  0.003;
+  _elescale[1][0][146] =  0.0058;
+  _elescale[1][1][147] =  0.003;
+  _elescale[1][0][147] =  0.0058;
+  _elescale[1][1][148] =  0.0046;
+  _elescale[1][0][148] =  0.0075;
+  _elescale[1][1][149] =  0.0024;
+  _elescale[1][0][149] =  0.0052;
+  _elescale[1][1][150] =  0.0038;
+  _elescale[1][0][150] =  0.0066;
+  _elescale[1][1][151] =  0.0051;
+  _elescale[1][0][151] =  0.0079;
+  _elescale[3][1][2] =  0.0127;
+  _elescale[3][0][2] =  0.0173;
+  _elescale[3][1][3] =  0.0108;
+  _elescale[3][0][3] =  0.0154;
+  _elescale[3][1][4] =  0.0109;
+  _elescale[3][0][4] =  0.0156;
+  _elescale[3][1][5] =  0.0102;
+  _elescale[3][0][5] =  0.0149;
+  _elescale[3][1][6] =  0.0118;
+  _elescale[3][0][6] =  0.0165;
+  _elescale[3][1][7] =  0.0143;
+  _elescale[3][0][7] =  0.0189;
+  _elescale[3][1][8] =  0.017;
+  _elescale[3][0][8] =  0.0217;
+  _elescale[3][1][9] =  0.0144;
+  _elescale[3][0][9] =  0.019;
+  _elescale[3][1][10] =  0.0153;
+  _elescale[3][0][10] =  0.02;
+  _elescale[3][1][11] =  0.0183;
+  _elescale[3][0][11] =  0.023;
+  _elescale[3][1][12] =  0.0177;
+  _elescale[3][0][12] =  0.0224;
+  _elescale[3][1][13] =  0.0178;
+  _elescale[3][0][13] =  0.0225;
+  _elescale[3][1][14] =  0.0158;
+  _elescale[3][0][14] =  0.0204;
+  _elescale[3][1][15] =  0.0161;
+  _elescale[3][0][15] =  0.0209;
+  _elescale[3][1][16] =  0.0166;
+  _elescale[3][0][16] =  0.0213;
+  _elescale[3][1][17] =  0.0178;
+  _elescale[3][0][17] =  0.0224;
+  _elescale[3][1][18] =  0.0181;
+  _elescale[3][0][18] =  0.0228;
+  _elescale[3][1][19] =  0.0154;
+  _elescale[3][0][19] =  0.0202;
+  _elescale[3][1][20] =  0.0179;
+  _elescale[3][0][20] =  0.0226;
+  _elescale[3][1][21] =  0.0175;
+  _elescale[3][0][21] =  0.0222;
+  _elescale[3][1][22] =  0.0167;
+  _elescale[3][0][22] =  0.0214;
+  _elescale[3][1][23] =  0.0161;
+  _elescale[3][0][23] =  0.0209;
+  _elescale[3][1][24] =  0.0158;
+  _elescale[3][0][24] =  0.0204;
+  _elescale[3][1][25] =  0.0157;
+  _elescale[3][0][25] =  0.0204;
+  _elescale[3][1][26] =  0.0171;
+  _elescale[3][0][26] =  0.0218;
+  _elescale[3][1][27] =  0.0148;
+  _elescale[3][0][27] =  0.0195;
+  _elescale[3][1][28] =  0.0159;
+  _elescale[3][0][28] =  0.0204;
+  _elescale[3][1][29] =  0.0154;
+  _elescale[3][0][29] =  0.0202;
+  _elescale[3][1][30] =  0.0153;
+  _elescale[3][0][30] =  0.0199;
+  _elescale[3][1][31] =  0.0142;
+  _elescale[3][0][31] =  0.0189;
+  _elescale[3][1][32] =  0.0145;
+  _elescale[3][0][32] =  0.0192;
+  _elescale[3][1][33] =  0.0166;
+  _elescale[3][0][33] =  0.0213;
+  _elescale[3][1][34] =  0.0146;
+  _elescale[3][0][34] =  0.0193;
+  _elescale[3][1][35] =  0.0144;
+  _elescale[3][0][35] =  0.019;
+  _elescale[3][1][36] =  0.0145;
+  _elescale[3][0][36] =  0.0192;
+  _elescale[3][1][37] =  0.013;
+  _elescale[3][0][37] =  0.0177;
+  _elescale[3][1][38] =  0.0142;
+  _elescale[3][0][38] =  0.0189;
+  _elescale[3][1][39] =  0.0135;
+  _elescale[3][0][39] =  0.0182;
+  _elescale[3][1][40] =  0.0136;
+  _elescale[3][0][40] =  0.0182;
+  _elescale[3][1][41] =  0.0125;
+  _elescale[3][0][41] =  0.0172;
+  _elescale[3][1][42] =  0.0154;
+  _elescale[3][0][42] =  0.0202;
+  _elescale[3][1][43] =  0.0152;
+  _elescale[3][0][43] =  0.0197;
+  _elescale[3][1][44] =  0.0141;
+  _elescale[3][0][44] =  0.0188;
+  _elescale[3][1][45] =  0.015;
+  _elescale[3][0][45] =  0.0197;
+  _elescale[3][1][46] =  0.0154;
+  _elescale[3][0][46] =  0.0201;
+  _elescale[3][1][47] =  0.0117;
+  _elescale[3][0][47] =  0.0164;
+  _elescale[3][1][48] =  0.0135;
+  _elescale[3][0][48] =  0.0181;
+  _elescale[3][1][49] =  0.0158;
+  _elescale[3][0][49] =  0.0204;
+  _elescale[3][1][50] =  0.0132;
+  _elescale[3][0][50] =  0.0179;
+  _elescale[3][1][51] =  0.0195;
+  _elescale[3][0][51] =  0.0242;
+  _elescale[3][1][52] =  0.0165;
+  _elescale[3][0][52] =  0.0211;
+  _elescale[3][1][53] =  0.017;
+  _elescale[3][0][53] =  0.0216;
+  _elescale[3][1][54] =  0.0136;
+  _elescale[3][0][54] =  0.0182;
+  _elescale[3][1][55] =  0.0099;
+  _elescale[3][0][55] =  0.0145;
+  _elescale[3][1][56] =  0.0146;
+  _elescale[3][0][56] =  0.0193;
+  _elescale[3][1][57] =  0.0131;
+  _elescale[3][0][57] =  0.0177;
+  _elescale[3][1][58] =  0.0118;
+  _elescale[3][0][58] =  0.0165;
+  _elescale[3][1][59] =  0.0129;
+  _elescale[3][0][59] =  0.0176;
+  _elescale[3][1][60] =  0.0125;
+  _elescale[3][0][60] =  0.0172;
+  _elescale[3][1][61] =  0.0115;
+  _elescale[3][0][61] =  0.0161;
+  _elescale[3][1][62] =  0.0114;
+  _elescale[3][0][62] =  0.016;
+  _elescale[3][1][63] =  0.0125;
+  _elescale[3][0][63] =  0.0172;
+  _elescale[3][1][64] =  0.0122;
+  _elescale[3][0][64] =  0.0168;
+  _elescale[3][1][65] =  0.0104;
+  _elescale[3][0][65] =  0.015;
+  _elescale[3][1][66] =  0.0129;
+  _elescale[3][0][66] =  0.0176;
+  _elescale[3][1][67] =  0.0118;
+  _elescale[3][0][67] =  0.0165;
+  _elescale[3][1][68] =  0.0108;
+  _elescale[3][0][68] =  0.0154;
+  _elescale[3][1][69] =  0.0101;
+  _elescale[3][0][69] =  0.0147;
+  _elescale[3][1][70] =  0.0109;
+  _elescale[3][0][70] =  0.0154;
+  _elescale[3][1][71] =  0.0125;
+  _elescale[3][0][71] =  0.0171;
+  _elescale[3][1][72] =  0.0094;
+  _elescale[3][0][72] =  0.0141;
+  _elescale[3][1][73] =  0.0116;
+  _elescale[3][0][73] =  0.0161;
+  _elescale[3][1][74] =  0.0099;
+  _elescale[3][0][74] =  0.0145;
+  _elescale[3][1][75] =  0.011;
+  _elescale[3][0][75] =  0.0156;
+  _elescale[3][1][76] =  0.011;
+  _elescale[3][0][76] =  0.0156;
+  _elescale[3][1][77] =  0.0106;
+  _elescale[3][0][77] =  0.0152;
+  _elescale[3][1][78] =  0.0114;
+  _elescale[3][0][78] =  0.016;
+  _elescale[3][1][79] =  0.0085;
+  _elescale[3][0][79] =  0.0132;
+  _elescale[3][1][80] =  0.0112;
+  _elescale[3][0][80] =  0.0159;
+  _elescale[3][1][81] =  0.0121;
+  _elescale[3][0][81] =  0.0167;
+  _elescale[3][1][82] =  0.001;
+  _elescale[3][0][82] =  0.0056;
+  _elescale[3][1][83] =  0.0027;
+  _elescale[3][0][83] =  0.0073;
+  _elescale[3][1][84] =  0.001;
+  _elescale[3][0][84] =  0.0056;
+  _elescale[3][1][85] =  0.0026;
+  _elescale[3][0][85] =  0.0072;
+  _elescale[3][1][86] =  0.0007;
+  _elescale[3][0][86] =  0.0053;
+  _elescale[3][1][87] =  0.0016;
+  _elescale[3][0][87] =  0.0062;
+  _elescale[3][1][88] =  0.0008;
+  _elescale[3][0][88] =  0.0053;
+  _elescale[3][1][89] =  0.0024;
+  _elescale[3][0][89] =  0.0071;
+  _elescale[3][1][90] =  0.0021;
+  _elescale[3][0][90] =  0.0067;
+  _elescale[3][1][91] =  0.001;
+  _elescale[3][0][91] =  0.0056;
+  _elescale[3][1][92] =  0.0023;
+  _elescale[3][0][92] =  0.0069;
+  _elescale[3][1][93] =  0.0075;
+  _elescale[3][0][93] =  0.0122;
+  _elescale[3][1][94] =  0.0092;
+  _elescale[3][0][94] =  0.0138;
+  _elescale[3][1][95] =  0.0039;
+  _elescale[3][0][95] =  0.0086;
+  _elescale[3][1][96] =  0.0074;
+  _elescale[3][0][96] =  0.012;
+  _elescale[3][1][97] =  0.0039;
+  _elescale[3][0][97] =  0.0086;
+  _elescale[3][1][98] =  0.0027;
+  _elescale[3][0][98] =  0.0073;
+  _elescale[3][1][99] =  0.008;
+  _elescale[3][0][99] =  0.0125;
+  _elescale[3][1][100] =  0.0075;
+  _elescale[3][0][100] =  0.0122;
+  _elescale[3][1][101] =  0.0073;
+  _elescale[3][0][101] =  0.012;
+  _elescale[3][1][102] =  0.0044;
+  _elescale[3][0][102] =  0.0089;
+  _elescale[3][1][103] =  0.0033;
+  _elescale[3][0][103] =  0.0079;
+  _elescale[3][1][104] =  0.0053;
+  _elescale[3][0][104] =  0.01;
+  _elescale[3][1][105] =  0.005;
+  _elescale[3][0][105] =  0.0096;
+  _elescale[3][1][106] =  0.0058;
+  _elescale[3][0][106] =  0.0105;
+  _elescale[3][1][107] =  0.0071;
+  _elescale[3][0][107] =  0.0117;
+  _elescale[3][1][108] =  0.0055;
+  _elescale[3][0][108] =  0.0101;
+  _elescale[3][1][109] =  0.0068;
+  _elescale[3][0][109] =  0.0115;
+  _elescale[3][1][110] =  0.0038;
+  _elescale[3][0][110] =  0.0084;
+  _elescale[3][1][111] =  0.0069;
+  _elescale[3][0][111] =  0.0115;
+  _elescale[3][1][112] =  0.0025;
+  _elescale[3][0][112] =  0.0072;
+  _elescale[3][1][113] =  0.0067;
+  _elescale[3][0][113] =  0.0113;
+  _elescale[3][1][114] =  0.0032;
+  _elescale[3][0][114] =  0.0079;
+  _elescale[3][1][115] =  0.0038;
+  _elescale[3][0][115] =  0.0085;
+  _elescale[3][1][116] =  0.0064;
+  _elescale[3][0][116] =  0.011;
+  _elescale[3][1][117] =  0.0053;
+  _elescale[3][0][117] =  0.0101;
+  _elescale[3][1][118] =  0.0096;
+  _elescale[3][0][118] =  0.0142;
+  _elescale[3][1][119] =  0.0109;
+  _elescale[3][0][119] =  0.0156;
+  _elescale[3][1][120] =  0.0061;
+  _elescale[3][0][120] =  0.0107;
+  _elescale[3][1][121] =  0.0084;
+  _elescale[3][0][121] =  0.013;
+  _elescale[3][1][122] =  0.0071;
+  _elescale[3][0][122] =  0.0117;
+  _elescale[3][1][123] =  0.0075;
+  _elescale[3][0][123] =  0.0122;
+  _elescale[3][1][124] =  0.0066;
+  _elescale[3][0][124] =  0.0112;
+  _elescale[3][1][125] =  0.0104;
+  _elescale[3][0][125] =  0.0151;
+  _elescale[3][1][126] =  0.0074;
+  _elescale[3][0][126] =  0.012;
+  _elescale[3][1][127] =  0.0105;
+  _elescale[3][0][127] =  0.0151;
+  _elescale[3][1][128] =  0.0069;
+  _elescale[3][0][128] =  0.0115;
+  _elescale[3][1][129] =  0.0095;
+  _elescale[3][0][129] =  0.0141;
+  _elescale[3][1][130] =  0.0115;
+  _elescale[3][0][130] =  0.0161;
+  _elescale[3][1][131] =  0.0114;
+  _elescale[3][0][131] =  0.0161;
+  _elescale[3][1][132] =  0.0112;
+  _elescale[3][0][132] =  0.0159;
+  _elescale[3][1][133] =  0.0067;
+  _elescale[3][0][133] =  0.0114;
+  _elescale[3][1][134] =  0.0114;
+  _elescale[3][0][134] =  0.0161;
+  _elescale[3][1][135] =  0.007;
+  _elescale[3][0][135] =  0.0116;
+  _elescale[3][1][136] =  0.0117;
+  _elescale[3][0][136] =  0.0164;
+  _elescale[3][1][137] =  0.008;
+  _elescale[3][0][137] =  0.0125;
+  _elescale[3][1][138] =  0.0092;
+  _elescale[3][0][138] =  0.0139;
+  _elescale[3][1][139] =  0.0101;
+  _elescale[3][0][139] =  0.0147;
+  _elescale[3][1][140] =  0.01;
+  _elescale[3][0][140] =  0.0146;
+  _elescale[3][1][141] =  0.0106;
+  _elescale[3][0][141] =  0.0153;
+  _elescale[3][1][142] =  0.0092;
+  _elescale[3][0][142] =  0.0138;
+  _elescale[3][1][143] =  0.0071;
+  _elescale[3][0][143] =  0.0117;
+  _elescale[3][1][144] =  0.0095;
+  _elescale[3][0][144] =  0.0141;
+  _elescale[3][1][145] =  0.01;
+  _elescale[3][0][145] =  0.0147;
+  _elescale[3][1][146] =  0.0073;
+  _elescale[3][0][146] =  0.012;
+  _elescale[3][1][147] =  0.0075;
+  _elescale[3][0][147] =  0.0122;
+  _elescale[3][1][148] =  0.0078;
+  _elescale[3][0][148] =  0.0124;
+  _elescale[3][1][149] =  0.0085;
+  _elescale[3][0][149] =  0.0131;
+  _elescale[3][1][150] =  0.0056;
+  _elescale[3][0][150] =  0.0102;
+  _elescale[3][1][151] =  0.008;
+  _elescale[3][0][151] =  0.0125;
+  _elescale[4][0][2] =  0.0225;
+  _elescale[4][1][2] =  0.0149;
+  _elescale[4][0][3] =  0.0165;
+  _elescale[4][1][3] =  0.0089;
+  _elescale[4][0][4] =  0.0185;
+  _elescale[4][1][4] =  0.0109;
+  _elescale[4][0][5] =  0.0195;
+  _elescale[4][1][5] =  0.0118;
+  _elescale[4][0][6] =  0.0173;
+  _elescale[4][1][6] =  0.0096;
+  _elescale[4][0][7] =  0.0225;
+  _elescale[4][1][7] =  0.0149;
+  _elescale[4][0][8] =  0.0226;
+  _elescale[4][1][8] =  0.0149;
+  _elescale[4][0][9] =  0.0193;
+  _elescale[4][1][9] =  0.0117;
+  _elescale[4][0][10] =  0.0211;
+  _elescale[4][1][10] =  0.0135;
+  _elescale[4][0][11] =  0.0194;
+  _elescale[4][1][11] =  0.0118;
+  _elescale[4][0][12] =  0.0189;
+  _elescale[4][1][12] =  0.0113;
+  _elescale[4][0][13] =  0.0193;
+  _elescale[4][1][13] =  0.0117;
+  _elescale[4][0][14] =  0.0192;
+  _elescale[4][1][14] =  0.0117;
+  _elescale[4][0][15] =  0.0174;
+  _elescale[4][1][15] =  0.0098;
+  _elescale[4][0][16] =  0.0182;
+  _elescale[4][1][16] =  0.0106;
+  _elescale[4][0][17] =  0.0161;
+  _elescale[4][1][17] =  0.0087;
+  _elescale[4][0][18] =  0.018;
+  _elescale[4][1][18] =  0.0105;
+  _elescale[4][0][19] =  0.0164;
+  _elescale[4][1][19] =  0.0089;
+  _elescale[4][0][20] =  0.0171;
+  _elescale[4][1][20] =  0.0095;
+  _elescale[4][0][21] =  0.0164;
+  _elescale[4][1][21] =  0.0088;
+  _elescale[4][0][22] =  0.0168;
+  _elescale[4][1][22] =  0.0092;
+  _elescale[4][0][23] =  0.019;
+  _elescale[4][1][23] =  0.0115;
+  _elescale[4][0][24] =  0.0158;
+  _elescale[4][1][24] =  0.0082;
+  _elescale[4][0][25] =  0.0146;
+  _elescale[4][1][25] =  0.007;
+  _elescale[4][0][26] =  0.0144;
+  _elescale[4][1][26] =  0.0069;
+  _elescale[4][0][27] =  0.0138;
+  _elescale[4][1][27] =  0.0063;
+  _elescale[4][0][28] =  0.0144;
+  _elescale[4][1][28] =  0.0068;
+  _elescale[4][0][29] =  0.0161;
+  _elescale[4][1][29] =  0.0086;
+  _elescale[4][0][30] =  0.0117;
+  _elescale[4][1][30] =  0.0041;
+  _elescale[4][0][31] =  0.0114;
+  _elescale[4][1][31] =  0.0039;
+  _elescale[4][0][32] =  0.0127;
+  _elescale[4][1][32] =  0.0051;
+  _elescale[4][0][33] =  0.0135;
+  _elescale[4][1][33] =  0.006;
+  _elescale[4][0][34] =  0.0124;
+  _elescale[4][1][34] =  0.0049;
+  _elescale[4][0][35] =  0.0096;
+  _elescale[4][1][35] =  0.002;
+  _elescale[4][0][36] =  0.0161;
+  _elescale[4][1][36] =  0.0086;
+  _elescale[4][0][37] =  0.0132;
+  _elescale[4][1][37] =  0.0056;
+  _elescale[4][0][38] =  0.0143;
+  _elescale[4][1][38] =  0.0067;
+  _elescale[4][0][39] =  0.0141;
+  _elescale[4][1][39] =  0.0065;
+  _elescale[4][0][40] =  0.0101;
+  _elescale[4][1][40] =  0.0026;
+  _elescale[4][0][41] =  0.0088;
+  _elescale[4][1][41] =  0.0013;
+  _elescale[4][0][42] =  0.0088;
+  _elescale[4][1][42] =  0.0013;
+  _elescale[4][0][43] =  0.0118;
+  _elescale[4][1][43] =  0.0042;
+  _elescale[4][0][44] =  0.0118;
+  _elescale[4][1][44] =  0.0044;
+  _elescale[4][0][45] =  0.0112;
+  _elescale[4][1][45] =  0.0036;
+  _elescale[4][0][46] =  0.0098;
+  _elescale[4][1][46] =  0.0022;
+  _elescale[4][0][47] =  0.0089;
+  _elescale[4][1][47] =  0.0015;
+  _elescale[4][0][48] =  0.0116;
+  _elescale[4][1][48] =  0.0041;
+  _elescale[4][0][49] =  0.0094;
+  _elescale[4][1][49] =  0.0019;
+  _elescale[4][0][50] =  0.0107;
+  _elescale[4][1][50] =  0.0032;
+  _elescale[4][0][51] =  0.0108;
+  _elescale[4][1][51] =  0.0033;
+  _elescale[4][0][52] =  0.01;
+  _elescale[4][1][52] =  0.0025;
+  _elescale[4][0][53] =  0.0091;
+  _elescale[4][1][53] =  0.0016;
+  _elescale[4][0][54] =  0.0086;
+  _elescale[4][1][54] =  0.001;
+  _elescale[4][0][55] =  0.0062;
+  _elescale[4][1][55] = -0.0013;
+  _elescale[4][0][56] =  0.0071;
+  _elescale[4][1][56] = -0.0004;
+  _elescale[4][0][57] =  0.0069;
+  _elescale[4][1][57] = -0.0006;
+  _elescale[4][0][58] =  0.0053;
+  _elescale[4][1][58] = -0.0021;
+  _elescale[4][0][59] =  0.0044;
+  _elescale[4][1][59] = -0.0031;
+  _elescale[4][0][60] =  0.0074;
+  _elescale[4][1][60] = -0.0001;
+  _elescale[4][0][61] =  0.0029;
+  _elescale[4][1][61] = -0.0046;
+  _elescale[4][0][62] =  0.0055;
+  _elescale[4][1][62] = -0.002;
+  _elescale[4][0][63] =  0.0081;
+  _elescale[4][1][63] =  0.0006;
+  _elescale[4][0][64] =  0.0053;
+  _elescale[4][1][64] = -0.0022;
+  _elescale[4][0][65] =  0.0038;
+  _elescale[4][1][65] = -0.0037;
+  _elescale[4][0][66] =  0.0051;
+  _elescale[4][1][66] = -0.0024;
+  _elescale[4][0][67] =  0.0055;
+  _elescale[4][1][67] = -0.002;
+  _elescale[4][0][68] =  0.0038;
+  _elescale[4][1][68] = -0.0037;
+  _elescale[4][0][69] =  0.0041;
+  _elescale[4][1][69] = -0.0034;
+  _elescale[4][0][70] =  0.0029;
+  _elescale[4][1][70] = -0.0046;
+  _elescale[4][0][71] =  0.0057;
+  _elescale[4][1][71] = -0.0018;
+  _elescale[4][0][72] =  0.0008;
+  _elescale[4][1][72] = -0.0066;
+  _elescale[4][0][73] =  0.005;
+  _elescale[4][1][73] = -0.0025;
+  _elescale[4][0][74] = -0.0005;
+  _elescale[4][1][74] = -0.0079;
+  _elescale[4][0][75] =  0.0023;
+  _elescale[4][1][75] = -0.0051;
+  _elescale[4][0][76] =  0.0017;
+  _elescale[4][1][76] = -0.0056;
+  _elescale[4][0][77] =  0.0025;
+  _elescale[4][1][77] = -0.005;
+  _elescale[4][0][78] =  0.0039;
+  _elescale[4][1][78] = -0.0035;
+  _elescale[4][0][79] =  0.0009;
+  _elescale[4][1][79] = -0.0066;
+  _elescale[4][0][80] =  0.0022;
+  _elescale[4][1][80] = -0.0053;
+  _elescale[4][0][81] =  0.003;
+  _elescale[4][1][81] = -0.0044;
+  _elescale[4][0][82] =  0.0068;
+  _elescale[4][1][82] = -0.0007;
+  _elescale[4][0][83] =  0.0007;
+  _elescale[4][1][83] = -0.0068;
+  _elescale[4][0][84] = -0.0001;
+  _elescale[4][1][84] = -0.0076;
+  _elescale[4][0][85] =  0.0013;
+  _elescale[4][1][85] = -0.0062;
+  _elescale[4][0][86] = -0.0021;
+  _elescale[4][1][86] = -0.0095;
+  _elescale[4][0][87] = -0.0014;
+  _elescale[4][1][87] = -0.0089;
+  _elescale[4][0][88] = -0.0021;
+  _elescale[4][1][88] = -0.0095;
+  _elescale[4][0][89] =  0.001;
+  _elescale[4][1][89] = -0.0065;
+  _elescale[4][0][90] = -0.0043;
+  _elescale[4][1][90] = -0.0117;
+  _elescale[4][0][91] = -0.003;
+  _elescale[4][1][91] = -0.0104;
+  _elescale[4][0][92] = -0.0024;
+  _elescale[4][1][92] = -0.0098;
+  _elescale[4][0][93] =  0.0086;
+  _elescale[4][1][93] =  0.001;
+  _elescale[4][0][94] =  0.0089;
+  _elescale[4][1][94] =  0.0014;
+  _elescale[4][0][95] =  0.0065;
+  _elescale[4][1][95] = -0.001;
+  _elescale[4][0][96] =  0.0066;
+  _elescale[4][1][96] = -0.0009;
+  _elescale[4][0][97] =  0.0034;
+  _elescale[4][1][97] = -0.0041;
+  _elescale[4][0][98] =  0.0043;
+  _elescale[4][1][98] = -0.0032;
+  _elescale[4][0][99] =  0.0077;
+  _elescale[4][1][99] =  0.0002;
+  _elescale[4][0][100] =  0.0077;
+  _elescale[4][1][100] =  0.0002;
+  _elescale[4][0][101] =  0.0033;
+  _elescale[4][1][101] = -0.0041;
+  _elescale[4][0][102] =  0.0049;
+  _elescale[4][1][102] = -0.0026;
+  _elescale[4][0][103] =  0.0053;
+  _elescale[4][1][103] = -0.002;
+  _elescale[4][0][104] =  0.0071;
+  _elescale[4][1][104] = -0.0004;
+  _elescale[4][0][105] =  0.0106;
+  _elescale[4][1][105] =  0.0031;
+  _elescale[4][0][106] =  0.0072;
+  _elescale[4][1][106] = -0.0003;
+  _elescale[4][0][107] =  0.0106;
+  _elescale[4][1][107] =  0.0031;
+  _elescale[4][0][108] =  0.0038;
+  _elescale[4][1][108] = -0.0037;
+  _elescale[4][0][109] =  0.0066;
+  _elescale[4][1][109] = -0.0009;
+  _elescale[4][0][110] =  0.0046;
+  _elescale[4][1][110] = -0.0029;
+  _elescale[4][0][111] =  0.0072;
+  _elescale[4][1][111] = -0.0003;
+  _elescale[4][0][112] =  0.0022;
+  _elescale[4][1][112] = -0.0052;
+  _elescale[4][0][113] =  0.005;
+  _elescale[4][1][113] = -0.0025;
+  _elescale[4][0][114] =  0.0035;
+  _elescale[4][1][114] = -0.004;
+  _elescale[4][0][115] =  0.0053;
+  _elescale[4][1][115] = -0.0021;
+  _elescale[4][0][116] =  0.0052;
+  _elescale[4][1][116] = -0.0023;
+  _elescale[4][0][117] =  0.0144;
+  _elescale[4][1][117] =  0.0068;
+  _elescale[4][0][118] =  0.0124;
+  _elescale[4][1][118] =  0.0049;
+  _elescale[4][0][119] =  0.0125;
+  _elescale[4][1][119] =  0.005;
+  _elescale[4][0][120] =  0.0089;
+  _elescale[4][1][120] =  0.0015;
+  _elescale[4][0][121] =  0.0122;
+  _elescale[4][1][121] =  0.0046;
+  _elescale[4][0][122] =  0.0089;
+  _elescale[4][1][122] =  0.0014;
+  _elescale[4][0][123] =  0.0098;
+  _elescale[4][1][123] =  0.0023;
+  _elescale[4][0][124] =  0.0074;
+  _elescale[4][1][124] = -0.0001;
+  _elescale[4][0][125] =  0.017;
+  _elescale[4][1][125] =  0.0094;
+  _elescale[4][0][126] =  0.0089;
+  _elescale[4][1][126] =  0.0015;
+  _elescale[4][0][127] =  0.0123;
+  _elescale[4][1][127] =  0.0046;
+  _elescale[4][0][128] =  0.0066;
+  _elescale[4][1][128] = -0.0009;
+  _elescale[4][0][129] =  0.0091;
+  _elescale[4][1][129] =  0.0016;
+  _elescale[4][0][130] =  0.0125;
+  _elescale[4][1][130] =  0.005;
+  _elescale[4][0][131] =  0.013;
+  _elescale[4][1][131] =  0.0055;
+  _elescale[4][0][132] =  0.0111;
+  _elescale[4][1][132] =  0.0036;
+  _elescale[4][0][133] =  0.008;
+  _elescale[4][1][133] =  0.0005;
+  _elescale[4][0][134] =  0.0102;
+  _elescale[4][1][134] =  0.0027;
+  _elescale[4][0][135] =  0.0075;
+  _elescale[4][1][135] =  0.0001;
+  _elescale[4][0][136] =  0.0112;
+  _elescale[4][1][136] =  0.0037;
+  _elescale[4][0][137] =  0.0091;
+  _elescale[4][1][137] =  0.0016;
+  _elescale[4][0][138] =  0.0084;
+  _elescale[4][1][138] =  0.0009;
+  _elescale[4][0][139] =  0.0095;
+  _elescale[4][1][139] =  0.002;
+  _elescale[4][0][140] =  0.0075;
+  _elescale[4][1][140] =  0.0001;
+  _elescale[4][0][141] =  0.0106;
+  _elescale[4][1][141] =  0.0031;
+  _elescale[4][0][142] =  0.0074;
+  _elescale[4][1][142] = -0.0001;
+  _elescale[4][0][143] =  0.0064;
+  _elescale[4][1][143] = -0.0011;
+  _elescale[4][0][144] =  0.0094;
+  _elescale[4][1][144] =  0.0019;
+  _elescale[4][0][145] =  0.0095;
+  _elescale[4][1][145] =  0.002;
+  _elescale[4][0][146] =  0.0036;
+  _elescale[4][1][146] = -0.0039;
+  _elescale[4][0][147] =  0.0042;
+  _elescale[4][1][147] = -0.0032;
+  _elescale[4][0][148] =  0.0049;
+  _elescale[4][1][148] = -0.0026;
+  _elescale[4][0][149] =  0.0049;
+  _elescale[4][1][149] = -0.0026;
+  _elescale[4][0][150] =  0.0036;
+  _elescale[4][1][150] = -0.0039;
+  _elescale[4][0][151] =  0.0038;
+  _elescale[4][1][151] = -0.0037;  
 
 }

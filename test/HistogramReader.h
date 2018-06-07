@@ -202,7 +202,8 @@ class HistogramReader
   void 	   IncludeSystematics (TString        hname);
 
   TH1D*    GetHistogram       (TFile*         file,
-			       TString        HistogramName);    
+			       TString        HistogramName,
+			       bool           _dorebin = false);    
 
 
  private :
@@ -287,6 +288,9 @@ class HistogramReader
   TString                _analysis;
   //TString                _mycut;
   TGraphAsymmErrors*     _ErrorGr;
+
+  int _systRebin; bool _systMoveOverflow; float _systMin, _systMax;
+
 };
 
 #endif

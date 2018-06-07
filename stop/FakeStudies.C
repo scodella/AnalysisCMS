@@ -15,15 +15,22 @@
 
 void FakeStudies(TString Selection) {
 
-  const int nChannels = 4, nVariables = 2, nMetCuts = 5, nBtagCuts = 2;
+  /*const int nChannels = 4, nVariables = 2, nMetCuts = 5, nBtagCuts = 2;
   TString Channel[nChannels] = {"_ee", "_mm", "_em", "_ll"};
   TString Variable[nVariables] = {"MT2ll", "MET"};
   TString MetCut[nMetCuts] = {"01", "02_VR1", "02_SR1", "02_SR2", "02_SR3"};
-  TString BtagCut[nBtagCuts] = {"_NoTag", "_Tag"};
+  TString BtagCut[nBtagCuts] = {"_NoTag", "_Tag"};*/
+
+  const int nChannels = 4, nVariables = 2, nMetCuts = 1, nBtagCuts = 1;
+  TString Channel[nChannels] = {"_ee", "_mm", "_em", "_ll"};
+  TString Variable[nVariables] = {"MT2ll", "MET"};
+  TString MetCut[nMetCuts] = {"00"};
+  TString BtagCut[nBtagCuts] = {"_VZ"};
   
   TString RootFileName = "";
-  if (Selection=="ttbar") RootFileName = "../rootfiles/nominal/Stop/04_TTTo2L2Nu.root";
-  if (Selection=="WW") RootFileName = "../rootfiles/nominal/Stop/06_WW.root";
+  if (Selection=="ttbar") RootFileName = "../rootfiles/nominalMinitrees/Stop/04_TTTo2L2Nu.root";
+  if (Selection=="WW") RootFileName = "../rootfiles/nominalMinitrees/Stop/06_WW.root";
+  if (Selection=="WZ3L") RootFileName = "../rootfiles/tfkWZ3L/Stop/WZTo3LNu.root";
 
   if (RootFileName=="") return;
 
@@ -43,7 +50,7 @@ void FakeStudies(TString Selection) {
   //TPad *PadL1 = (TPad*)CL->GetPad(1); 
   TPad *PadL1 = new TPad("PadL1", "", 0.02, 0.27, 0.98, 0.98, 21);
   PadL1->SetLogy(); 
-  TPad *PadL2 = new TPad("PadL2", "", 0.02, 0.09, 0.98, 0.33, 21);
+  TPad *PadL2 = new TPad("PadL2", "", 0.02, 0.03, 0.98, 0.33, 21);
   //TPad *PadL2 = (TPad*)CL->GetPad(2); PadL2->SetLogy();
   //TPad *PadL3 = (TPad*)CL->GetPad(3); PadL3->SetLogy();
   //TPad *PadL4 = (TPad*)CL->GetPad(4); PadL4->SetLogy();
@@ -99,7 +106,7 @@ void FakeStudies(TString Selection) {
     //PadL2->SetTopMargin(0.05);
     //PadL2->SetBottomMargin(0.31);
     PadL2->SetTopMargin(0.065);
-    PadL2->SetBottomMargin(0.13);
+    PadL2->SetBottomMargin(0.26);
     PadL2->SetFrameFillStyle(0);
     PadL2->SetFrameBorderMode(0);
     PadL2->SetFrameFillStyle(0);
@@ -125,7 +132,7 @@ void FakeStudies(TString Selection) {
 
       for (int b = 0; b<nBtagCuts; b++) {
       
-	TLegend  *leg = new TLegend(0.23, 0.2, 0.39, 0.3);
+	TLegend  *leg = new TLegend(0.33, 0.2, 0.49, 0.3);
 	leg->SetFillColor(kWhite); leg->SetBorderSize(0.);
 	leg->SetTextColor(1); leg->SetTextSize(0.035);
 	leg->SetTextFont(62); 
@@ -143,7 +150,7 @@ void FakeStudies(TString Selection) {
 	  float fmin = Fake->GetMinimum();
 	  if (fmin>0.)
 	    Truth->SetMinimum(fmin*0.9);
-	  else  Truth->SetMinimum(0.1);
+	  else  Truth->SetMinimum(0.01);
 
 	  //Truth->SetXTitle("M_{T2}(ll) [GeV]");
 	  Truth->SetYTitle("Events / 20 GeV");
@@ -181,7 +188,7 @@ void FakeStudies(TString Selection) {
 	  Truth->DrawCopy();
 	  Fake->DrawCopy("same");
 
-	  leg->AddEntry(Truth, "Two leptons matched to W leptons", "l");
+	  leg->AddEntry(Truth, "Two leptons matched to W or Z leptons", "l");
 	  leg->AddEntry(Fake,  "At least one no matched lepton",   "l");
 
 	  leg->Draw();
@@ -202,7 +209,7 @@ void FakeStudies(TString Selection) {
 	  Fake->GetYaxis()->SetLabelSize(0.15);
 	  Fake->GetXaxis()->SetTitleSize(0.17);
 	  Fake->GetXaxis()->SetLabelSize(0.15);
-	  Fake->GetXaxis()->SetTitleOffset(1.20);
+	  Fake->GetXaxis()->SetTitleOffset(0.70);
 	  Fake->GetYaxis()->SetTitleOffset(0.44);
 
 	  Fake->DrawCopy("p");

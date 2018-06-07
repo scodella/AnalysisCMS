@@ -8,5 +8,10 @@ rm -r figures
 ./runPlotter Stop/02_SR1_Tag
 ./runPlotter Stop/02_SR2_Tag
 ./runPlotter Stop/02_SR3_Tag
-mv figures ../Plots/PlotterSummer16T2ttV4
-mv Tables TablesT2ttV4
+rm -r  ../Plots/PlotterSummer16T2ttCWR
+mv figures ../Plots/PlotterSummer16T2ttCWR
+#mkdir -p TablesCWR
+#rm TablesCWR/*
+#mv Tables/* TablesCWR/
+
+

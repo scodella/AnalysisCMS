@@ -21,24 +21,24 @@
 
 #include "../include/CutsStop.h"
 
-void TheoreticalVariations() {
+void TheoreticalVariations2() {
 
   TString RootFilesDirectory = "../minitrees/rootfiles/";
 
  int const nUncertainties = 2;
  TString UncertaintyName[nUncertainties] = {"Q2", "PDF"};
- 
+ /*
  int const nProcesses = 12;
  TString ProcessName[nProcesses] = {"02_WZTo3LNu", "03_ZZa", "04_TTTo2L2Nu_NoTopPt",
 				    "05_ST",       "06_WW", //"07_ZJetsHT",
 				    "07_ZJetsHT_DYcorr", "09_TTW", "10_TTZ",
 				    "11_HWW",      "13_VVV", "15_VZ", "15_VZ3V"};
- 
- //int const nProcesses = 1;
+ */
+ int const nProcesses = 1;
  //TString ProcessName[nProcesses] = {"04_TTTo2L2Nu"};
  //TString ProcessName[nProcesses] = {"07_ZJetsHT"};
  //TString ProcessName[nProcesses] = {"15_VZ"};
- //TString ProcessName[nProcesses] = {"03_ZZa"};
+ TString ProcessName[nProcesses] = {"03_ZZa"};
 
  //int const nObservables = 4;
  //TString ObservableName[nObservables] = {"MT2ll", "MT2llgen", "MT2llisr", "MT2llisrgen"};
@@ -108,7 +108,7 @@ void TheoreticalVariations() {
 	       if (ObservableName[ob].Contains("nbjet"))        { nBins =    7; minX =  -0.5; maxX =  6.5; }
 	       if (ObservableName[ob].Contains("njetISR"))      { nBins =    7; minX =  -0.5; maxX =  6.5; }
 	       if (ObservableName[ob].Contains("ptjetISR"))     { nBins =   80; minX =    0.; maxX =  800.; }
-	       if (ObservableName[ob].Contains("dphijetISR"))   { nBins =  100; minX =    0.; maxX =  3.2; }
+	       if (ObservableName[ob].Contains("dphijetISR"))   { nBins =  100; minX =     0; maxX =  3.2; }
 	       if (ObservableName[ob].Contains("Lep1Pt"))       { nBins = 2000; minX =    0.; maxX =  2000.; }
 	       if (ObservableName[ob].Contains("Lep2Pt"))       { nBins = 2000; minX =    0.; maxX =  2000.; }
 	       if (ObservableName[ob].Contains("JetPt"))        { nBins = 2000; minX =    0.; maxX =  2000.; }
@@ -116,7 +116,7 @@ void TheoreticalVariations() {
 	     }
 
 	     TString HistoName = "h_" + ObservableName[ob] + ChannelName[ch];
-	     TH1F *OutputHisto = new TH1F(HistoName, "", nBins, minX, maxX);
+	     TH1D *OutputHisto = new TH1D(HistoName, "", nBins, minX, maxX);
 	     
 	     float BinContent[2200];
 	     for (int ib = 0; ib<nBins+2; ib++)
