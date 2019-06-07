@@ -13,8 +13,8 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
   _applytopptreweighting = systematic.Contains("NoTopPt") ? false : true;
   systematic.ReplaceAll("NoTopPt", "");
   if (systematic.Contains("nominal")) {
-    SetSaveMinitree(true);
-    _SaveHistograms = 1;
+    SetSaveMinitree(false);//true);
+    _SaveHistograms = 2;//0
   } else if (systematic.Contains("multilepton") || _systematic.Contains("MetTrigger")) {
     SetSaveMinitree(true);
     _SaveHistograms = -1;
@@ -638,14 +638,14 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     
     // Fill histograms
     // -----------------------------------------------------------------------------
-    
+
     // Basics Stop
     //-------------------------------------------------------------------------
-    FillLevelHistograms(Stop_00_Has2Leptons, !_isminitree && _m2l>20. && pass && pass_blind && pass_masspoint);
+    FillLevelHistograms(Stop_00_Has2Leptons, !_isminitree && /*_m2l>20. &&*/ pass && pass_blind && pass_masspoint);
 
     pass &= _m2l>20.;
 
-    //FillLevelHistograms(Stop_00_mll20, pass && !_isminitree && pass_blind && pass_masspoint); 
+    FillLevelHistograms(Stop_00_mll20, pass && !_isminitree && pass_blind && pass_masspoint); 
    
     if (_systematic.Contains("ZZlepton")) {
       if (_leadingPtCSVv2M >= 20.) {
@@ -678,7 +678,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
       }
       continue;
     }
-    
+
     // Look in the Z-peak
     bool Zpeak = pass && _channel!=em && fabs(_m2l - Z_MASS)<15. ;  
     if (_systematic.Contains("Zpeak") && !Zpeak) continue;
@@ -803,7 +803,7 @@ void AnalysisStop::Loop(TString analysis, TString filename, float luminosity, fl
     }
     
     FillLevelHistograms(Stop_02_SRs, pass && (MET.Et()>=140.) && pass_blind && pass_masspoint);
- 
+    
   }
 
   if (_SaveHistograms>=3) SaveSystematicHistograms();
