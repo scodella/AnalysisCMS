@@ -25,7 +25,7 @@ void FakeStudies(TString Selection, TString channel) {
   TString Channel[nChannels] = {"_ee", "_mm", "_em", "_ll"};
   TString Variable[nVariables] = {"MT2ll"};
   //TString MetCut[nMetCuts] = {"02_VR1", "02_SR1", "02_SR2", "02_SR3"};
-  TString MetCut[nMetCuts] = {"02_VR1"};
+  TString MetCut[nMetCuts] = {"02_SR1_Tag"};
   TString BtagCut[nBtagCuts] = {"_Veto"};
 
   gSystem->mkdir("FakesPlots", kTRUE); 

@@ -32,7 +32,9 @@ AnalysisStop::AnalysisStop(TTree* tree, TString systematic) : AnalysisCMS(tree, 
 AnalysisStop::AnalysisStop(TFile* MiniTreeFile, TString systematic, int SaveHistograms) 
 {
   _applyDYcorrections = systematic.Contains("DYcorr") ? true : false;
-  _applytopptreweighting = true;
+  _applytopptreweighting = systematic.Contains("NoTopPt") ? false : true;
+  systematic.ReplaceAll("NoTopPt", "");
+  //_applytopptreweighting = true;
   systematic.ReplaceAll("DYcorr", "");
   SetSaveMinitree(false);
   GetMiniTree(MiniTreeFile, systematic);
@@ -853,7 +855,7 @@ void AnalysisStop::BookAnalysisHistograms()
 	h_Jet1Pt            [i][j][k] = new TH1D("h_Jet1Pt"             + suffix, "",  2000,    0, 2000);
 	h_Jet2Pt            [i][j][k] = new TH1D("h_Jet2Pt"             + suffix, "",  2000,    0, 2000);
 	h_JetPt             [i][j][k] = new TH1D("h_JetPt"              + suffix, "",  2000,    0, 2000);
-	h_mt2LL             [i][j][k] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
+	//h_mt2LL             [i][j][k] = new TH1F("h_mt2LL"              + suffix, "",  2000,    0, 2000);
 
 	h_MT2ll_MET         [i][j][k] = new TH2F("h_MT2ll_MET"          + suffix, "",   80,    0,  800,    7,    0,  140);
 
@@ -1179,7 +1181,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
 					  int ijet)
 {
 
-  _event_weight = _event_weight/effTrigW;
+  //_event_weight = _event_weight/effTrigW;
   if (ichannel != ll) FillAnalysisHistograms(ll, icut, ijet);
  
   if ((_SaveHistograms>=2 || _systematic!="nominal") && ijet<njetbin) return;
@@ -1286,7 +1288,7 @@ void AnalysisStop::FillAnalysisHistograms(int ichannel,
   h_Jet1Pt           [ichannel][icut][ijet]->Fill(jetpt1,         _event_weight);
   h_Jet2Pt           [ichannel][icut][ijet]->Fill(jetpt2,         _event_weight);
   for (int ij = 0; ij<_jet_pt.size(); ij++) h_JetPt[ichannel][icut][ijet]->Fill(_jet_pt.at(ij), _event_weight);
-  h_mt2LL            [ichannel][icut][ijet]->Fill(_mt2ll,         _event_weight);
+  //h_mt2LL            [ichannel][icut][ijet]->Fill(_mt2ll,         _event_weight);
 
   h_MT2ll_MET        [ichannel][icut][ijet]->Fill(MET.Et(),  _MT2ll,      _event_weight);
 
