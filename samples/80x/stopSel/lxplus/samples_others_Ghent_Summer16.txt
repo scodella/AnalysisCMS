@@ -69,3 +69,14 @@ root://eoscms.cern.ch//eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summ
 root://eoscms.cern.ch//eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_others/MCl2stop__SFWeights__hadd/latino_Zg__part0.root
 root://eoscms.cern.ch//eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_others/MCl2stop__SFWeights__hadd/latino_Zg__part1.root
 root://eoscms.cern.ch//eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_others/MCl2stop__SFWeights__hadd/latino_ggZH_HToWW_M125.root
+#extra ZZ samples
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggHToZZTo4L.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo2e2mu.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo2e2tau.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo2e2nu.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo2mu2nu.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo2mu2tau.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo4e.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo4mu.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_ggZZTo4tau.root
+/eos/cms/store/user/scodella/Stop/LatinoSkims/Feb2017_Summer16_stop_ghent_ZZ/MCl2stop__SFWeights__hadd/latino_qqHToZZTo4L.root

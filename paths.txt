@@ -1,0 +1,8 @@
+# Path to Minitrees - Latest changes on 25 October 2017  - Valid for the freezing 22 November 2017 
+/eos/cms/store/caf/user/scodella/BTV/MiniTrees/minitrees_36fb/
+
+# Path to rootfiles - Latest changes on 20 November 2017 - Valid for the freezing 22 November 2017
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles
+
+# Path to minitrees - Latest changes on 7 Febrary 2018 - Valid for the END.
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/nominalF/Stop

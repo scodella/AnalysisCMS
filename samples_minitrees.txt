@@ -1,0 +1,7 @@
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WZTo2L2Q__part0.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WZTo2L2Q__part1.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WZTo2L2Q__part2.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WZTo2L2Q__part3.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WWW.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WWZ.root
+/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/multilepton/Stop/WZZ.root

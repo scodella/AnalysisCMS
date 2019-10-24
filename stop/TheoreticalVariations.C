@@ -23,7 +23,8 @@
 
 void TheoreticalVariations() {
 
-  TString RootFilesDirectory = "../minitrees/rootfiles3R/";
+  //TString RootFilesDirectory = "../minitrees/rootfiles3R/";
+  TString RootFilesDirectory = "../minitrees/rootfiles/";
 
  int const nUncertainties = 2;
  TString UncertaintyName[nUncertainties] = {"Q2", "PDF"};
@@ -35,7 +36,8 @@ void TheoreticalVariations() {
 				    "11_HWW",      "13_VVV"};
  */
  int const nProcesses = 1;
- TString ProcessName[nProcesses] = {"07_ZJetsHT_DYcorr"};
+ //TString ProcessName[nProcesses] = {"07_ZJetsHT_DYcorr"};
+ TString ProcessName[nProcesses] = {"05_ST"};
 
  int const nObservables = 4;
  TString ObservableName[nObservables] = {"MT2ll", "MT2llgen", "MT2llisr", "MT2llisrgen"};

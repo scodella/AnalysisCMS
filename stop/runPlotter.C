@@ -5,7 +5,7 @@
 const Bool_t datadriven = false;
 const Bool_t allplots  = false;
 const Bool_t dosystematics = true;
-const Bool_t postfitplots = true;
+const Bool_t postfitplots = false;
 const Bool_t paperstyle = false;
 const Bool_t regionlegend = true;
 const Bool_t relativeratio = true;
@@ -18,11 +18,15 @@ const Bool_t relativeratio = true;
 //const TString inputdir  = "../minitrees/rootfiles/nominal/";
 //const TString inputdir  = "../minitrees/rootfiles3R/nominal/";
 //const TString inputdir  = "../rootfiles/PostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "";
-const TString inputdir  = "../rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "";
+//const TString inputdir  = "../rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "";
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPoint2tt_mStop-350to400_Sm350_Xm225/Postfit/"; const TString signal = "T2tt";
 //const TString inputdir  = "/eos/cms/store/user/scodella/Stop/rootfiles/PostfitPaperV2/MassPointChiSlep_Xm500_Xm200/Postfit/"; const TString signal = "TChi";
 
-const TString outputdir = "ForPaperv2Tables_2March18/";
+const TString inputdir = "../minitrees/rootfiles/nominal/";
+//const TString inputdir = "/eos/cms/store/user/scodella/Stop/MiniTrees/minitrees_36fb/rootfiles/nominal/";
+const TString outputdir = "sysTables/";
+
+//const TString outputdir = "ForPaperv2Tables_2March18/";
 //const TString outputdir = "Paperfigures_7Dec17/";
 //const TString outputdir = "DYcorr_ZZcorr_MT2ll/";
 //const TString outputdir = "DYcorr_MT2ll/";
@@ -36,7 +40,7 @@ const TString outputdir = "ForPaperv2Tables_2March18/";
 
 //const TString signal = "";
 //const TString signal = "mix";
-//const TString signal = "T2tt";
+const TString signal = "T2tt";
 //const TString signal = "TChi";
 
 
@@ -152,6 +156,7 @@ void runPlotter(TString level,
     level.ReplaceAll("_DYcorrVR1norm", "");
   }
 
+
   // Add processes
   //----------------------------------------------------------------------------
   if (paperstyle) {
@@ -213,18 +218,21 @@ void runPlotter(TString level,
   
   
   if (signal=="T2tt") {
-    
+   plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet); 
     if (postfitplots) {
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", STP+" "+STP+",   "+STP+"#rightarrow t"+LSP+",   (m_{"+STP+"} = 350 GeV,  m_{"+LSP+"} = 225 GeV)",kViolet);
-    } else {
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
-      plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,175)",kRed);
+    } //else {
+      //if (inputdir.Contains("Sm350_Xm225"))
+      //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kViolet);
+     /* plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm175", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,175)",kRed);
       plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm263", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,263)",kOrange);
       plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,125)",kBlue);
       plotter.AddSignal("T2tt_mStop-400to1200_Sm450_Xm325","#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (450,325)",kCyan);
-    }
+     */
+   // }
   
   } else if (signal=="TChi") {
+      plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
 
     if (postfitplots) {
       if (inputdir.Contains("Xm500_Xm200"))
@@ -237,19 +245,25 @@ void runPlotter(TString level,
 	plotter.AddSignal("TChiWW_Xm150_Xm1", CHR+CHR+",   "+CHR+"#rightarrow W"+LSP+",   (m_{"+CHR+"} = 150 GeV,  m_{"+LSP+"} = 1 GeV)", kViolet);
       else if (inputdir.Contains("Xm175_Xm1"))
 	plotter.AddSignal("TChiWW_Xm175_Xm1", CHR+CHR+",   "+CHR+"#rightarrow W"+LSP+",   (m_{"+CHR+"} = 175 GeV,  m_{"+LSP+"} = 1 GeV)", kViolet);
-    } else {
-      plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
-      plotter.AddSignal("TChiSlep_Xm500_Xm200", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (500,200)", kViolet);
+    } //else {
+      //if (inputdir.Contains("Xm500_Xm200"))
+      /*plotter.AddSignal("TChiSlep_Xm200_Xm1",   "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (200,  1)", kRed);
       plotter.AddSignal("TChiSlep_Xm800_Xm400", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow l#nu#tilde{#chi}^{0}_{1} (800,400)", kOrange);
       plotter.AddSignal("TChiWW_Xm200_Xm25",  "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (200, 25)", kBlue);
       plotter.AddSignal("TChiWW_Xm300_Xm100", "#tilde{#chi}^{#pm}#tilde{#chi}^{#pm}, #tilde{#chi}^{#pm}#rightarrow#tilde{#chi}^{0}_{1}W (300,100)", kCyan);
-    }
+      */
+     // }
     
   } else if (signal=="Mix") {
 
-    plotter.AddSignal("T2bW_Sm250_Xm1", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,1)",kRed);
-    plotter.AddSignal("T2bW_Sm250_Xm50", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,50)",kRed);
-    plotter.AddSignal("T2bW_Sm200_Xm25", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (200,25)",kRed);
+    if (inputdir.Contains("Xm500_Xm200"))
+        plotter.AddSignal("TChiSlep_Xm500_Xm200", CHR+CHR+",   "+CHR+"#rightarrow l#nu"+LSP+",   (m_{"+CHR+"} = 500 GeV,  m_{"+LSP+"} = 200 GeV)", kViolet);
+    if (inputdir.Contains("Sm350_Xm225"))
+        plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", STP+" "+STP+",   "+STP+"#rightarrow t"+LSP+",   (m_{"+STP+"} = 350 GeV,  m_{"+LSP+"} = 225 GeV)",kViolet+3);
+
+    //plotter.AddSignal("T2bW_Sm250_Xm1", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,1)",kRed);
+    //plotter.AddSignal("T2bW_Sm250_Xm50", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,50)",kRed);
+    //plotter.AddSignal("T2bW_Sm200_Xm25", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (200,25)",kRed);
     //plotter.AddSignal("T2tt_mStop-150to250_Sm250_Xm125", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (250,125)",kRed);
     //plotter.AddSignal("T2tt_mStop-350to400_Sm350_Xm225", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (350,225)",kRed);
     //plotter.AddSignal("T2tt_mStop-250to350_Sm300_Xm125", "#tilde{t} #tilde{t}, #tilde{t} #rightarrow t#tilde{#chi}^{0}_{1} (300,125)",kRed);
@@ -304,21 +318,21 @@ void runPlotter(TString level,
       plotter.AddSystematic("Stop", "Postfit");
     } else {
       plotter.AddSystematic("Stop", "Statistics");
-      plotter.AddSystematic("Stop", "Luminosity");
-      plotter.AddSystematic("Stop", "Trigger");
-      plotter.AddSystematic("Stop", "MT2llTop");
-      plotter.AddSystematic("Stop", "MT2llWW");
-      plotter.AddSystematic("Stop", "Fake");
-      plotter.AddSystematic("Stop", "Idiso");
-      plotter.AddSystematic("Stop", "JES");
-      plotter.AddSystematic("Stop", "MET");
+      plotter.AddSystematic("Stop", "Metfastsim");
+     //plotter.AddSystematic("Stop", "JES");
+     // plotter.AddSystematic("Stop", "Reco");
+     // plotter.AddSystematic("Stop", "Luminosity");
+     // plotter.AddSystematic("Stop", "Trigger");
+     // plotter.AddSystematic("Stop", "MT2llTop");
+     // plotter.AddSystematic("Stop", "MT2llWW");
+     // plotter.AddSystematic("Stop", "Fake");
+     // plotter.AddSystematic("Stop", "Idiso");
+     // plotter.AddSystematic("Stop", "Pileup");
+     /* plotter.AddSystematic("Stop", "MET");
       plotter.AddSystematic("Stop", "PDF");
       plotter.AddSystematic("Stop", "Q2");
-      plotter.AddSystematic("Stop", "Reco");
       plotter.AddSystematic("Stop", "Toppt");
       plotter.AddSystematic("Stop", "Isrnjet");
-      plotter.AddSystematic("Stop", "Metfastsim");
-      plotter.AddSystematic("Stop", "Pileup");
       plotter.AddSystematic("Stop", "Fastsim");
       plotter.AddSystematic("Stop", "BtagFS");
       plotter.AddSystematic("Stop", "Btag");
@@ -338,7 +352,7 @@ void runPlotter(TString level,
       ///plotter.AddSystematic("Stop", "normTTW");
       ///plotter.AddSystematic("Stop", "normHWW");
       ///plotter.AddSystematic("Stop", "normVVV");
-    }
+   */ }
   }
   
   // Draw distributions

@@ -1055,7 +1055,12 @@ void AnalysisStop::BookTheoreticalVariationsHistograms()
 void AnalysisStop::GetAnalysisVariables()
 {
 
-  if (_isminitree) { 
+  if (_isminitree) {
+
+    // Weight
+    if (_systematic.Contains("JES") ||  _systematic.Contains("MET"))
+    if (!_applytopptreweighting && _filename.Contains("TTTo2L2Nu"))
+    _event_weight = _event_weight_Toppt; 
 
     // Met
     MET.SetPtEtaPhiM(metPfType1, 0.0, metPfType1Phi, 0.0); 

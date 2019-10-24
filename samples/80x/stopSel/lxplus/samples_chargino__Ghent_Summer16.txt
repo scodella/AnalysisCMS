@@ -1,0 +1,3 @@
+/eos/cms/store/caf/user/scodella/BTV/Feb2017_Summer16_stop_ghent_others_isr/MCl2stop__SFWeights__hadd/latino_TChiSlep.root
+/eos/cms/store/caf/user/scodella/BTV/Feb2017_Summer16_stop_ghent_others_isr/MCl2stop__SFWeights__hadd/latino_TChiSlepExt.root
+/eos/cms/store/caf/user/scodella/BTV/Feb2017_Summer16_stop_ghent_others_isr/MCl2stop__SFWeights__hadd/latino_TChiWW.root
