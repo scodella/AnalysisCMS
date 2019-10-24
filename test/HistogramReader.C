@@ -2189,7 +2189,7 @@ void FormatTableYields(float *YY, float *EY) {
 
 void HistogramReader::IncludeSystematics(TString hname)
 {
-  bool _verbose = false, _dotable = true,  _dotablebkg = true, _dotablesyst = true, _mergeNbins = false, _doPaperTable = false;
+  bool _verbose = false, _dotable = true,  _dotablebkg = false, _dotablesyst = true, _mergeNbins = false, _doPaperTable = false;
 
   float StatZero = 1.84102;
 
@@ -2265,7 +2265,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"   && _mcfilename.at(kproce)=="05_ST") continue;
        if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
-				   _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim" ||
+				   _systematics.at(isyst)=="Pileup_signal" || _systematics.at(isyst)=="Metfastsim" ||
 				   _systematics.at(isyst)=="Isrnjet")) continue;
        if (_systematics.at(isyst).Contains("MT2ll") && !hname.Contains("h_MT2ll")) continue;
        if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
@@ -2289,6 +2289,9 @@ void HistogramReader::IncludeSystematics(TString hname)
        if (_systematics.at(isyst)=="normVVV" && _mcfilename.at(kproce)!="13_VVV") continue;
 
        TString bckName = _mcfilename.at(kproce);
+
+       if (_systematics.at(isyst)=="Pileup") bckName.ReplaceAll("_DYcorr", "");
+
        if (hname.Contains("VR1"))
 	 if (_systematics.at(isyst)=="JES" || (_systematics.at(isyst)=="MET")) bckName.ReplaceAll("_DYcorr", "");
        TFile* myfile0 = myfile0 = new TFile(_inputdir + "/" + bckName + ".root", "read");
@@ -2761,7 +2764,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        exl     [ibin] = (_allmchist -> GetXaxis() -> GetBinWidth(ibin))/2;
        exh     [ibin] = exl[ibin];
    
-       if (_verbose) {
+      if (_verbose) {
 	 //Print Stat and flat errors per bin
 	 printf( "bin number = %i\n", ibin );  
 	 printf( "                                                              \n");  
@@ -2778,6 +2781,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	 printf( "--------------------------------------------------------\n" ); 
        }
  
+       printf( "Percentage errStat = %f\n", (errStat [ibin]/y[ibin])*100); 
        printf( "errStat = %f\n", errStat [ibin] ); 
        
        float systUp2  = 0;
@@ -2952,7 +2956,7 @@ void HistogramReader::IncludeSystematics(TString hname)
      inFile << "$\\ge$ " << (nbins-1)*20 << "~\\GeV \\\\" << endl;
      inFile << "\\hline" << endl;
      
-/*
+
      //for (int kproce=0; kproce<nprocess; kproce++) {  
      for (int kproce=nprocess-1; kproce>=0; kproce--) {       
        TString ThisLabel = _mclabel[kproce].Data();
@@ -2975,7 +2979,7 @@ void HistogramReader::IncludeSystematics(TString hname)
        inFile << " \\\\" << endl;
      }
      inFile << "\\hline" << endl;
-  */ inFile << "SM Processes ";
+   inFile << "SM Processes ";
      for (int ibin=1; ibin<=nbins; ibin++) {
        float ThisYield = y[ibin];
        float ThisError = _ErrorGr->GetErrorY(ibin);
@@ -3132,7 +3136,7 @@ void HistogramReader::IncludeSystematics(TString hname)
 	   if (_analysis == "Stop" && _systematics.at(isyst) == "PDF"   && _mcfilename.at(kproce)=="05_ST") continue;
 	   if (_analysis == "Stop" && _systematics.at(isyst) == "Q2"   && _mcfilename.at(kproce)=="05_ST") continue;
 	   if (_analysis == "Stop" && (_systematics.at(isyst)=="BtagFS" || _systematics.at(isyst)=="Fastsim" || 
-				       _systematics.at(isyst)=="Pileup" || _systematics.at(isyst)=="Metfastsim" ||
+				       _systematics.at(isyst)=="Pileup_signal" || _systematics.at(isyst)=="Metfastsim" ||
 				       _systematics.at(isyst)=="Isrnjet")) continue;
 	   if (_systematics.at(isyst).Contains("MT2ll") && !hname.Contains("h_MT2ll")) continue;
 	   if (_systematics.at(isyst)=="MT2llTop" && _mcfilename.at(kproce)!="04_TTTo2L2Nu" && _mcfilename.at(kproce)!="05_ST") continue;
